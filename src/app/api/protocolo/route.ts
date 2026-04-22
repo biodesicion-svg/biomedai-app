@@ -9,35 +9,54 @@ export async function POST(req: Request) {
 
     const prompt = `Eres un ingeniero biomédico senior experto en mantenimiento de equipos médicos en Colombia.
 
-Genera un protocolo COMPLETO de mantenimiento ${tipo} para el siguiente equipo:
+Genera un formulario de verificación de mantenimiento ${tipo} para:
 - Equipo: ${equipo}
 - Marca: ${marca || 'No especificada'}
 - Modelo: ${modelo || 'No especificado'}
-- Servicio: ${servicio || 'No especificado'}
-- Tipo de mantenimiento: ${tipo}
+- Servicio hospitalario: ${servicio || 'No especificado'}
 
-Responde ÚNICAMENTE con un JSON válido con esta estructura exacta (sin texto adicional, sin markdown):
+Crea entre 12 y 18 preguntas que el técnico debe responder MIENTRAS ejecuta el mantenimiento.
+Las preguntas deben ser concretas, técnicas y en orden lógico de ejecución.
+
+Responde ÚNICAMENTE con JSON válido sin texto adicional:
 {
-  "titulo": "Protocolo de mantenimiento ${tipo} - ${equipo}",
-  "duracion_estimada": "X horas",
-  "herramientas": ["herramienta1", "herramienta2"],
-  "epps": ["EPP1", "EPP2"],
-  "advertencias": ["advertencia1", "advertencia2"],
-  "pasos": [
+  "preguntas": [
     {
       "numero": 1,
-      "titulo": "Título del paso",
-      "descripcion": "Descripción detallada de qué hacer",
-      "duracion": "X minutos",
-      "herramientas": ["herramienta"],
-      "valores_esperados": "Valores o criterios esperados si aplica",
-      "criterio_aceptacion": "Cómo saber si el paso fue exitoso",
-      "advertencia": "Advertencia específica si aplica o null"
+      "categoria": "Inspección inicial",
+      "pregunta": "¿El equipo presenta daños físicos visibles en la carcasa o pantalla?",
+      "tipo": "si_no",
+      "valor_esperado": "No",
+      "critica": false,
+      "advertencia": null
+    },
+    {
+      "numero": 2,
+      "categoria": "Inspección inicial", 
+      "pregunta": "¿El estado físico general del equipo es?",
+      "tipo": "seleccion",
+      "opciones": ["Bueno", "Regular", "Malo"],
+      "valor_esperado": "Bueno",
+      "critica": false,
+      "advertencia": null
+    },
+    {
+      "numero": 3,
+      "categoria": "Verificación eléctrica",
+      "pregunta": "Registra el voltaje de alimentación medido",
+      "tipo": "valor_numerico",
+      "unidad": "V",
+      "valor_esperado": "110-120",
+      "critica": true,
+      "advertencia": "Desconectar antes de medir componentes internos"
     }
-  ],
-  "criterios_finales": ["criterio1", "criterio2"],
-  "normativa": "Referencia normativa colombiana aplicable"
-}`
+  ]
+}
+
+Tipos disponibles: "si_no", "valor_numerico", "texto", "seleccion", "checklist"
+Para "seleccion" y "checklist" incluye campo "opciones": []
+Para "valor_numerico" incluye "unidad" y "valor_esperado"
+Categorías sugeridas: Inspección inicial, Limpieza, Verificación eléctrica, Verificación funcional, Calibración, Pruebas de seguridad, Cierre`
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -46,12 +65,10 @@ Responde ÚNICAMENTE con un JSON válido con esta estructura exacta (sin texto a
     })
 
     const text = response.content[0].type === 'text' ? response.content[0].text : ''
-    
-    // Limpiar y parsear JSON
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-    const protocolo = JSON.parse(cleaned)
+    const cleaned = text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim()
+    const data = JSON.parse(cleaned)
 
-    return NextResponse.json({ protocolo })
+    return NextResponse.json({ preguntas: data.preguntas })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

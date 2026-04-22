@@ -1,532 +1,468 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import {
-  ArrowLeft, CheckCircle, Circle, Clock, Wrench,
-  AlertTriangle, ChevronRight, ChevronLeft,
-  Shield, Tool, FileText, Loader2, User
-} from 'lucide-react'
+import { useParams } from 'next/navigation'
+import { ArrowLeft, ChevronRight, ChevronLeft, CheckCircle, AlertTriangle, Clock, Loader2, Wrench } from 'lucide-react'
 import Link from 'next/link'
 
-const tecnicoColor = ['#2dd4bf', '#818cf8', '#fb923c']
 const riesgoColor: Record<string,string> = { alto:'#ef4444', medio:'#f59e0b', bajo:'#10b981' }
+
+interface Pregunta {
+  numero: number
+  categoria: string
+  pregunta: string
+  tipo: 'si_no' | 'valor_numerico' | 'texto' | 'seleccion' | 'checklist'
+  opciones?: string[]
+  unidad?: string
+  valor_esperado?: string
+  critica: boolean
+  advertencia?: string
+}
+
+interface Respuesta {
+  pregunta: number
+  valor: any
+  conforme: boolean
+  observacion: string
+}
 
 export default function OrdenDetallePage() {
   const params = useParams()
-  const router = useRouter()
   const [orden, setOrden] = useState<any>(null)
-  const [protocolo, setProtocolo] = useState<any>(null)
-  const [cargandoProtocolo, setCargandoProtocolo] = useState(false)
+  const [preguntas, setPreguntas] = useState<Pregunta[]>([])
+  const [cargando, setCargando] = useState(false)
   const [pasoActual, setPasoActual] = useState(0)
-  const [pasosCompletados, setPasosCompletados] = useState<Set<number>>(new Set())
-  const [fase, setFase] = useState<'info'|'ejecutando'|'completado'>('info')
-  const [notas, setNotas] = useState<Record<number, string>>({})
-  const [firmaTexto, setFirmaTexto] = useState('')
+  const [respuestas, setRespuestas] = useState<Record<number, Respuesta>>({})
+  const [fase, setFase] = useState<'generando' | 'ejecutando' | 'completado'>('generando')
+  const [firma, setFirma] = useState('')
   const [tiempoInicio, setTiempoInicio] = useState<Date | null>(null)
 
-  // Cargar orden desde localStorage o sessionStorage
   useEffect(() => {
-    const ordenGuardada = sessionStorage.getItem(`orden-${params.id}`)
-    if (ordenGuardada) {
-      setOrden(JSON.parse(ordenGuardada))
+    const guardada = sessionStorage.getItem(`orden-${params.id}`)
+    if (guardada) {
+      const ord = JSON.parse(guardada)
+      setOrden(ord)
+      generarPreguntas(ord)
     }
   }, [params.id])
 
-  async function generarProtocolo() {
-    if (!orden) return
-    setCargandoProtocolo(true)
+  async function generarPreguntas(ord: any) {
+    setCargando(true)
     try {
       const res = await fetch('/api/protocolo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          equipo: orden.equipo,
-          marca: orden.marca || '',
-          modelo: orden.modelo || '',
-          tipo: orden.tipo,
-          servicio: orden.servicio || '',
+          equipo: ord.equipo,
+          marca: ord.marca || '',
+          modelo: ord.modelo || '',
+          tipo: ord.tipo,
+          servicio: ord.servicio || '',
+          modo: 'formulario'
         })
       })
       const data = await res.json()
-      if (data.protocolo) {
-        setProtocolo(data.protocolo)
-        setFase('info')
+      if (data.preguntas) {
+        setPreguntas(data.preguntas)
+        setFase('ejecutando')
+        setTiempoInicio(new Date())
       }
     } catch (err) {
       console.error(err)
     }
-    setCargandoProtocolo(false)
+    setCargando(false)
   }
 
-  function iniciarEjecucion() {
-    setFase('ejecutando')
-    setPasoActual(0)
-    setTiempoInicio(new Date())
+  function responderPaso(valor: any) {
+    const pregunta = preguntas[pasoActual]
+    const conforme = determinarConformidad(pregunta, valor)
+    setRespuestas(prev => ({
+      ...prev,
+      [pasoActual]: {
+        pregunta: pasoActual,
+        valor,
+        conforme,
+        observacion: prev[pasoActual]?.observacion || ''
+      }
+    }))
   }
 
-  function completarPaso(num: number) {
-    setPasosCompletados(prev => new Set([...prev, num]))
-    if (protocolo && num < protocolo.pasos.length - 1) {
-      setPasoActual(num + 1)
-    }
+  function setObservacion(obs: string) {
+    setRespuestas(prev => ({
+      ...prev,
+      [pasoActual]: {
+        ...prev[pasoActual],
+        observacion: obs
+      }
+    }))
   }
 
-  function finalizarOrden() {
-    setFase('completado')
+  function determinarConformidad(pregunta: Pregunta, valor: any): boolean {
+    if (pregunta.tipo === 'si_no') return valor === 'si'
+    if (pregunta.tipo === 'seleccion') return valor === 'Conforme' || valor === 'Bueno' || valor === 'Correcto'
+    return true
   }
 
-  const tiempoTranscurrido = tiempoInicio
-    ? Math.round((Date.now() - tiempoInicio.getTime()) / 60000)
-    : 0
-
-  const progreso = protocolo
-    ? Math.round((pasosCompletados.size / protocolo.pasos.length) * 100)
-    : 0
-
-  if (!orden) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen" style={{background:'#080e16'}}>
-        <AlertTriangle className="w-10 h-10 mb-4" style={{color:'#f59e0b'}}/>
-        <p className="text-sm mb-4" style={{color:'#7a9bb5'}}>Orden no encontrada</p>
-        <Link href="/ordenes"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
-          style={{background:'#0d9488',color:'#fff'}}>
-          <ArrowLeft className="w-4 h-4"/> Volver a órdenes
-        </Link>
-      </div>
-    )
+  function siguiente() {
+    if (pasoActual < preguntas.length - 1) setPasoActual(p => p + 1)
+    else setFase('completado')
   }
+
+  function anterior() {
+    if (pasoActual > 0) setPasoActual(p => p - 1)
+  }
+
+  const pregunta = preguntas[pasoActual]
+  const respuestaActual = respuestas[pasoActual]
+  const tiempoMin = tiempoInicio ? Math.round((Date.now() - tiempoInicio.getTime()) / 60000) : 0
+  const progreso = preguntas.length > 0 ? Math.round((Object.keys(respuestas).length / preguntas.length) * 100) : 0
+  const noConformes = Object.values(respuestas).filter(r => !r.conforme).length
+
+  if (!orden || cargando) return (
+    <div className="flex flex-col items-center justify-center min-h-screen" style={{background:'#080e16'}}>
+      <Loader2 className="w-10 h-10 animate-spin mb-4" style={{color:'#2dd4bf'}}/>
+      <p className="text-sm mb-1" style={{color:'#e2e8f0'}}>Generando formulario de mantenimiento...</p>
+      <p className="text-xs" style={{color:'#3d5166'}}>La IA está creando las preguntas para {orden?.equipo}</p>
+    </div>
+  )
 
   return (
     <div className="flex flex-col min-h-screen" style={{background:'#080e16'}}>
 
       {/* Topbar */}
       <div className="px-8 py-4 flex items-center gap-4 flex-shrink-0"
-        style={{borderBottom:'1px solid #1e2d3d',background:'#0a1120'}}>
+        style={{borderBottom:'1px solid #1e2d3d', background:'#0a1120'}}>
         <Link href="/ordenes"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all"
-          style={{background:'#1e2d3d',color:'#7a9bb5',border:'1px solid #253447'}}>
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+          style={{background:'#1e2d3d', color:'#7a9bb5', border:'1px solid #253447'}}>
           <ArrowLeft className="w-3.5 h-3.5"/> Volver
         </Link>
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xs font-mono" style={{color:'#4a6580'}}>{orden.id}</span>
-            <span style={{color:'#1e2d3d'}}>·</span>
-            <span className="text-xs" style={{color:'#2dd4bf'}}>
-              {fase === 'info' && 'Revisión del protocolo'}
-              {fase === 'ejecutando' && `Ejecutando — Paso ${pasoActual + 1} de ${protocolo?.pasos?.length}`}
-              {fase === 'completado' && 'Orden completada ✓'}
-            </span>
-          </div>
-          <h1 className="text-lg font-bold" style={{color:'#e2e8f0'}}>{orden.equipo}</h1>
+          <div className="text-xs font-mono mb-0.5" style={{color:'#4a6580'}}>{orden.id}</div>
+          <h1 className="text-base font-bold" style={{color:'#e2e8f0'}}>{orden.equipo}</h1>
         </div>
         {fase === 'ejecutando' && (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <div className="text-right">
               <div className="text-xs" style={{color:'#3d5166'}}>Progreso</div>
-              <div className="text-xl font-bold" style={{color:'#2dd4bf'}}>{progreso}%</div>
+              <div className="text-lg font-bold" style={{color:'#2dd4bf'}}>{progreso}%</div>
             </div>
             <div className="text-right">
               <div className="text-xs" style={{color:'#3d5166'}}>Tiempo</div>
-              <div className="text-xl font-bold" style={{color:'#fb923c'}}>{tiempoTranscurrido}min</div>
+              <div className="text-lg font-bold" style={{color:'#fb923c'}}>{tiempoMin}min</div>
             </div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-8 py-6">
-
-        {/* ── FASE: INFO (sin protocolo aún) ── */}
-        {!protocolo && fase === 'info' && (
-          <div className="max-w-2xl mx-auto">
-            {/* Info de la orden */}
-            <div className="rounded-xl p-6 mb-6" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs mb-1" style={{color:'#3d5166'}}>Equipo</div>
-                  <div className="text-base font-bold" style={{color:'#e2e8f0'}}>{orden.equipo}</div>
-                </div>
-                <div>
-                  <div className="text-xs mb-1" style={{color:'#3d5166'}}>Tipo</div>
-                  <div className="text-sm font-semibold capitalize" style={{color:'#2dd4bf'}}>{orden.tipo}</div>
-                </div>
-                <div>
-                  <div className="text-xs mb-1" style={{color:'#3d5166'}}>Técnico asignado</div>
-                  <div className="text-sm font-semibold" style={{color:'#e2e8f0'}}>{orden.tecnico}</div>
-                </div>
-                <div>
-                  <div className="text-xs mb-1" style={{color:'#3d5166'}}>Equipos a intervenir</div>
-                  <div className="text-sm font-semibold" style={{color:'#e2e8f0'}}>{orden.cantidad} unidades</div>
-                </div>
-                <div>
-                  <div className="text-xs mb-1" style={{color:'#3d5166'}}>Horas estimadas</div>
-                  <div className="text-sm font-semibold" style={{color:'#fb923c'}}>{orden.horas}h</div>
-                </div>
-                <div>
-                  <div className="text-xs mb-1" style={{color:'#3d5166'}}>Prioridad</div>
-                  <div className="text-sm font-semibold capitalize" style={{
-                    color: orden.prioridad==='alta'?'#f87171':orden.prioridad==='media'?'#fcd34d':'#4ade80'
-                  }}>{orden.prioridad}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Botón generar protocolo */}
-            <button onClick={generarProtocolo} disabled={cargandoProtocolo}
-              className="w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3 transition-all"
-              style={{
-                background: cargandoProtocolo ? '#1e2d3d' : 'linear-gradient(135deg, #0d9488, #0f766e)',
-                color: cargandoProtocolo ? '#3d5166' : '#fff',
-                border: '1px solid #0d948840',
-              }}>
-              {cargandoProtocolo ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin"/>
-                  Generando protocolo con IA...
-                </>
-              ) : (
-                <>
-                  <Wrench className="w-5 h-5"/>
-                  Generar Protocolo de Mantenimiento con IA
-                </>
-              )}
-            </button>
-
-            {cargandoProtocolo && (
-              <div className="mt-4 p-4 rounded-xl text-sm text-center" style={{background:'#0d1626',color:'#3d5166'}}>
-                Claude está analizando el equipo y generando el protocolo completo con pasos, herramientas y criterios de aceptación...
+            {noConformes > 0 && (
+              <div className="text-right">
+                <div className="text-xs" style={{color:'#3d5166'}}>No conformes</div>
+                <div className="text-lg font-bold" style={{color:'#f87171'}}>{noConformes}</div>
               </div>
             )}
           </div>
         )}
+      </div>
 
-        {/* ── PROTOCOLO GENERADO — VISTA INFO ── */}
-        {protocolo && fase === 'info' && (
-          <div className="max-w-3xl mx-auto space-y-5">
+      {/* Barra de progreso */}
+      {fase === 'ejecutando' && (
+        <div style={{borderBottom:'1px solid #1e2d3d', background:'#0a1120'}}>
+          <div className="h-1" style={{background:'#1e2d3d'}}>
+            <div className="h-1 transition-all duration-500"
+              style={{width:`${progreso}%`, background:'linear-gradient(90deg,#0d9488,#10b981)'}}/>
+          </div>
+          {/* Stepper */}
+          <div className="px-8 py-3 flex gap-1.5 overflow-x-auto">
+            {preguntas.map((_,i) => {
+              const resp = respuestas[i]
+              const esActual = i === pasoActual
+              return (
+                <button key={i} onClick={()=>setPasoActual(i)}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
+                  style={{
+                    background: resp ? (resp.conforme ? '#0d9488' : '#ef4444') : esActual ? '#1e3a5f' : '#1e2d3d',
+                    color: resp ? '#fff' : esActual ? '#2dd4bf' : '#3d5166',
+                    border: esActual ? '2px solid #2dd4bf' : '1px solid transparent',
+                  }}>
+                  {resp ? (resp.conforme ? '✓' : '!') : i+1}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
-            {/* Header protocolo */}
-            <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-base font-bold mb-1" style={{color:'#e2e8f0'}}>{protocolo.titulo}</h2>
-                  <div className="flex items-center gap-3 text-xs" style={{color:'#3d5166'}}>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5"/> {protocolo.duracion_estimada}
-                    </span>
-                    <span>·</span>
-                    <span>{protocolo.pasos?.length} pasos</span>
-                    <span>·</span>
-                    <span style={{color:'#2dd4bf'}}>{protocolo.normativa}</span>
+      <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
+
+        {/* ── EJECUTANDO ── */}
+        {fase === 'ejecutando' && pregunta && (
+          <div className="w-full max-w-2xl">
+
+            {/* Categoría */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-px flex-1" style={{background:'#1e2d3d'}}/>
+              <span className="text-xs font-semibold uppercase tracking-widest px-3"
+                style={{color:'#3d5166'}}>{pregunta.categoria}</span>
+              <div className="h-px flex-1" style={{background:'#1e2d3d'}}/>
+            </div>
+
+            {/* Card de pregunta */}
+            <div className="rounded-2xl overflow-hidden"
+              style={{background:'#0d1626', border:'1px solid #1e2d3d'}}>
+
+              {/* Header */}
+              <div className="px-6 py-5" style={{borderBottom:'1px solid #1e2d3d'}}>
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+                    style={{background:'#0d948820', color:'#2dd4bf', border:'1px solid #0d948840'}}>
+                    {pregunta.numero}
                   </div>
+                  <div className="flex-1">
+                    <p className="text-base font-semibold leading-relaxed" style={{color:'#e2e8f0'}}>
+                      {pregunta.pregunta}
+                    </p>
+                    {pregunta.valor_esperado && (
+                      <div className="mt-2 flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg w-fit"
+                        style={{background:'#0d948815', color:'#2dd4bf', border:'1px solid #0d948830'}}>
+                        <span>Valor esperado:</span>
+                        <span className="font-bold">{pregunta.valor_esperado} {pregunta.unidad||''}</span>
+                      </div>
+                    )}
+                  </div>
+                  {pregunta.critica && (
+                    <span className="text-xs px-2 py-1 rounded flex-shrink-0"
+                      style={{background:'#ef444415', color:'#f87171', border:'1px solid #ef444430'}}>
+                      Crítico
+                    </span>
+                  )}
                 </div>
-                <button onClick={generarProtocolo}
-                  className="text-xs px-3 py-1.5 rounded-lg transition-all"
-                  style={{background:'#1e2d3d',color:'#7a9bb5',border:'1px solid #253447'}}>
-                  Regenerar
+
+                {pregunta.advertencia && (
+                  <div className="mt-3 flex items-start gap-2 p-3 rounded-lg text-xs"
+                    style={{background:'#f59e0b10', border:'1px solid #f59e0b25', color:'#fcd34d'}}>
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"/>
+                    {pregunta.advertencia}
+                  </div>
+                )}
+              </div>
+
+              {/* Área de respuesta */}
+              <div className="px-6 py-5">
+
+                {/* SI / NO */}
+                {pregunta.tipo === 'si_no' && (
+                  <div className="flex gap-3">
+                    {['si','no'].map(op => (
+                      <button key={op} onClick={()=>responderPaso(op)}
+                        className="flex-1 py-4 rounded-xl text-sm font-bold capitalize transition-all"
+                        style={{
+                          background: respuestaActual?.valor === op
+                            ? (op==='si'?'#0d9488':'#ef4444')
+                            : '#111827',
+                          color: respuestaActual?.valor === op ? '#fff' : '#7a9bb5',
+                          border: respuestaActual?.valor === op
+                            ? 'none'
+                            : '1px solid #1e2d3d',
+                          fontSize: '1.1rem'
+                        }}>
+                        {op === 'si' ? '✓ Sí' : '✗ No'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* VALOR NUMÉRICO */}
+                {pregunta.tipo === 'valor_numerico' && (
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={respuestaActual?.valor || ''}
+                        onChange={e => responderPaso(e.target.value)}
+                        placeholder="Ingresa el valor medido..."
+                        className="flex-1 text-2xl font-bold text-center py-4 rounded-xl focus:outline-none"
+                        style={{background:'#111827', border:'1px solid #1e2d3d', color:'#e2e8f0'}}
+                      />
+                      {pregunta.unidad && (
+                        <span className="text-lg font-bold" style={{color:'#3d5166'}}>{pregunta.unidad}</span>
+                      )}
+                    </div>
+                    {respuestaActual?.valor && pregunta.valor_esperado && (
+                      <div className="mt-2 text-xs text-center" style={{
+                        color: respuestaActual.conforme ? '#4ade80' : '#f87171'
+                      }}>
+                        {respuestaActual.conforme ? '✓ Valor dentro del rango' : '⚠ Valor fuera del rango esperado'}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TEXTO LIBRE */}
+                {pregunta.tipo === 'texto' && (
+                  <textarea
+                    value={respuestaActual?.valor || ''}
+                    onChange={e => responderPaso(e.target.value)}
+                    placeholder="Describe lo observado..."
+                    rows={3}
+                    className="w-full text-sm rounded-xl px-4 py-3 focus:outline-none resize-none"
+                    style={{background:'#111827', border:'1px solid #1e2d3d', color:'#e2e8f0'}}
+                  />
+                )}
+
+                {/* SELECCIÓN */}
+                {pregunta.tipo === 'seleccion' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(pregunta.opciones || []).map(op => (
+                      <button key={op} onClick={()=>responderPaso(op)}
+                        className="py-3 px-4 rounded-xl text-sm font-medium text-left transition-all"
+                        style={{
+                          background: respuestaActual?.valor === op ? '#0d948820' : '#111827',
+                          color: respuestaActual?.valor === op ? '#2dd4bf' : '#7a9bb5',
+                          border: respuestaActual?.valor === op
+                            ? '1px solid #0d948840'
+                            : '1px solid #1e2d3d',
+                        }}>
+                        {respuestaActual?.valor === op ? '● ' : '○ '}{op}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* CHECKLIST */}
+                {pregunta.tipo === 'checklist' && (
+                  <div className="space-y-2">
+                    {(pregunta.opciones || []).map(op => {
+                      const seleccionados: string[] = respuestaActual?.valor || []
+                      const marcado = seleccionados.includes(op)
+                      return (
+                        <button key={op}
+                          onClick={() => {
+                            const actual: string[] = respuestaActual?.valor || []
+                            const nuevo = marcado ? actual.filter(x=>x!==op) : [...actual, op]
+                            responderPaso(nuevo)
+                          }}
+                          className="w-full flex items-center gap-3 py-3 px-4 rounded-xl text-sm text-left transition-all"
+                          style={{
+                            background: marcado ? '#0d948815' : '#111827',
+                            color: marcado ? '#2dd4bf' : '#7a9bb5',
+                            border: marcado ? '1px solid #0d948830' : '1px solid #1e2d3d',
+                          }}>
+                          <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+                            style={{background: marcado?'#0d9488':'#1e2d3d', border: marcado?'none':'1px solid #253447'}}>
+                            {marcado && <span className="text-white text-xs">✓</span>}
+                          </div>
+                          {op}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Observación adicional */}
+                <div className="mt-4">
+                  <input
+                    type="text"
+                    value={respuestas[pasoActual]?.observacion || ''}
+                    onChange={e => setObservacion(e.target.value)}
+                    placeholder="Observación adicional (opcional)..."
+                    className="w-full text-xs px-4 py-2.5 rounded-lg focus:outline-none"
+                    style={{background:'#111827', border:'1px solid #1e2d3d', color:'#7a9bb5'}}
+                  />
+                </div>
+              </div>
+
+              {/* Navegación */}
+              <div className="px-6 pb-5 flex gap-3">
+                <button onClick={anterior} disabled={pasoActual === 0}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all"
+                  style={{
+                    background:'#111827', color: pasoActual===0?'#253447':'#7a9bb5',
+                    border:'1px solid #1e2d3d',
+                    opacity: pasoActual===0?0.4:1
+                  }}>
+                  <ChevronLeft className="w-4 h-4"/> Anterior
+                </button>
+
+                <button
+                  onClick={siguiente}
+                  disabled={!respuestaActual?.valor && respuestaActual?.valor !== 'no' && !Array.isArray(respuestaActual?.valor)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+                  style={{
+                    background: respuestaActual
+                      ? (pasoActual === preguntas.length-1
+                          ? 'linear-gradient(135deg,#16a34a,#15803d)'
+                          : 'linear-gradient(135deg,#0d9488,#0f766e)')
+                      : '#1e2d3d',
+                    color: respuestaActual ? '#fff' : '#3d5166',
+                  }}>
+                  {pasoActual === preguntas.length - 1 ? (
+                    <><CheckCircle className="w-4 h-4"/> Finalizar formulario</>
+                  ) : (
+                    <>Siguiente <ChevronRight className="w-4 h-4"/></>
+                  )}
                 </button>
               </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                {/* EPPs */}
-                <div className="rounded-lg p-3" style={{background:'#111827'}}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Shield className="w-3.5 h-3.5" style={{color:'#818cf8'}}/>
-                    <span className="text-xs font-bold" style={{color:'#818cf8'}}>EPPs Requeridos</span>
-                  </div>
-                  {protocolo.epps?.map((e:string,i:number)=>(
-                    <div key={i} className="text-xs mb-1 flex items-center gap-1.5" style={{color:'#7a9bb5'}}>
-                      <div className="w-1 h-1 rounded-full" style={{background:'#818cf8'}}/>
-                      {e}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Herramientas */}
-                <div className="rounded-lg p-3" style={{background:'#111827'}}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Wrench className="w-3.5 h-3.5" style={{color:'#fb923c'}}/>
-                    <span className="text-xs font-bold" style={{color:'#fb923c'}}>Herramientas</span>
-                  </div>
-                  {protocolo.herramientas?.map((h:string,i:number)=>(
-                    <div key={i} className="text-xs mb-1 flex items-center gap-1.5" style={{color:'#7a9bb5'}}>
-                      <div className="w-1 h-1 rounded-full" style={{background:'#fb923c'}}/>
-                      {h}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Advertencias */}
-                <div className="rounded-lg p-3" style={{background:'#111827'}}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="w-3.5 h-3.5" style={{color:'#f87171'}}/>
-                    <span className="text-xs font-bold" style={{color:'#f87171'}}>Advertencias</span>
-                  </div>
-                  {protocolo.advertencias?.map((a:string,i:number)=>(
-                    <div key={i} className="text-xs mb-1 flex items-center gap-1.5" style={{color:'#7a9bb5'}}>
-                      <div className="w-1 h-1 rounded-full" style={{background:'#f87171'}}/>
-                      {a}
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            {/* Lista de pasos */}
-            <div className="rounded-xl overflow-hidden" style={{border:'1px solid #1e2d3d'}}>
-              <div className="px-5 py-4" style={{background:'#0d1626',borderBottom:'1px solid #1e2d3d'}}>
-                <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>Pasos del Protocolo</div>
-              </div>
-              <div className="divide-y" style={{borderColor:'#1e2d3d'}}>
-                {protocolo.pasos?.map((paso:any, i:number)=>(
-                  <div key={i} className="px-5 py-4" style={{background: i%2===0?'#080e16':'#0a1120'}}>
-                    <div className="flex items-start gap-3">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{background:'#0d948820',color:'#2dd4bf',border:'1px solid #0d948840'}}>
-                        {paso.numero}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-bold mb-1" style={{color:'#e2e8f0'}}>{paso.titulo}</div>
-                        <div className="text-xs mb-2 leading-relaxed" style={{color:'#7a9bb5'}}>{paso.descripcion}</div>
-                        <div className="flex flex-wrap gap-2 text-xs">
-                          {paso.duracion && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded"
-                              style={{background:'#1e2d3d',color:'#3d5166'}}>
-                              <Clock className="w-3 h-3"/> {paso.duracion}
-                            </span>
-                          )}
-                          {paso.valores_esperados && (
-                            <span className="px-2 py-0.5 rounded" style={{background:'#0d948815',color:'#2dd4bf'}}>
-                              Valor: {paso.valores_esperados}
-                            </span>
-                          )}
-                          {paso.criterio_aceptacion && (
-                            <span className="px-2 py-0.5 rounded" style={{background:'#16a34a15',color:'#4ade80'}}>
-                              ✓ {paso.criterio_aceptacion}
-                            </span>
-                          )}
-                        </div>
-                        {paso.advertencia && (
-                          <div className="mt-2 flex items-start gap-1.5 text-xs px-2 py-1.5 rounded"
-                            style={{background:'#ef444410',color:'#f87171',border:'1px solid #ef444425'}}>
-                            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"/>
-                            {paso.advertencia}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Contador */}
+            <div className="mt-4 text-center text-xs" style={{color:'#3d5166'}}>
+              Pregunta {pasoActual+1} de {preguntas.length} · {Object.keys(respuestas).length} respondidas
             </div>
-
-            {/* Botón iniciar */}
-            <button onClick={iniciarEjecucion}
-              className="w-full py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3"
-              style={{background:'linear-gradient(135deg,#0d9488,#0f766e)',color:'#fff'}}>
-              <CheckCircle className="w-5 h-5"/>
-              Iniciar Ejecución del Mantenimiento
-            </button>
           </div>
         )}
 
-        {/* ── FASE: EJECUTANDO ── */}
-        {protocolo && fase === 'ejecutando' && (
-          <div className="max-w-3xl mx-auto">
-
-            {/* Barra de progreso */}
-            <div className="rounded-xl p-4 mb-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold" style={{color:'#e2e8f0'}}>
-                  Progreso del mantenimiento
-                </span>
-                <span className="text-xs font-mono" style={{color:'#2dd4bf'}}>{pasosCompletados.size}/{protocolo.pasos.length} pasos</span>
-              </div>
-              <div className="h-2 rounded-full" style={{background:'#1e2d3d'}}>
-                <div className="h-2 rounded-full transition-all duration-500"
-                  style={{width:`${progreso}%`,background:'linear-gradient(90deg,#0d9488,#10b981)'}}/>
-              </div>
-              {/* Mini stepper */}
-              <div className="flex gap-1 mt-3 flex-wrap">
-                {protocolo.pasos.map((_:any,i:number)=>(
-                  <button key={i} onClick={()=>setPasoActual(i)}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
-                    style={{
-                      background: pasosCompletados.has(i)?'#0d9488':pasoActual===i?'#1e3a5f':'#1e2d3d',
-                      color: pasosCompletados.has(i)?'#fff':pasoActual===i?'#2dd4bf':'#3d5166',
-                      border: pasoActual===i?'1px solid #2dd4bf':'1px solid transparent',
-                    }}>
-                    {pasosCompletados.has(i) ? '✓' : i+1}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Paso actual */}
-            {(() => {
-              const paso = protocolo.pasos[pasoActual]
-              const completado = pasosCompletados.has(pasoActual)
-              return (
-                <div className="rounded-xl overflow-hidden mb-5"
-                  style={{border:`1px solid ${completado?'#0d948840':'#1e2d3d'}`}}>
-                  {/* Header paso */}
-                  <div className="px-6 py-4 flex items-center gap-4"
-                    style={{background: completado?'#0d948815':'#0d1626',borderBottom:'1px solid #1e2d3d'}}>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
-                      style={{
-                        background: completado?'#0d9488':'#1e2d3d',
-                        color: completado?'#fff':'#2dd4bf',
-                        border: completado?'none':'1px solid #0d948840',
-                      }}>
-                      {completado ? '✓' : paso.numero}
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-base font-bold" style={{color:'#e2e8f0'}}>{paso.titulo}</div>
-                      <div className="flex items-center gap-3 mt-0.5 text-xs" style={{color:'#3d5166'}}>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3"/> {paso.duracion}
-                        </span>
-                        <span>Paso {pasoActual+1} de {protocolo.pasos.length}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Cuerpo del paso */}
-                  <div className="px-6 py-5" style={{background:'#080e16'}}>
-                    <p className="text-sm leading-relaxed mb-4" style={{color:'#c9d1d9'}}>
-                      {paso.descripcion}
-                    </p>
-
-                    {/* Herramientas del paso */}
-                    {paso.herramientas?.length > 0 && (
-                      <div className="mb-4">
-                        <div className="text-xs font-bold mb-2 flex items-center gap-1.5" style={{color:'#fb923c'}}>
-                          <Wrench className="w-3.5 h-3.5"/> Herramientas para este paso
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {paso.herramientas.map((h:string,i:number)=>(
-                            <span key={i} className="text-xs px-2.5 py-1 rounded-lg"
-                              style={{background:'#fb923c15',color:'#fb923c',border:'1px solid #fb923c25'}}>
-                              {h}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Valores esperados */}
-                    {paso.valores_esperados && (
-                      <div className="mb-4 p-3 rounded-lg" style={{background:'#0d948810',border:'1px solid #0d948825'}}>
-                        <div className="text-xs font-bold mb-1" style={{color:'#2dd4bf'}}>
-                          📊 Valores esperados
-                        </div>
-                        <div className="text-sm" style={{color:'#7a9bb5'}}>{paso.valores_esperados}</div>
-                      </div>
-                    )}
-
-                    {/* Criterio de aceptación */}
-                    {paso.criterio_aceptacion && (
-                      <div className="mb-4 p-3 rounded-lg" style={{background:'#16a34a10',border:'1px solid #16a34a25'}}>
-                        <div className="text-xs font-bold mb-1" style={{color:'#4ade80'}}>
-                          ✓ Criterio de aceptación
-                        </div>
-                        <div className="text-sm" style={{color:'#7a9bb5'}}>{paso.criterio_aceptacion}</div>
-                      </div>
-                    )}
-
-                    {/* Advertencia del paso */}
-                    {paso.advertencia && (
-                      <div className="mb-4 p-3 rounded-lg flex items-start gap-2"
-                        style={{background:'#ef444410',border:'1px solid #ef444425'}}>
-                        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{color:'#f87171'}}/>
-                        <div className="text-sm" style={{color:'#fca5a5'}}>{paso.advertencia}</div>
-                      </div>
-                    )}
-
-                    {/* Notas del técnico */}
-                    <div className="mb-5">
-                      <div className="text-xs font-bold mb-2" style={{color:'#3d5166'}}>
-                        📝 Notas del técnico (opcional)
-                      </div>
-                      <textarea
-                        value={notas[pasoActual] || ''}
-                        onChange={e => setNotas(prev => ({...prev, [pasoActual]: e.target.value}))}
-                        placeholder="Observaciones, hallazgos o novedades..."
-                        rows={2}
-                        className="w-full text-sm rounded-lg px-3 py-2 focus:outline-none resize-none"
-                        style={{background:'#0d1626',border:'1px solid #1e2d3d',color:'#e2e8f0'}}
-                      />
-                    </div>
-
-                    {/* Botones de navegación */}
-                    <div className="flex gap-3">
-                      {pasoActual > 0 && (
-                        <button onClick={()=>setPasoActual(p=>p-1)}
-                          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium"
-                          style={{background:'#1e2d3d',color:'#7a9bb5',border:'1px solid #253447'}}>
-                          <ChevronLeft className="w-4 h-4"/> Anterior
-                        </button>
-                      )}
-                      {!completado ? (
-                        <button onClick={()=>completarPaso(pasoActual)}
-                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold"
-                          style={{background:'linear-gradient(135deg,#0d9488,#10b981)',color:'#fff'}}>
-                          <CheckCircle className="w-4 h-4"/>
-                          Marcar paso como completado
-                        </button>
-                      ) : (
-                        pasoActual < protocolo.pasos.length - 1 ? (
-                          <button onClick={()=>setPasoActual(p=>p+1)}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold"
-                            style={{background:'#0d9488',color:'#fff'}}>
-                            Siguiente paso <ChevronRight className="w-4 h-4"/>
-                          </button>
-                        ) : (
-                          <button onClick={finalizarOrden}
-                            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold"
-                            style={{background:'linear-gradient(135deg,#16a34a,#15803d)',color:'#fff'}}>
-                            <CheckCircle className="w-4 h-4"/>
-                            Finalizar y cerrar orden
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-        )}
-
-        {/* ── FASE: COMPLETADO ── */}
+        {/* ── COMPLETADO ── */}
         {fase === 'completado' && (
-          <div className="max-w-2xl mx-auto">
-            <div className="rounded-xl p-8 text-center mb-6"
-              style={{background:'#0d1626',border:'1px solid #0d948840'}}>
+          <div className="w-full max-w-2xl">
+            <div className="rounded-2xl p-8 text-center mb-5"
+              style={{background:'#0d1626', border:'1px solid #0d948840'}}>
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                style={{background:'#0d948820',border:'2px solid #0d9488'}}>
+                style={{background:'#0d948820', border:'2px solid #0d9488'}}>
                 <CheckCircle className="w-8 h-8" style={{color:'#2dd4bf'}}/>
               </div>
-              <h2 className="text-xl font-bold mb-2" style={{color:'#e2e8f0'}}>
-                ¡Mantenimiento completado!
-              </h2>
-              <p className="text-sm mb-4" style={{color:'#3d5166'}}>
-                {orden.equipo} · {orden.tipo} · {tiempoTranscurrido} minutos
+              <h2 className="text-xl font-bold mb-1" style={{color:'#e2e8f0'}}>Formulario completado</h2>
+              <p className="text-sm mb-5" style={{color:'#3d5166'}}>
+                {orden.equipo} · {orden.tipo} · {tiempoMin} minutos
               </p>
+
               <div className="grid grid-cols-3 gap-3 mb-6">
-                <div className="rounded-lg p-3" style={{background:'#111827'}}>
-                  <div className="text-xl font-bold" style={{color:'#4ade80'}}>{pasosCompletados.size}</div>
-                  <div className="text-xs" style={{color:'#3d5166'}}>Pasos completados</div>
+                <div className="rounded-xl p-3" style={{background:'#111827'}}>
+                  <div className="text-2xl font-bold" style={{color:'#4ade80'}}>
+                    {Object.values(respuestas).filter(r=>r.conforme).length}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>Conformes</div>
                 </div>
-                <div className="rounded-lg p-3" style={{background:'#111827'}}>
-                  <div className="text-xl font-bold" style={{color:'#2dd4bf'}}>{tiempoTranscurrido}min</div>
-                  <div className="text-xs" style={{color:'#3d5166'}}>Tiempo empleado</div>
+                <div className="rounded-xl p-3" style={{background:'#111827'}}>
+                  <div className="text-2xl font-bold" style={{color: noConformes>0?'#f87171':'#4ade80'}}>
+                    {noConformes}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>No conformes</div>
                 </div>
-                <div className="rounded-lg p-3" style={{background:'#111827'}}>
-                  <div className="text-xl font-bold" style={{color:'#fb923c'}}>{orden.cantidad}</div>
-                  <div className="text-xs" style={{color:'#3d5166'}}>Equipos intervenidos</div>
+                <div className="rounded-xl p-3" style={{background:'#111827'}}>
+                  <div className="text-2xl font-bold" style={{color:'#fb923c'}}>{tiempoMin}min</div>
+                  <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>Duración</div>
                 </div>
               </div>
+
+              {/* No conformes */}
+              {noConformes > 0 && (
+                <div className="mb-5 rounded-xl overflow-hidden text-left"
+                  style={{border:'1px solid #ef444430'}}>
+                  <div className="px-4 py-3 text-xs font-bold" style={{background:'#ef444415', color:'#f87171'}}>
+                    ⚠ Hallazgos no conformes
+                  </div>
+                  {Object.entries(respuestas)
+                    .filter(([,r])=>!r.conforme)
+                    .map(([idx,r])=>(
+                      <div key={idx} className="px-4 py-3 text-xs" style={{borderTop:'1px solid #ef444420', color:'#7a9bb5'}}>
+                        <span className="font-bold" style={{color:'#fca5a5'}}>
+                          {preguntas[Number(idx)]?.pregunta}
+                        </span>
+                        <span className="ml-2">→ Respuesta: {Array.isArray(r.valor)?r.valor.join(', '):r.valor}</span>
+                        {r.observacion && <span className="ml-2 italic">· {r.observacion}</span>}
+                      </div>
+                    ))
+                  }
+                </div>
+              )}
 
               {/* Firma */}
               <div className="text-left mb-4">
@@ -535,29 +471,28 @@ export default function OrdenDetallePage() {
                 </div>
                 <input
                   type="text"
-                  value={firmaTexto}
-                  onChange={e => setFirmaTexto(e.target.value)}
-                  placeholder={`Escribe tu nombre completo: ${orden.tecnico}`}
-                  className="w-full px-4 py-3 rounded-lg text-sm focus:outline-none"
-                  style={{background:'#111827',border:'1px solid #1e2d3d',color:'#e2e8f0'}}
+                  value={firma}
+                  onChange={e=>setFirma(e.target.value)}
+                  placeholder={`Nombre completo: ${orden.tecnico}`}
+                  className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none"
+                  style={{background:'#111827', border:'1px solid #1e2d3d', color:'#e2e8f0'}}
                 />
               </div>
 
-              <button
-                disabled={!firmaTexto}
-                className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+              <button disabled={!firma}
+                className="w-full py-3.5 rounded-xl text-sm font-bold transition-all"
                 style={{
-                  background: firmaTexto?'linear-gradient(135deg,#0d9488,#0f766e)':'#1e2d3d',
-                  color: firmaTexto?'#fff':'#3d5166',
+                  background: firma?'linear-gradient(135deg,#0d9488,#0f766e)':'#1e2d3d',
+                  color: firma?'#fff':'#3d5166',
                 }}>
-                Generar Reporte y Cerrar Orden
+                Cerrar orden y generar reporte PDF
               </button>
             </div>
 
             <Link href="/ordenes"
-              className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium"
-              style={{background:'#1e2d3d',color:'#7a9bb5',border:'1px solid #253447'}}>
-              <ArrowLeft className="w-4 h-4"/> Volver al tablero de órdenes
+              className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm"
+              style={{background:'#1e2d3d', color:'#7a9bb5', border:'1px solid #253447'}}>
+              <ArrowLeft className="w-4 h-4"/> Volver al tablero
             </Link>
           </div>
         )}
