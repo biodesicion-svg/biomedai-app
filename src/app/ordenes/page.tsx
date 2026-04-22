@@ -233,7 +233,7 @@ export default function OrdenesPage() {
                       const tCol = tecnicoColor[tIdx>=0?tIdx:0]
                       return (
                         <div key={o.id} className="rounded-lg p-3 transition-all"
-                          style={{background:'#1a2436',border:'1px solid #253447'}}>
+                          style={{background:'#1a2436',border:'1px solid #253447',cursor:'pointer'}} onClick={()=>{ sessionStorage.setItem(`orden-${o.id}`, JSON.stringify({...o, marca:'', modelo:'', servicio:''})); window.location.href=`/ordenes/${o.id}`; }}>
                           {/* Header card */}
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-mono text-xs" style={{color:'#4a6580'}}>{o.id}</span>
@@ -303,3 +303,6 @@ export default function OrdenesPage() {
     </div>
   )
 }
+
+// Agregar esta función antes del return en OrdenesPage
+// Ya está incluida en el componente actualizado
