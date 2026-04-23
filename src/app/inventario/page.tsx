@@ -195,7 +195,7 @@ export default function InventarioPage() {
                 const rc = riesgoConfig[equipo.riesgo] || riesgoConfig.bajo
                 const ec = estadoConfig[equipo.estado] || estadoConfig.operativo
                 return (
-                  <tr key={equipo.id} className="transition-all cursor-pointer"
+                  <tr key={equipo.id} className="transition-all cursor-pointer" onClick={()=>window.location.href=`/inventario/${equipo.id}`}
                     style={{
                       background: i % 2 === 0 ? '#080e16' : '#0a1120',
                       borderBottom:'1px solid #1e2d3d',
