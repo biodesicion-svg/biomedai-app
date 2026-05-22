@@ -12,8 +12,8 @@ export default function Dashboard() {
     fetch('/api/kpis').then(r=>r.json()).then(d=>{setKpis(d);setLoading(false)}).catch(()=>setLoading(false))
   },[])
 
-  const Sk = ({w='80px',h=24}:any) => (
-    <div style={{width,height,background:'#F4F4F5',borderRadius:4,animation:'pulse 1.5s infinite'}}/>
+  const Sk = ({w: skW='80px', h: skH=24}:any) => (
+    '<div style={{width:skW,height:skH,background:'#F4F4F5',borderRadius:4,animation:'pulse 1.5s infinite'}}/>
   )
 
   return (
