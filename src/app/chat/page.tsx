@@ -1,14 +1,9 @@
 'use client'
-
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, Activity } from 'lucide-react'
 
-interface Mensaje {
-  rol: 'user' | 'assistant'
-  contenido: string
-}
+interface Msg { rol:'user'|'assistant'; contenido:string }
 
-const preguntasRapidas = [
+const RAPIDAS = [
   '¿Cuántos equipos hay en inventario?',
   'Información del Monitor De Signos Vitales',
   'Equipos de alto riesgo',
@@ -17,159 +12,99 @@ const preguntasRapidas = [
   'Resumen general del inventario',
 ]
 
-function renderTexto(texto: string) {
-  return texto
-    .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e2e8f0">$1</strong>')
-    .replace(/\n/g, '<br/>')
+function renderTexto(t:string) {
+  return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br/>')
 }
 
 export default function ChatPage() {
-  const [mensajes, setMensajes] = useState<Mensaje[]>([
-    {
-      rol: 'assistant',
-      contenido: `¡Hola! Soy el asistente biomédico de BioMed AI. Tengo acceso directo al inventario de tu institución.\n\nPuedo ayudarte con:\n\n• **Información de equipos** — escribe el nombre, código o marca\n• **Historial de mantenimientos** — "historial del Monitor"\n• **Estadísticas** — "resumen del inventario"\n• **Por servicio** — "equipos de urgencias"\n• **Por riesgo** — "equipos de alto riesgo"\n\n¿Qué necesitas consultar?`
-    }
-  ])
+  const [msgs, setMsgs] = useState<Msg[]>([{rol:'assistant',contenido:`¡Hola! Soy el asistente biomédico de BioMed AI.\n\nPuedo ayudarte con:\n\n**Información de equipos** — nombre, código o marca\n**Historial de mantenimientos** — "historial del Monitor"\n**Estadísticas** — "resumen del inventario"\n**Por servicio** — "equipos de urgencias"`}])
   const [input, setInput] = useState('')
   const [cargando, setCargando] = useState(false)
-  const mensajesRef = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (mensajesRef.current) {
-      mensajesRef.current.scrollTop = mensajesRef.current.scrollHeight
-    }
-  }, [mensajes])
+  useEffect(()=>{ if(ref.current) ref.current.scrollTop=ref.current.scrollHeight },[msgs])
 
-  async function enviar(texto?: string) {
-    const pregunta = texto || input.trim()
-    if (!pregunta || cargando) return
-
+  async function enviar(texto?:string) {
+    const q = texto||input.trim()
+    if(!q||cargando) return
     setInput('')
-    const nuevosMensajes: Mensaje[] = [...mensajes, { rol: 'user', contenido: pregunta }]
-    setMensajes(nuevosMensajes)
+    const nuevos:Msg[] = [...msgs,{rol:'user',contenido:q}]
+    setMsgs(nuevos)
     setCargando(true)
-
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensajes: nuevosMensajes })
-      })
+      const res = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mensajes:nuevos})})
       const data = await res.json()
-      setMensajes(prev => [...prev, {
-        rol: 'assistant',
-        contenido: data.respuesta || data.error || 'No pude procesar la consulta.'
-      }])
-    } catch {
-      setMensajes(prev => [...prev, { rol: 'assistant', contenido: 'Error de conexión. Verifica que el servidor esté corriendo.' }])
-    }
+      setMsgs(p=>[...p,{rol:'assistant',contenido:data.respuesta||data.error||'Error al procesar.'}])
+    } catch { setMsgs(p=>[...p,{rol:'assistant',contenido:'Error de conexión.'}]) }
     setCargando(false)
   }
 
   return (
-    <div className="flex flex-col h-screen" style={{background:'#080e16'}}>
-
-      {/* Topbar */}
-      <div className="px-8 py-4 flex items-center justify-between flex-shrink-0"
-        style={{borderBottom:'1px solid #1e2d3d', background:'#0a1120'}}>
+    <div style={{display:'flex',flexDirection:'column',height:'100vh'}}>
+      <div style={{background:'#fff',borderBottom:'0.5px solid #E2E8F0',padding:'16px 28px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xs" style={{color:'#3d5166'}}>BioMed AI</span>
-            <span style={{color:'#1e2d3d'}}>/</span>
-            <span className="text-xs font-medium" style={{color:'#2dd4bf'}}>Asistente</span>
-          </div>
-          <h1 className="text-lg font-bold" style={{color:'#e2e8f0'}}>Asistente Biomédico</h1>
+          <div style={{fontSize:11,color:'#94A3B8',marginBottom:2}}>BioMed AI / Asistente</div>
+          <h1 style={{fontSize:18,fontWeight:600,color:'#0F172A',margin:0}}>Asistente biomédico</h1>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-          style={{background:'#0d948815', border:'1px solid #0d948830', color:'#2dd4bf'}}>
-          <Activity className="w-3.5 h-3.5"/>
-          Conectado a Supabase
+        <div style={{display:'flex',alignItems:'center',gap:6,background:'#F0FDF4',padding:'6px 12px',borderRadius:6,border:'0.5px solid #BBF7D0'}}>
+          <div style={{width:6,height:6,borderRadius:'50%',background:'#22C55E'}}/>
+          <span style={{fontSize:11,color:'#16A34A',fontWeight:500}}>Conectado a base de datos</span>
         </div>
       </div>
 
-      {/* Mensajes */}
-      <div ref={mensajesRef} className="flex-1 overflow-y-auto px-8 py-5 space-y-4">
-        {mensajes.map((m, i) => (
-          <div key={i} className={`flex gap-3 ${m.rol==='user'?'flex-row-reverse':''}`}>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{
-                background: m.rol==='assistant'
-                  ? 'linear-gradient(135deg,#0d9488,#0f766e)'
-                  : '#1e2d3d',
-              }}>
-              {m.rol==='assistant'
-                ? <Bot className="w-4 h-4 text-white"/>
-                : <User className="w-4 h-4" style={{color:'#7a9bb5'}}/>
-              }
+      <div ref={ref} style={{flex:1,overflowY:'auto',padding:'24px 28px',display:'flex',flexDirection:'column',gap:16,background:'#F8F9FB'}}>
+        {msgs.map((m,i)=>(
+          <div key={i} style={{display:'flex',gap:10,flexDirection:m.rol==='user'?'row-reverse':'row'}}>
+            <div style={{width:32,height:32,borderRadius:'50%',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',background:m.rol==='assistant'?'#3B4FE8':'#E2E8F0'}}>
+              <i className={`ti ${m.rol==='assistant'?'ti-robot':'ti-user'}`} style={{fontSize:15,color:m.rol==='assistant'?'#fff':'#64748B'}}/>
             </div>
-            <div className="max-w-2xl px-4 py-3 rounded-xl text-sm leading-relaxed"
-              style={{
-                background: m.rol==='assistant'?'#0d1626':'#1e2d3d',
-                border: '1px solid #1e2d3d',
-                color: '#c9d1d9',
-                borderRadius: m.rol==='assistant'?'4px 12px 12px 12px':'12px 4px 12px 12px',
-                fontFamily: 'monospace',
-                fontSize: '0.82rem',
-              }}
-              dangerouslySetInnerHTML={{ __html: renderTexto(m.contenido) }}
-            />
+            <div style={{maxWidth:'70%',padding:'12px 16px',borderRadius:12,background:m.rol==='user'?'#3B4FE8':'#fff',border:m.rol==='user'?'none':'0.5px solid #E2E8F0',color:m.rol==='user'?'#fff':'#334155',fontSize:13,lineHeight:1.6,fontFamily:'monospace',borderRadius:m.rol==='assistant'?'4px 12px 12px 12px':'12px 4px 12px 12px'}}
+              dangerouslySetInnerHTML={{__html:renderTexto(m.contenido)}}/>
           </div>
         ))}
-
-        {cargando && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{background:'linear-gradient(135deg,#0d9488,#0f766e)'}}>
-              <Bot className="w-4 h-4 text-white"/>
+        {cargando&&(
+          <div style={{display:'flex',gap:10}}>
+            <div style={{width:32,height:32,borderRadius:'50%',background:'#3B4FE8',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <i className="ti ti-robot" style={{fontSize:15,color:'#fff'}}/>
             </div>
-            <div className="px-4 py-3 rounded-xl flex items-center gap-2"
-              style={{background:'#0d1626', border:'1px solid #1e2d3d'}}>
-              <Loader2 className="w-4 h-4 animate-spin" style={{color:'#2dd4bf'}}/>
-              <span className="text-xs" style={{color:'#3d5166'}}>Consultando base de datos...</span>
+            <div style={{padding:'12px 16px',borderRadius:'4px 12px 12px 12px',background:'#fff',border:'0.5px solid #E2E8F0',display:'flex',alignItems:'center',gap:8}}>
+              <div style={{display:'flex',gap:4}}>
+                {[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:'50%',background:'#94A3B8',animation:`bounce 1.2s ${i*0.2}s infinite`}}/>)}
+              </div>
+              <span style={{fontSize:12,color:'#94A3B8'}}>Consultando base de datos...</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Preguntas rápidas */}
-      {mensajes.length <= 1 && (
-        <div className="px-8 pb-3 flex flex-wrap gap-2 flex-shrink-0">
-          {preguntasRapidas.map((p, i) => (
-            <button key={i} onClick={()=>enviar(p)}
-              className="text-xs px-3 py-1.5 rounded-lg transition-all"
-              style={{background:'#0d1626', border:'1px solid #1e2d3d', color:'#7a9bb5'}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor='#0d9488';e.currentTarget.style.color='#2dd4bf'}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor='#1e2d3d';e.currentTarget.style.color='#7a9bb5'}}>
+      {msgs.length<=1&&(
+        <div style={{padding:'0 28px 12px',display:'flex',flexWrap:'wrap',gap:8,background:'#F8F9FB'}}>
+          {RAPIDAS.map((p,i)=>(
+            <button key={i} onClick={()=>enviar(p)} style={{padding:'6px 12px',borderRadius:20,fontSize:12,background:'#fff',border:'0.5px solid #E2E8F0',color:'#475569',cursor:'pointer',transition:'all 0.15s'}}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor='#3B4FE8'; e.currentTarget.style.color='#3B4FE8' }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor='#E2E8F0'; e.currentTarget.style.color='#475569' }}>
               {p}
             </button>
           ))}
         </div>
       )}
 
-      {/* Input */}
-      <div className="px-8 py-4 flex-shrink-0" style={{borderTop:'1px solid #1e2d3d'}}>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>e.key==='Enter'&&enviar()}
-            placeholder="Escribe el nombre de un equipo, código, servicio..."
-            className="flex-1 px-4 py-3 rounded-xl text-sm focus:outline-none"
-            style={{background:'#0d1626', border:'1px solid #1e2d3d', color:'#e2e8f0'}}
-            disabled={cargando}
-          />
-          <button onClick={()=>enviar()}
-            disabled={cargando||!input.trim()}
-            className="w-11 h-11 rounded-xl flex items-center justify-center"
-            style={{background:input.trim()?'#0d9488':'#1e2d3d', color:input.trim()?'#fff':'#3d5166'}}>
-            <Send className="w-4 h-4"/>
+      <div style={{padding:'16px 28px',background:'#fff',borderTop:'0.5px solid #E2E8F0',flexShrink:0}}>
+        <div style={{display:'flex',gap:10}}>
+          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enviar()}
+            placeholder="Escribe el nombre de un equipo, código, servicio..." disabled={cargando}
+            style={{flex:1,height:40}}/>
+          <button onClick={()=>enviar()} disabled={cargando||!input.trim()}
+            style={{width:40,height:40,borderRadius:8,border:'none',background:input.trim()?'#3B4FE8':'#E2E8F0',color:input.trim()?'#fff':'#94A3B8',cursor:input.trim()?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s'}}>
+            <i className="ti ti-send" style={{fontSize:16}}/>
           </button>
         </div>
-        <div className="mt-2 text-xs text-center" style={{color:'#253447'}}>
+        <div style={{fontSize:11,color:'#94A3B8',textAlign:'center',marginTop:8}}>
           BioMed AI · Consulta directa a base de datos · Sin IA generativa
         </div>
       </div>
+
+      <style>{`@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }`}</style>
     </div>
   )
 }
