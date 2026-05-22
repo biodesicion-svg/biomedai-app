@@ -1,12 +1,12 @@
 import Sidebar from '@/components/layout/Sidebar'
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background:'#080e16' }}>
+    <div style={{ display:'flex', minHeight:'100vh', background:'#ffffff' }}>
       <Sidebar />
-      <div style={{ marginLeft:'256px', flex:1 }}>
+      <main style={{ flex:1, marginLeft:240, minHeight:'100vh', display:'flex', flexDirection:'column', background:'#ffffff' }}>
         {children}
-      </div>
+      </main>
     </div>
   )
 }
