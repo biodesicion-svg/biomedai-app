@@ -3,9 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard, ClipboardList, Wrench,
-  BarChart3, DollarSign, MessageSquare,
-  Activity, ClipboardCheck, ShieldCheck, Package,
+  LayoutDashboard, ClipboardList, Wrench, BarChart3,
+  DollarSign, MessageSquare, Activity, ClipboardCheck,
+  ShieldCheck, Package, TrendingUp,
 } from 'lucide-react'
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { href:'/mantenimiento', label:'Mantenimiento',       icon:Wrench,          desc:'Cronogramas' },
   { href:'/ordenes',       label:'Órdenes de Trabajo',  icon:ClipboardCheck,  desc:'Kanban de órdenes' },
   { href:'/repuestos',     label:'Repuestos',           icon:Package,         desc:'Stock y asignaciones' },
+  { href:'/prediccion',    label:'Predicción',          icon:TrendingUp,      desc:'Análisis predictivo' },
   { href:'/kpis',          label:'KPIs',                icon:BarChart3,       desc:'Indicadores clave' },
   { href:'/presupuesto',   label:'Presupuesto',         icon:DollarSign,      desc:'Control financiero' },
   { href:'/auditoria',     label:'Auditoría',           icon:ShieldCheck,     desc:'Simulación y cumplimiento' },
