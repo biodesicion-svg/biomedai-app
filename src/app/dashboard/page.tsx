@@ -1,279 +1,130 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
-import {
-  Activity, AlertTriangle, CheckCircle, Clock,
-  TrendingUp, TrendingDown, Wrench, ClipboardList,
-  BarChart3, DollarSign
-} from 'lucide-react'
 import Link from 'next/link'
 
-const INSTITUCION_ID = '00000000-0000-0000-0000-000000000001'
+const fmt = (n: number) => n >= 1000 ? `${(n/1000).toFixed(0)}K` : String(n)
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    total: 0, operativos: 0, baja: 0,
-    alto: 0, medio: 0, bajo: 0,
-    loaded: false
-  })
-  const [topEquipos, setTopEquipos] = useState<any[]>([])
-  const [servicios, setServicios] = useState<any[]>([])
+export default function Dashboard() {
+  const [kpis, setKpis] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function cargar() {
-      const supabase = createClient()
+  useEffect(()=>{
+    fetch('/api/kpis').then(r=>r.json()).then(d=>{setKpis(d);setLoading(false)}).catch(()=>setLoading(false))
+  },[])
 
-      const { data: equipos } = await supabase
-        .from('equipos')
-        .select('nombre, riesgo, estado, servicio, marca, codigo_inventario')
-        .eq('institucion_id', INSTITUCION_ID)
-        .eq('activo', true)
-
-      if (!equipos) return
-
-      // Stats globales
-      const total      = equipos.length
-      const operativos = equipos.filter(e => e.estado === 'operativo').length
-      const baja       = equipos.filter(e => e.estado === 'baja').length
-      const alto       = equipos.filter(e => e.riesgo === 'alto').length
-      const medio      = equipos.filter(e => e.riesgo === 'medio').length
-      const bajo       = equipos.filter(e => e.riesgo === 'bajo').length
-
-      setStats({ total, operativos, baja, alto, medio, bajo, loaded: true })
-
-      // Top equipos de alto riesgo operativos
-      const criticos = equipos
-        .filter(e => e.riesgo === 'alto' && e.estado === 'operativo')
-        .slice(0, 6)
-      setTopEquipos(criticos)
-
-      // Equipos por servicio
-      const svcMap: Record<string, number> = {}
-      equipos.forEach(e => {
-        if (e.servicio) svcMap[e.servicio] = (svcMap[e.servicio] || 0) + 1
-      })
-      const svcArr = Object.entries(svcMap)
-        .map(([nombre, count]) => ({ nombre, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 6)
-      setServicios(svcArr)
-    }
-    cargar()
-  }, [])
-
-  const disponibilidad = stats.total > 0
-    ? ((stats.operativos / stats.total) * 100).toFixed(1)
-    : '0.0'
-
-  const kpis = [
-    {
-      label: 'Total Equipos',
-      value: stats.total,
-      sub: 'en inventario activo',
-      icon: <ClipboardList className="w-5 h-5" />,
-      color: '#2dd4bf',
-      bg: '#0d948815',
-      border: '#0d948830',
-    },
-    {
-      label: 'Operativos',
-      value: stats.operativos,
-      sub: `${disponibilidad}% disponibilidad`,
-      icon: <CheckCircle className="w-5 h-5" />,
-      color: '#4ade80',
-      bg: '#16a34a15',
-      border: '#16a34a30',
-      trend: 'up'
-    },
-    {
-      label: 'Riesgo Alto',
-      value: stats.alto,
-      sub: 'requieren prioridad',
-      icon: <AlertTriangle className="w-5 h-5" />,
-      color: '#f87171',
-      bg: '#ef444415',
-      border: '#ef444430',
-    },
-    {
-      label: 'Dados de Baja',
-      value: stats.baja,
-      sub: 'fuera de servicio',
-      icon: <TrendingDown className="w-5 h-5" />,
-      color: '#94a3b8',
-      bg: '#64748b15',
-      border: '#64748b30',
-    },
-  ]
+  const Skeleton = ({w='100%',h=20}: any) => (
+    <div style={{width:w,height:h,background:'#F1F5F9',borderRadius:4,animation:'pulse 1.5s infinite'}}/>
+  )
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: '#080e16' }}>
-
+    <div style={{display:'flex',flexDirection:'column',minHeight:'100vh'}}>
       {/* Topbar */}
-      <div className="px-8 py-5 flex items-center justify-between"
-        style={{ borderBottom: '1px solid #1e2d3d', background: '#0a1120' }}>
+      <div style={{background:'#fff',borderBottom:'0.5px solid #E2E8F0',padding:'16px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-medium" style={{ color: '#3d5166' }}>BioMed AI</span>
-            <span style={{ color: '#1e2d3d' }}>/</span>
-            <span className="text-xs font-medium" style={{ color: '#2dd4bf' }}>Dashboard</span>
-          </div>
-          <h1 className="text-xl font-bold tracking-tight" style={{ color: '#e2e8f0' }}>
-            Panel de Control Biomédico
-          </h1>
+          <div style={{fontSize:11,color:'#94A3B8',marginBottom:2}}>BioMed AI / Dashboard</div>
+          <h1 style={{fontSize:18,fontWeight:600,color:'#0F172A',margin:0}}>Vista general</h1>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
-          style={{ background: '#0d948815', border: '1px solid #0d948830', color: '#2dd4bf' }}>
-          <Activity className="w-4 h-4 animate-pulse" />
-          Sistema activo
+        <div style={{fontSize:11,color:'#64748B',background:'#F8F9FB',padding:'6px 12px',borderRadius:6,border:'0.5px solid #E2E8F0'}}>
+          {new Date().toLocaleDateString('es-CO',{month:'long',year:'numeric'})}
         </div>
       </div>
 
-      <div className="flex-1 px-8 py-6 space-y-6">
+      <div style={{flex:1,padding:'24px 28px',display:'flex',flexDirection:'column',gap:20}}>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-4 gap-4">
-          {kpis.map(k => (
-            <div key={k.label} className="rounded-xl p-5 relative overflow-hidden"
-              style={{ background: '#0d1626', border: `1px solid #1e2d3d` }}>
-              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: k.color, opacity: 0.5 }} />
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center"
-                  style={{ background: k.bg, border: `1px solid ${k.border}`, color: k.color }}>
-                  {k.icon}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
+          {[
+            {label:'Total equipos',      value:kpis?.total,         sub:'En inventario',               color:'#3B4FE8', icon:'ti-device-heart-monitor'},
+            {label:'Operativos',         value:kpis?.operativos,    sub:`${kpis?.disponibilidad}% disponibilidad`, color:'#16A34A', icon:'ti-check'},
+            {label:'Alto riesgo',        value:kpis?.altoRiesgo,    sub:'Requieren atención',           color:'#DC2626', icon:'ti-alert-triangle'},
+            {label:'Total mantenimientos',value:kpis?.totalMant,    sub:`${kpis?.correctivos} correctivos`, color:'#D97706', icon:'ti-tool'},
+          ].map(k=>(
+            <div key={k.label} style={{background:'#fff',borderRadius:10,border:'0.5px solid #E2E8F0',padding:'18px 20px'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                <span style={{fontSize:12,color:'#64748B'}}>{k.label}</span>
+                <div style={{width:32,height:32,borderRadius:8,background:k.color+'15',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <i className={`ti ${k.icon}`} style={{fontSize:16,color:k.color}}/>
                 </div>
-                {k.trend && <TrendingUp className="w-4 h-4" style={{ color: '#4ade80' }} />}
               </div>
-              {!stats.loaded
-                ? <div className="h-9 w-20 rounded animate-pulse mb-2" style={{ background: '#1e2d3d' }} />
-                : <div className="text-3xl font-bold mb-1" style={{ color: k.color }}>{k.value}</div>
+              {loading
+                ? <Skeleton w={60} h={28}/>
+                : <div style={{fontSize:28,fontWeight:600,color:'#0F172A',marginBottom:4}}>{k.value?.toLocaleString('es-CO')}</div>
               }
-              <div className="text-xs font-semibold mb-0.5" style={{ color: '#7a9bb5' }}>{k.label}</div>
-              <div className="text-xs" style={{ color: '#3d5166' }}>{k.sub}</div>
+              <div style={{fontSize:11,color:'#94A3B8'}}>{k.sub}</div>
             </div>
           ))}
         </div>
 
-        {/* Fila 2: Distribución riesgo + Equipos críticos */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Charts row */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
 
-          {/* Distribución por riesgo */}
-          <div className="rounded-xl p-5" style={{ background: '#0d1626', border: '1px solid #1e2d3d' }}>
-            <div className="text-sm font-bold mb-4" style={{ color: '#e2e8f0' }}>
-              Distribución por Riesgo
-            </div>
-            {[
-              { label: 'Alto', value: stats.alto, color: '#ef4444', bg: '#ef444420' },
-              { label: 'Medio', value: stats.medio, color: '#f59e0b', bg: '#f59e0b20' },
-              { label: 'Bajo', value: stats.bajo, color: '#10b981', bg: '#10b98120' },
-            ].map(r => {
-              const pct = stats.total > 0 ? (r.value / stats.total) * 100 : 0
-              return (
-                <div key={r.label} className="mb-3">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs font-medium" style={{ color: '#7a9bb5' }}>{r.label}</span>
-                    <span className="text-xs font-bold font-mono" style={{ color: r.color }}>
-                      {stats.loaded ? r.value : '—'}
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full" style={{ background: '#1e2d3d' }}>
-                    <div className="h-1.5 rounded-full transition-all duration-700"
-                      style={{ width: stats.loaded ? `${pct}%` : '0%', background: r.color }} />
+          {/* Por tipo */}
+          <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #E2E8F0',padding:'20px'}}>
+            <div style={{fontSize:13,fontWeight:600,color:'#0F172A',marginBottom:16}}>Mantenimientos por tipo</div>
+            {loading ? <Skeleton h={120}/> : (kpis?.porTipo||[]).map((t:any)=>(
+              <div key={t.label} style={{marginBottom:14}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
+                  <span style={{fontSize:12,color:'#475569'}}>{t.label}</span>
+                  <div style={{display:'flex',gap:10,fontSize:12}}>
+                    <span style={{fontWeight:500,color:'#0F172A'}}>{t.value}</span>
+                    <span style={{color:'#94A3B8'}}>{t.pct}%</span>
                   </div>
                 </div>
-              )
-            })}
-
-            <div className="mt-4 pt-4" style={{ borderTop: '1px solid #1e2d3d' }}>
-              <div className="text-xs mb-2" style={{ color: '#3d5166' }}>Disponibilidad general</div>
-              <div className="text-2xl font-bold" style={{ color: '#2dd4bf' }}>
-                {stats.loaded ? `${disponibilidad}%` : '—'}
+                <div style={{height:6,background:'#F1F5F9',borderRadius:3}}>
+                  <div style={{height:6,borderRadius:3,width:`${t.pct}%`,background:t.label==='Preventivo'?'#22C55E':t.label==='Correctivo'?'#EF4444':'#F59E0B'}}/>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
 
-          {/* Equipos críticos activos */}
-          <div className="col-span-2 rounded-xl overflow-hidden"
-            style={{ background: '#0d1626', border: '1px solid #1e2d3d' }}>
-            <div className="px-5 py-4 flex items-center justify-between"
-              style={{ borderBottom: '1px solid #1e2d3d' }}>
-              <div className="text-sm font-bold" style={{ color: '#e2e8f0' }}>
-                Equipos Críticos — Riesgo Alto
-              </div>
-              <Link href="/inventario"
-                className="text-xs font-medium transition-colors"
-                style={{ color: '#2dd4bf' }}>
-                Ver todos →
-              </Link>
-            </div>
-            <div className="divide-y" style={{ borderColor: '#1e2d3d' }}>
-              {!stats.loaded
-                ? Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="px-5 py-3 flex items-center gap-3">
-                    <div className="h-4 w-48 rounded animate-pulse" style={{ background: '#1e2d3d' }} />
-                    <div className="h-4 w-24 rounded animate-pulse ml-auto" style={{ background: '#1e2d3d' }} />
-                  </div>
-                ))
-                : topEquipos.map((e, i) => (
-                  <div key={i} className="px-5 py-3 flex items-center gap-3 hover:bg-slate-800/20 transition-colors">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#ef4444' }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate" style={{ color: '#e2e8f0' }}>{e.nombre}</div>
-                      <div className="text-xs" style={{ color: '#3d5166' }}>{e.marca || '—'}</div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-xs font-mono" style={{ color: '#4a6580' }}>{e.codigo_inventario}</div>
-                      <div className="text-xs" style={{ color: '#2dd4bf' }}>{e.servicio || '—'}</div>
-                    </div>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
-        </div>
-
-        {/* Fila 3: Equipos por servicio */}
-        <div className="rounded-xl overflow-hidden" style={{ background: '#0d1626', border: '1px solid #1e2d3d' }}>
-          <div className="px-5 py-4" style={{ borderBottom: '1px solid #1e2d3d' }}>
-            <div className="text-sm font-bold" style={{ color: '#e2e8f0' }}>Equipos por Servicio</div>
-          </div>
-          <div className="p-5 grid grid-cols-3 gap-3">
-            {!stats.loaded
-              ? Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-14 rounded-lg animate-pulse" style={{ background: '#1e2d3d' }} />
-              ))
-              : servicios.map(s => {
-                const pct = stats.total > 0 ? ((s.count / stats.total) * 100).toFixed(1) : '0'
+          {/* Por servicio */}
+          <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #E2E8F0',padding:'20px'}}>
+            <div style={{fontSize:13,fontWeight:600,color:'#0F172A',marginBottom:16}}>Disponibilidad por servicio</div>
+            <div style={{display:'flex',flexDirection:'column',gap:0}}>
+              {loading ? <Skeleton h={120}/> : (kpis?.porServicio||[]).map((s:any)=>{
+                const disp = Number(s.disponibilidad)
+                const color = disp>=90?'#22C55E':disp>=70?'#F59E0B':'#EF4444'
                 return (
-                  <div key={s.nombre} className="rounded-lg p-3"
-                    style={{ background: '#111827', border: '1px solid #1e2d3d' }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-xs font-medium truncate pr-2" style={{ color: '#7a9bb5' }}>{s.nombre}</div>
-                      <div className="text-sm font-bold flex-shrink-0" style={{ color: '#e2e8f0' }}>{s.count}</div>
+                  <div key={s.nombre} style={{padding:'8px 0',borderBottom:'0.5px solid #F1F5F9'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:500,color:'#334155'}}>{s.nombre}</div>
+                        <div style={{fontSize:11,color:'#94A3B8'}}>{s.total} equipos</div>
+                      </div>
+                      <span style={{fontSize:13,fontWeight:600,color}}>{s.disponibilidad}%</span>
                     </div>
-                    <div className="h-1 rounded-full" style={{ background: '#1e2d3d' }}>
-                      <div className="h-1 rounded-full" style={{ width: `${pct}%`, background: '#0d9488' }} />
+                    <div style={{height:3,background:'#F1F5F9',borderRadius:2}}>
+                      <div style={{height:3,borderRadius:2,width:`${s.disponibilidad}%`,background:color}}/>
                     </div>
                   </div>
                 )
-              })
-            }
+              })}
+            </div>
           </div>
         </div>
 
         {/* Quick actions */}
-        <div className="grid grid-cols-4 gap-3">
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10}}>
           {[
-            { href:'/inventario',    icon:<ClipboardList className="w-5 h-5"/>, label:'Ver Inventario',     color:'#2dd4bf' },
-            { href:'/mantenimiento', icon:<Wrench className="w-5 h-5"/>,        label:'Mantenimiento',      color:'#818cf8' },
-            { href:'/kpis',          icon:<BarChart3 className="w-5 h-5"/>,     label:'Ver KPIs',           color:'#fb923c' },
-            { href:'/chat',          icon:<Activity className="w-5 h-5"/>,      label:'Asistente IA',       color:'#34d399' },
-          ].map(a => (
-            <Link key={a.href} href={a.href}
-              className="flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium text-sm transition-all hover:scale-[1.02]"
-              style={{ background:'#0d1626', border:'1px solid #1e2d3d', color: a.color }}>
-              {a.icon}
-              {a.label}
+            {href:'/inventario',    icon:'ti-clipboard-list',  label:'Ver inventario',      color:'#3B4FE8'},
+            {href:'/mantenimiento', icon:'ti-tool',            label:'Cronograma',          color:'#7C3AED'},
+            {href:'/ordenes',       icon:'ti-clipboard-check', label:'Órdenes de trabajo',  color:'#0891B2'},
+            {href:'/prediccion',    icon:'ti-trending-up',     label:'Predicción',          color:'#D97706'},
+            {href:'/kpis',          icon:'ti-chart-bar',       label:'Ver KPIs',            color:'#16A34A'},
+          ].map(a=>(
+            <Link key={a.href} href={a.href} style={{
+              display:'flex',alignItems:'center',gap:10,
+              background:'#fff',borderRadius:10,border:'0.5px solid #E2E8F0',
+              padding:'14px 16px',textDecoration:'none',
+              transition:'all 0.15s',color:'#334155',
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor=a.color;e.currentTarget.style.background=a.color+'08'}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor='#E2E8F0';e.currentTarget.style.background='#fff'}}>
+              <div style={{width:32,height:32,borderRadius:8,background:a.color+'15',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <i className={`ti ${a.icon}`} style={{fontSize:16,color:a.color}}/>
+              </div>
+              <span style={{fontSize:12,fontWeight:500}}>{a.label}</span>
             </Link>
           ))}
         </div>
