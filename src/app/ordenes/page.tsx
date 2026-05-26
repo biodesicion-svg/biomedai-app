@@ -1,294 +1,167 @@
 'use client'
-
 import { useState, useEffect } from 'react'
-import { AlertTriangle, Download, User } from 'lucide-react'
 
 const MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-const riesgoColor: Record<string,string> = { alto:'#ef4444', medio:'#f59e0b', bajo:'#10b981' }
-const prioridadColor: Record<string,{bg:string;text:string;border:string}> = {
-  alta:  {bg:'#ef444415',text:'#f87171',border:'#ef444430'},
-  media: {bg:'#f59e0b15',text:'#fcd34d',border:'#f59e0b30'},
-  baja:  {bg:'#10b98115',text:'#4ade80',border:'#10b98130'},
+const tipoColor: Record<string,{bg:string;text:string}> = {
+  preventivo:  {bg:'#F0FDF4',text:'#16A34A'},
+  calibracion: {bg:'#FFFBEB',text:'#D97706'},
+  correctivo:  {bg:'#FEF2F2',text:'#DC2626'},
 }
-const tipoColor: Record<string,{bg:string;text:string;border:string}> = {
-  preventivo:  {bg:'#16a34a15',text:'#4ade80',border:'#16a34a30'},
-  calibracion: {bg:'#f59e0b15',text:'#fcd34d',border:'#f59e0b30'},
-  correctivo:  {bg:'#ef444415',text:'#f87171',border:'#ef444430'},
+const prioColor: Record<string,{bg:string;text:string}> = {
+  alta:  {bg:'#FEF2F2',text:'#DC2626'},
+  media: {bg:'#FFFBEB',text:'#D97706'},
+  baja:  {bg:'#F0FDF4',text:'#16A34A'},
 }
-const tecnicoColor = ['#2dd4bf','#818cf8','#fb923c']
+const tecColor = ['#3B4FE8','#7C3AED','#D97706']
 
-const COLUMNAS = [
-  { id:'pendiente',   label:'Pendientes',  dot:'#94a3b8' },
-  { id:'en_proceso',  label:'En Proceso',  dot:'#fcd34d' },
-  { id:'en_revision', label:'En Revisión', dot:'#a78bfa' },
-  { id:'completado',  label:'Finalizadas', dot:'#4ade80' },
+const COLS = [
+  {id:'pendiente',   label:'Pendientes',   dot:'#94A3B8'},
+  {id:'en_proceso',  label:'En proceso',   dot:'#F59E0B'},
+  {id:'en_revision', label:'En revisión',  dot:'#7C3AED'},
+  {id:'completado',  label:'Finalizadas',  dot:'#22C55E'},
 ]
 
 export default function OrdenesPage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [mesSel, setMesSel] = useState(new Date().getMonth() + 1)
-  const [tecnicoFiltro, setTecnicoFiltro] = useState('todos')
+  const [mesSel, setMesSel] = useState(new Date().getMonth()+1)
+  const [tecFiltro, setTecFiltro] = useState('todos')
   const [ordenes, setOrdenes] = useState<any[]>([])
 
-  useEffect(() => {
-    fetch('/api/mantenimientos')
-      .then(r => r.json())
-      .then(d => {
-        if (d.error) { setError(d.error); setLoading(false); return }
-        setData(d)
-        setOrdenes(generarOrdenes(d, new Date().getMonth() + 1))
-        setLoading(false)
-      })
-      .catch(e => { setError(e.message); setLoading(false) })
-  }, [])
+  useEffect(()=>{
+    fetch('/api/mantenimientos').then(r=>r.json()).then(d=>{ setData(d); setOrdenes(genOrdenes(d,new Date().getMonth()+1)); setLoading(false) }).catch(()=>setLoading(false))
+  },[])
 
-  function generarOrdenes(d: any, mes: number) {
-    const items = d?.cronogramaMensual?.[mes] || []
-    let counter = 1
-    return items.flatMap((item: any) =>
-      (item.asignaciones || []).map((asig: any, idx: number) => ({
-        id: `OT-${String(mes).padStart(2,'0')}-${String(counter++).padStart(3,'0')}`,
-        equipo: item.nombre,
-        tipo: item.tipo,
-        tecnico: asig.tecnico,
-        cantidad: asig.cantidad,
-        horas: asig.horas,
-        columna: 'pendiente',
-        prioridad: item.riesgo==='alto'?'alta':item.riesgo==='medio'?'media':'baja',
-        riesgo: item.riesgo,
-        progreso: 0,
-      }))
-    ).sort((a:any,b:any)=>{const p:any={alta:0,media:1,baja:2};return p[a.prioridad]-p[b.prioridad]})
+  function genOrdenes(d:any, mes:number) {
+    const items=d?.cronogramaMensual?.[mes]||[]
+    let c=1
+    return items.flatMap((item:any)=>(item.asignaciones||[]).map((asig:any)=>({
+      id:`OT-${String(mes).padStart(2,'0')}-${String(c++).padStart(3,'0')}`,
+      equipo:item.nombre, tipo:item.tipo, tecnico:asig.tecnico,
+      cantidad:asig.cantidad, horas:asig.horas, columna:'pendiente',
+      prioridad:item.riesgo==='alto'?'alta':item.riesgo==='medio'?'media':'baja',
+      riesgo:item.riesgo, progreso:0,
+    }))).sort((a:any,b:any)=>({alta:0,media:1,baja:2}[a.prioridad]-{alta:0,media:1,baja:2}[b.prioridad]))
   }
 
-  function cambiarMes(mes: number) {
+  function cambiarMes(mes:number) {
     setMesSel(mes)
-    if (data) setOrdenes(generarOrdenes(data, mes))
+    if(data) setOrdenes(genOrdenes(data,mes))
   }
 
-  function moverOrden(id: string, col: string) {
-    setOrdenes(prev => prev.map(o =>
-      o.id===id ? {...o, columna:col, progreso:col==='completado'?100:col==='en_revision'?75:col==='en_proceso'?35:0} : o
-    ))
+  function mover(id:string, col:string) {
+    setOrdenes(p=>p.map(o=>o.id===id?{...o,columna:col,progreso:col==='completado'?100:col==='en_revision'?75:col==='en_proceso'?35:0}:o))
   }
 
-  const ordenesFiltradas = ordenes.filter(o => tecnicoFiltro==='todos' || o.tecnico===tecnicoFiltro)
-
-  if (error) return (
-    <div className="flex items-center justify-center min-h-screen" style={{background:'#080e16'}}>
-      <div className="p-8 rounded-xl" style={{background:'#0d1626',border:'1px solid #ef444430'}}>
-        <p className="text-sm" style={{color:'#f87171'}}>{error}</p>
-      </div>
-    </div>
-  )
+  const filtradas=ordenes.filter(o=>tecFiltro==='todos'||o.tecnico===tecFiltro)
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{background:'#080e16'}}>
+    <div style={{display:'flex',height:'100vh',overflow:'hidden',background:'#fff'}}>
 
-      {/* Sidebar meses */}
-      <div className="w-48 flex-shrink-0 flex flex-col overflow-y-auto"
-        style={{background:'#0a1120',borderRight:'1px solid #1e2d3d'}}>
-        <div className="px-4 py-4" style={{borderBottom:'1px solid #1e2d3d'}}>
-          <div className="text-xs font-bold uppercase tracking-wider" style={{color:'#3d5166'}}>Mes</div>
-          <div className="text-sm font-bold mt-0.5" style={{color:'#e2e8f0'}}>2025</div>
+      {/* Sidebar */}
+      <div style={{width:200,flexShrink:0,background:'#fff',borderRight:'0.5px solid #E4E4E7',display:'flex',flexDirection:'column'}}>
+        <div style={{padding:'16px',borderBottom:'0.5px solid #E4E4E7'}}>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI</div>
+          <div style={{fontSize:14,fontWeight:600,color:'#18181B'}}>Órdenes de trabajo</div>
         </div>
-        <div className="px-3 py-3 flex-1">
-          {MESES_LARGO.map((mes,i) => {
-            const numMes = i+1
-            const resumen = data?.resumenAnual?.[i]
-            const esActual = numMes === new Date().getMonth()+1
-            const isSelected = mesSel === numMes
-            const ocupColor = resumen?.ocupacion>80?'#ef4444':resumen?.ocupacion>50?'#f59e0b':'#10b981'
+        <div style={{padding:'10px',flex:1,overflowY:'auto'}}>
+          <div style={{fontSize:10,fontWeight:500,color:'#A1A1AA',padding:'4px 8px',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>Mes</div>
+          {MESES_LARGO.map((mes,i)=>{
+            const numMes=i+1
+            const r=data?.resumenAnual?.[i]
+            const isSel=mesSel===numMes
+            const esActual=numMes===new Date().getMonth()+1
+            const ocColor=r?.ocupacion>80?'#DC2626':r?.ocupacion>50?'#D97706':'#16A34A'
             return (
-              <button key={mes} onClick={()=>cambiarMes(numMes)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg mb-0.5 transition-all"
-                style={{
-                  background: isSelected?'#0d948820':'transparent',
-                  border: isSelected?'1px solid #0d948840':'1px solid transparent',
-                }}>
-                <div className="flex items-center gap-1.5">
-                  {esActual && <div className="w-1.5 h-1.5 rounded-full" style={{background:'#2dd4bf'}}/>}
-                  <span className="text-xs" style={{
-                    color: isSelected?'#2dd4bf':'#7a9bb5',
-                    fontWeight: isSelected?700:400,
-                  }}>{MESES_CORTO[i]}</span>
+              <button key={mes} onClick={()=>cambiarMes(numMes)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',borderRadius:6,border:'none',cursor:'pointer',background:isSel?'#EEF2FF':'transparent',marginBottom:1}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  {esActual&&<div style={{width:5,height:5,borderRadius:'50%',background:'#3B4FE8',flexShrink:0}}/>}
+                  <span style={{fontSize:12,fontWeight:isSel?500:400,color:isSel?'#3B4FE8':'#52525B'}}>{mes.substring(0,3)}</span>
                 </div>
-                {resumen && (
-                  <span className="text-xs font-mono" style={{color:ocupColor}}>{resumen.ocupacion}%</span>
-                )}
+                {r&&<span style={{fontSize:10,fontWeight:500,color:ocColor}}>{r.ocupacion}%</span>}
               </button>
             )
           })}
         </div>
-        {/* Stats */}
-        <div className="px-4 py-4 space-y-2" style={{borderTop:'1px solid #1e2d3d'}}>
-          <div className="flex justify-between text-xs">
-            <span style={{color:'#3d5166'}}>Total órdenes</span>
-            <span className="font-bold" style={{color:'#e2e8f0'}}>{ordenes.length}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span style={{color:'#3d5166'}}>Completadas</span>
-            <span className="font-bold" style={{color:'#4ade80'}}>{ordenes.filter(o=>o.columna==='completado').length}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span style={{color:'#3d5166'}}>Pendientes</span>
-            <span className="font-bold" style={{color:'#94a3b8'}}>{ordenes.filter(o=>o.columna==='pendiente').length}</span>
-          </div>
+        <div style={{padding:'12px 14px',borderTop:'0.5px solid #E4E4E7'}}>
+          {[{l:'Total',v:ordenes.length,c:'#18181B'},{l:'Completadas',v:ordenes.filter(o=>o.columna==='completado').length,c:'#22C55E'},{l:'Pendientes',v:ordenes.filter(o=>o.columna==='pendiente').length,c:'#94A3B8'}].map(s=>(
+            <div key={s.l} style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+              <span style={{fontSize:11,color:'#A1A1AA'}}>{s.l}</span>
+              <span style={{fontSize:11,fontWeight:500,color:s.c}}>{s.v}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
-        <div className="px-6 py-4 flex items-center justify-between flex-shrink-0"
-          style={{borderBottom:'1px solid #1e2d3d',background:'#0a1120'}}>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs" style={{color:'#3d5166'}}>BioMed AI</span>
-              <span style={{color:'#1e2d3d'}}>/</span>
-              <span className="text-xs font-medium" style={{color:'#2dd4bf'}}>Órdenes de Trabajo</span>
-            </div>
-            <h1 className="text-lg font-bold" style={{color:'#e2e8f0'}}>
-              Kanban — {MESES_LARGO[mesSel-1]} 2025
-            </h1>
+            <h1 style={{fontSize:16,fontWeight:600,color:'#18181B',margin:0}}>Kanban — {MESES_LARGO[mesSel-1]} 2025</h1>
+            <div style={{fontSize:11,color:'#A1A1AA',marginTop:2}}>{ordenes.length} órdenes · {ordenes.filter(o=>o.columna==='completado').length} completadas</div>
           </div>
-          <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
-            style={{background:'#1e2d3d',color:'#7a9bb5',border:'1px solid #253447'}}>
-            <Download className="w-3.5 h-3.5"/> Exportar
-          </button>
-        </div>
-
-        {/* Filtro técnico */}
-        <div className="px-6 py-3 flex items-center gap-3 flex-shrink-0"
-          style={{borderBottom:'1px solid #1e2d3d'}}>
-          <span className="text-xs" style={{color:'#3d5166'}}>Técnico:</span>
-          <div className="flex gap-1.5">
+          <div style={{display:'flex',gap:6}}>
             {['todos',...(data?.tecnicos||['Biomédico 1','Biomédico 2','Biomédico 3'])].map((tec:string,i:number)=>(
-              <button key={tec} onClick={()=>setTecnicoFiltro(tec)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={{
-                  background: tecnicoFiltro===tec?(i===0?'#1e2d3d':tecnicoColor[(i-1)%3]+'25'):'transparent',
-                  color: tecnicoFiltro===tec?(i===0?'#e2e8f0':tecnicoColor[(i-1)%3]):'#3d5166',
-                  border: `1px solid ${tecnicoFiltro===tec?(i===0?'#334155':tecnicoColor[(i-1)%3]+'40'):'#1e2d3d'}`,
-                }}>
-                {tec==='todos'?'👥 Todos':tec}
+              <button key={tec} onClick={()=>setTecFiltro(tec)} style={{padding:'5px 12px',borderRadius:20,border:`0.5px solid ${tecFiltro===tec?(i===0?'#18181B':tecColor[(i-1)%3]):'#E4E4E7'}`,background:tecFiltro===tec?(i===0?'#18181B':tecColor[(i-1)%3]+'15'):'#fff',color:tecFiltro===tec?(i===0?'#fff':tecColor[(i-1)%3]):'#71717A',fontSize:11,fontWeight:500,cursor:'pointer'}}>
+                {tec==='todos'?'Todos':tec}
               </button>
             ))}
           </div>
-          <div className="ml-auto flex items-center gap-4">
-            {COLUMNAS.map(col=>{
-              const count = ordenesFiltradas.filter(o=>o.columna===col.id).length
-              return (
-                <div key={col.id} className="flex items-center gap-1.5 text-xs">
-                  <div className="w-2 h-2 rounded-full" style={{background:col.dot}}/>
-                  <span style={{color:'#3d5166'}}>{col.label}:</span>
-                  <span className="font-bold" style={{color:'#e2e8f0'}}>{count}</span>
-                </div>
-              )
-            })}
-          </div>
         </div>
 
-        {/* Kanban Board */}
-        <div className="flex-1 overflow-x-auto p-4">
-          <div className="flex gap-4 h-full" style={{minWidth:'960px'}}>
-            {COLUMNAS.map(col=>{
-              const colOrdenes = ordenesFiltradas.filter(o=>o.columna===col.id)
-              const sigCol = COLUMNAS[COLUMNAS.findIndex(c=>c.id===col.id)+1]
-              const antCol = COLUMNAS[COLUMNAS.findIndex(c=>c.id===col.id)-1]
+        <div style={{flex:1,overflowX:'auto',padding:'16px 24px'}}>
+          <div style={{display:'flex',gap:14,height:'100%',minWidth:900}}>
+            {COLS.map(col=>{
+              const colOrd=filtradas.filter(o=>o.columna===col.id)
+              const sigCol=COLS[COLS.findIndex(c=>c.id===col.id)+1]
+              const antCol=COLS[COLS.findIndex(c=>c.id===col.id)-1]
               return (
-                <div key={col.id} className="flex flex-col rounded-xl overflow-hidden"
-                  style={{width:'calc(25% - 12px)',minWidth:'220px',background:'#0d1626',border:'1px solid #1e2d3d',flexShrink:0}}>
-                  {/* Header */}
-                  <div className="px-4 py-3 flex items-center justify-between flex-shrink-0"
-                    style={{borderBottom:'1px solid #1e2d3d',background:'#111827'}}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{background:col.dot}}/>
-                      <span className="text-xs font-bold" style={{color:'#e2e8f0'}}>{col.label}</span>
+                <div key={col.id} style={{width:'calc(25% - 10px)',minWidth:220,flexShrink:0,display:'flex',flexDirection:'column',background:'#F8F9FA',borderRadius:12,border:'0.5px solid #E4E4E7',overflow:'hidden'}}>
+                  <div style={{padding:'12px 14px',borderBottom:'0.5px solid #E4E4E7',display:'flex',alignItems:'center',justifyContent:'space-between',background:'#fff'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{width:8,height:8,borderRadius:'50%',background:col.dot}}/>
+                      <span style={{fontSize:12,fontWeight:600,color:'#18181B'}}>{col.label}</span>
                     </div>
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{background:col.dot+'20',color:col.dot}}>
-                      {colOrdenes.length}
-                    </div>
+                    <div style={{width:20,height:20,borderRadius:'50%',background:col.dot+'20',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:600,color:col.dot}}>{colOrd.length}</div>
                   </div>
-
-                  {/* Cards */}
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {loading ? (
-                      Array.from({length:3}).map((_,i)=>(
-                        <div key={i} className="h-32 rounded-lg animate-pulse" style={{background:'#1e2d3d'}}/>
-                      ))
-                    ) : colOrdenes.length===0 ? (
-                      <div className="py-10 text-center">
-                        <div className="text-xs" style={{color:'#253447'}}>Sin órdenes</div>
-                      </div>
-                    ) : colOrdenes.map((o:any)=>{
-                      const pc = prioridadColor[o.prioridad]||prioridadColor.baja
-                      const tc2 = tipoColor[o.tipo]||tipoColor.preventivo
-                      const tIdx = (data?.tecnicos||[]).indexOf(o.tecnico)
-                      const tCol = tecnicoColor[tIdx>=0?tIdx:0]
+                  <div style={{flex:1,overflowY:'auto',padding:'10px 10px'}}>
+                    {loading?Array.from({length:2}).map((_,i)=>(
+                      <div key={i} style={{height:120,background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',marginBottom:8}}/>
+                    )):colOrd.length===0?(
+                      <div style={{padding:'24px',textAlign:'center',fontSize:11,color:'#D4D4D8'}}>Sin órdenes</div>
+                    ):colOrd.map((o:any)=>{
+                      const pc=prioColor[o.prioridad]||prioColor.baja
+                      const tc2=tipoColor[o.tipo]||tipoColor.preventivo
+                      const tIdx=(data?.tecnicos||[]).indexOf(o.tecnico)
+                      const tCol=tecColor[tIdx>=0?tIdx:0]
                       return (
-                        <div key={o.id} className="rounded-lg p-3 transition-all"
-                          style={{background:'#1a2436',border:'1px solid #253447',cursor:'pointer'}} onClick={()=>{ sessionStorage.setItem(`orden-${o.id}`, JSON.stringify({...o, marca:'', modelo:'', servicio:''})); window.location.href=`/ordenes/${o.id}`; }}>
-                          {/* Header card */}
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-mono text-xs" style={{color:'#4a6580'}}>{o.id}</span>
-                            <span className="text-xs px-1.5 py-0.5 rounded font-semibold capitalize"
-                              style={{background:pc.bg,color:pc.text,border:`1px solid ${pc.border}`}}>
-                              {o.prioridad}
-                            </span>
+                        <div key={o.id} style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',padding:'12px',marginBottom:8,cursor:'pointer',transition:'all 0.15s'}}
+                          onMouseEnter={e=>e.currentTarget.style.borderColor='#3B4FE8'}
+                          onMouseLeave={e=>e.currentTarget.style.borderColor='#E4E4E7'}>
+                          <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                            <span style={{fontSize:10,fontFamily:'monospace',color:'#A1A1AA'}}>{o.id}</span>
+                            <span style={{fontSize:10,padding:'2px 6px',borderRadius:20,background:pc.bg,color:pc.text,fontWeight:500}}>{o.prioridad}</span>
                           </div>
-                          {/* Equipo */}
-                          <div className="flex items-start gap-1.5 mb-2">
-                            <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0"
-                              style={{background:riesgoColor[o.riesgo]}}/>
-                            <span className="text-xs font-semibold" style={{color:'#e2e8f0',lineHeight:'1.4'}}>
-                              {o.equipo}
-                            </span>
+                          <div style={{display:'flex',alignItems:'flex-start',gap:6,marginBottom:8}}>
+                            <div style={{width:5,height:5,borderRadius:'50%',background:o.riesgo==='alto'?'#DC2626':o.riesgo==='medio'?'#D97706':'#16A34A',marginTop:5,flexShrink:0}}/>
+                            <span style={{fontSize:12,fontWeight:500,color:'#18181B',lineHeight:1.4}}>{o.equipo}</span>
                           </div>
-                          {/* Tipo */}
-                          <span className="text-xs px-1.5 py-0.5 rounded capitalize inline-block mb-2"
-                            style={{background:tc2.bg,color:tc2.text,border:`1px solid ${tc2.border}`}}>
-                            {o.tipo}
-                          </span>
-                          {/* Técnico + cantidad */}
-                          <div className="flex items-center justify-between pt-2 mb-2"
-                            style={{borderTop:'1px solid #253447'}}>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
-                                style={{background:tCol+'20',color:tCol}}>
-                                {o.tecnico.slice(-1)}
-                              </div>
-                              <span className="text-xs" style={{color:'#4a6580'}}>{o.tecnico.replace('Biomédico ','B')}</span>
+                          <span style={{fontSize:10,padding:'2px 6px',borderRadius:20,background:tc2.bg,color:tc2.text,display:'inline-block',marginBottom:8,textTransform:'capitalize'}}>{o.tipo}</span>
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',paddingTop:8,borderTop:'0.5px solid #F4F4F5',marginBottom:8}}>
+                            <div style={{display:'flex',alignItems:'center',gap:6}}>
+                              <div style={{width:20,height:20,borderRadius:'50%',background:tCol+'20',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:600,color:tCol}}>{o.tecnico.slice(-1)}</div>
+                              <span style={{fontSize:10,color:'#71717A'}}>{o.tecnico.replace('Biomédico ','B')}</span>
                             </div>
-                            <span className="text-xs" style={{color:'#4a6580'}}>{o.cantidad}eq · {o.horas}h</span>
+                            <span style={{fontSize:10,color:'#A1A1AA'}}>{o.cantidad}eq · {o.horas}h</span>
                           </div>
-                          {/* Progreso */}
-                          <div className="h-1 rounded-full mb-2" style={{background:'#253447'}}>
-                            <div className="h-1 rounded-full transition-all"
-                              style={{width:`${o.progreso}%`,background:col.dot}}/>
+                          <div style={{height:3,background:'#F4F4F5',borderRadius:2,marginBottom:8}}>
+                            <div style={{height:3,borderRadius:2,width:`${o.progreso}%`,background:col.dot}}/>
                           </div>
-                          <div className="text-xs mb-2" style={{color:'#3d5166'}}>{o.progreso}% completado</div>
-                          {/* Botones */}
-                          <div className="flex gap-1">
-                            {antCol && (
-                              <button onClick={()=>moverOrden(o.id,antCol.id)}
-                                className="flex-1 py-1.5 rounded text-xs transition-all"
-                                style={{background:'#253447',color:'#4a6580',border:'1px solid #334155'}}>
-                                ← Atrás
-                              </button>
-                            )}
-                            {sigCol && (
-                              <button onClick={()=>moverOrden(o.id,sigCol.id)}
-                                className="flex-1 py-1.5 rounded text-xs font-semibold transition-all"
-                                style={{background:col.dot+'20',color:col.dot,border:`1px solid ${col.dot}35`}}>
-                                {sigCol.label} →
-                              </button>
-                            )}
+                          <div style={{display:'flex',gap:4}}>
+                            {antCol&&<button onClick={()=>mover(o.id,antCol.id)} style={{flex:1,padding:'4px',borderRadius:5,border:'0.5px solid #E4E4E7',background:'#fff',color:'#71717A',fontSize:10,cursor:'pointer'}}>← Atrás</button>}
+                            {sigCol&&<button onClick={()=>mover(o.id,sigCol.id)} style={{flex:1,padding:'4px',borderRadius:5,border:'none',background:col.dot+'15',color:col.dot,fontSize:10,fontWeight:500,cursor:'pointer'}}>{sigCol.label} →</button>}
                           </div>
                         </div>
                       )
@@ -303,6 +176,3 @@ export default function OrdenesPage() {
     </div>
   )
 }
-
-// Agregar esta función antes del return en OrdenesPage
-// Ya está incluida en el componente actualizado

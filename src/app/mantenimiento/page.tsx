@@ -1,345 +1,207 @@
 'use client'
-
 import { useState, useEffect } from 'react'
-import { Calendar, Clock, Wrench, AlertTriangle, CheckCircle, Download, User, BarChart3 } from 'lucide-react'
 
 const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 const MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
-const riesgoColor: Record<string,string> = { alto:'#ef4444', medio:'#f59e0b', bajo:'#10b981' }
-const prioridadColor: Record<string,{bg:string;text:string;border:string}> = {
-  alta:  {bg:'#ef444415',text:'#f87171',border:'#ef444430'},
-  media: {bg:'#f59e0b15',text:'#fcd34d',border:'#f59e0b30'},
-  baja:  {bg:'#10b98115',text:'#4ade80',border:'#10b98130'},
+const tipoColor: Record<string,{bg:string;text:string}> = {
+  preventivo:  {bg:'#F0FDF4',text:'#16A34A'},
+  calibracion: {bg:'#FFFBEB',text:'#D97706'},
+  correctivo:  {bg:'#FEF2F2',text:'#DC2626'},
 }
-const tipoColor: Record<string,{bg:string;text:string;border:string}> = {
-  preventivo:  {bg:'#16a34a15',text:'#4ade80',border:'#16a34a30'},
-  calibracion: {bg:'#f59e0b15',text:'#fcd34d',border:'#f59e0b30'},
-  correctivo:  {bg:'#ef444415',text:'#f87171',border:'#ef444430'},
-}
-const tecnicoColor = ['#2dd4bf','#818cf8','#fb923c']
+const tecColor = ['#3B4FE8','#7C3AED','#D97706']
 
 export default function MantenimientoPage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [seccion, setSeccion] = useState<'cronograma'|'asignacion'|'ordenes'>('cronograma')
-  const [mesSeleccionado, setMesSeleccionado] = useState(new Date().getMonth() + 1)
-  const [tecnicoFiltro, setTecnicoFiltro] = useState('todos')
+  const [seccion, setSeccion] = useState<'cronograma'|'asignacion'>('cronograma')
+  const [mesSel, setMesSel] = useState(new Date().getMonth()+1)
 
-  useEffect(() => {
-    fetch('/api/mantenimientos')
-      .then(r => r.json())
-      .then(d => { if(d.error) setError(d.error); else setData(d); setLoading(false) })
-      .catch(e => { setError(e.message); setLoading(false) })
-  }, [])
+  useEffect(()=>{
+    fetch('/api/mantenimientos').then(r=>r.json()).then(d=>{ setData(d); setLoading(false) }).catch(()=>setLoading(false))
+  },[])
 
-  const mesItems = data?.cronogramaMensual?.[mesSeleccionado] || []
+  const mesItems = data?.cronogramaMensual?.[mesSel]||[]
   const horasMes = mesItems.reduce((a:number,b:any)=>a+b.horasTotales,0)
   const equiposMes = mesItems.reduce((a:number,b:any)=>a+b.cantidad,0)
-  const resumenMes = data?.resumenAnual?.[mesSeleccionado-1]
-
-  const ordenesFiltradas = (data?.ordenesProximas || []).filter((o:any) =>
-    tecnicoFiltro === 'todos' || o.tecnico === tecnicoFiltro
-  )
-
-  if (error) return (
-    <div className="flex items-center justify-center min-h-screen" style={{background:'#080e16'}}>
-      <div className="p-8 rounded-xl text-center" style={{background:'#0d1626',border:'1px solid #ef444430'}}>
-        <AlertTriangle className="w-8 h-8 mx-auto mb-3" style={{color:'#f87171'}}/>
-        <p className="text-sm" style={{color:'#f87171'}}>{error}</p>
-      </div>
-    </div>
-  )
+  const resumenMes = data?.resumenAnual?.[mesSel-1]
 
   return (
-    <div className="flex flex-col min-h-screen" style={{background:'#080e16'}}>
+    <div style={{display:'flex',height:'100vh',overflow:'hidden',background:'#fff'}}>
 
-      {/* Topbar */}
-      <div className="px-8 py-5 flex items-center justify-between"
-        style={{borderBottom:'1px solid #1e2d3d',background:'#0a1120'}}>
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs" style={{color:'#3d5166'}}>BioMed AI</span>
-            <span style={{color:'#1e2d3d'}}>/</span>
-            <span className="text-xs font-medium" style={{color:'#2dd4bf'}}>Mantenimiento</span>
-          </div>
-          <h1 className="text-xl font-bold" style={{color:'#e2e8f0'}}>Gestión de Mantenimiento Preventivo 2025</h1>
-        </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-          style={{background:'#1e2d3d',color:'#7a9bb5',border:'1px solid #253447'}}>
-          <Download className="w-4 h-4"/> Exportar
-        </button>
-      </div>
-
-      <div className="flex-1 px-8 py-6 space-y-5 overflow-auto">
-
-        {/* Stats */}
-        <div className="grid grid-cols-5 gap-3">
-          {[
-            {label:'Equipos operativos', value:data?.stats?.totalEquipos,  color:'#e2e8f0'},
-            {label:'Cada 6 meses',       value:data?.stats?.cada6meses,    color:'#f87171'},
-            {label:'Cada 12 meses',      value:data?.stats?.cada12meses,   color:'#4ade80'},
-            {label:'Intervenciones/año', value:data?.stats?.totalInterv,   color:'#2dd4bf'},
-            {label:'Horas técnico/año',  value:data?.stats?.horasTotalesAno, color:'#fb923c'},
-          ].map(s => (
-            <div key={s.label} className="rounded-xl p-4" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              {loading
-                ? <div className="h-7 w-14 rounded animate-pulse mb-1" style={{background:'#1e2d3d'}}/>
-                : <div className="text-2xl font-bold mb-0.5" style={{color:s.color}}>{s.value?.toLocaleString()}</div>
-              }
-              <div className="text-xs" style={{color:'#3d5166'}}>{s.label}</div>
-            </div>
-          ))}
+      {/* Sidebar meses */}
+      <div style={{width:220,flexShrink:0,background:'#fff',borderRight:'0.5px solid #E4E4E7',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{padding:'16px',borderBottom:'0.5px solid #E4E4E7'}}>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI / Mantenimiento</div>
+          <div style={{fontSize:14,fontWeight:600,color:'#18181B'}}>2025</div>
         </div>
 
-        {/* Secciones */}
-        <div className="flex items-center gap-1 p-1 rounded-lg w-fit"
-          style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-          {[
-            {id:'cronograma', label:'📅 Cronograma General'},
-            {id:'asignacion', label:'👷 Por Técnico'},
-            {id:'ordenes',    label:'📋 Órdenes de Trabajo'},
-          ].map(t => (
-            <button key={t.id} onClick={()=>setSeccion(t.id as any)}
-              className="px-4 py-2 rounded-md text-xs font-semibold transition-all"
-              style={{
-                background: seccion===t.id?'#1e2d3d':'transparent',
-                color: seccion===t.id?'#e2e8f0':'#3d5166',
-              }}>
-              {t.label}
+        {/* Tabs */}
+        <div style={{padding:'10px 10px 0',display:'flex',flexDirection:'column',gap:2}}>
+          {[{id:'cronograma',icon:'ti-calendar',l:'Cronograma'},{id:'asignacion',icon:'ti-users',l:'Por técnico'}].map(s=>(
+            <button key={s.id} onClick={()=>setSeccion(s.id as any)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:6,border:'none',cursor:'pointer',background:seccion===s.id?'#EEF2FF':'transparent',color:seccion===s.id?'#3B4FE8':'#71717A',fontSize:12,fontWeight:seccion===s.id?500:400,textAlign:'left'}}>
+              <i className={'ti '+s.icon} style={{fontSize:14}}/>{s.l}
             </button>
           ))}
         </div>
 
-        {/* ── SECCIÓN 1: CRONOGRAMA GENERAL ── */}
-        {seccion === 'cronograma' && (
-          <div className="space-y-4">
-            {/* Resumen anual por mes */}
-            <div className="rounded-xl overflow-hidden" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="px-5 py-4" style={{borderBottom:'1px solid #1e2d3d'}}>
-                <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>Carga de Trabajo — Vista Anual 2025</div>
-                <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>Capacidad: {data?.stats?.capacidadMensual}h/mes · 3 técnicos × 8h × 22 días</div>
+        <div style={{padding:'10px',flex:1,overflowY:'auto'}}>
+          <div style={{fontSize:10,fontWeight:500,color:'#A1A1AA',padding:'4px 8px',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.06em'}}>Meses</div>
+          {MESES_LARGO.map((mes,i)=>{
+            const numMes=i+1
+            const r=data?.resumenAnual?.[i]
+            const esActual=numMes===new Date().getMonth()+1
+            const isSel=mesSel===numMes
+            const ocColor=r?.ocupacion>80?'#DC2626':r?.ocupacion>50?'#D97706':'#16A34A'
+            return (
+              <button key={mes} onClick={()=>setMesSel(numMes)} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 10px',borderRadius:6,border:'none',cursor:'pointer',background:isSel?'#EEF2FF':'transparent',marginBottom:1}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  {esActual&&<div style={{width:5,height:5,borderRadius:'50%',background:'#3B4FE8',flexShrink:0}}/>}
+                  <span style={{fontSize:12,fontWeight:isSel?500:400,color:isSel?'#3B4FE8':'#52525B'}}>{mes.substring(0,3)}</span>
+                </div>
+                {r&&<span style={{fontSize:10,fontWeight:500,color:ocColor}}>{r.ocupacion}%</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        <div style={{padding:'12px 14px',borderTop:'0.5px solid #E4E4E7'}}>
+          {[{l:'Total equipos',v:data?.stats?.totalEquipos,c:'#18181B'},{l:'Intervenciones/año',v:data?.stats?.totalInterv?.toLocaleString(),c:'#3B4FE8'},{l:'Horas/año',v:data?.stats?.horasTotalesAno?.toLocaleString(),c:'#D97706'}].map(s=>(
+            <div key={s.l} style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+              <span style={{fontSize:11,color:'#A1A1AA'}}>{s.l}</span>
+              <span style={{fontSize:11,fontWeight:500,color:s.c}}>{s.v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Main */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+          <div>
+            <h1 style={{fontSize:16,fontWeight:600,color:'#18181B',margin:0}}>
+              {seccion==='cronograma'?`Cronograma — ${MESES_LARGO[mesSel-1]} 2025`:`Asignación por técnico — ${MESES_LARGO[mesSel-1]} 2025`}
+            </h1>
+            <div style={{fontSize:11,color:'#A1A1AA',marginTop:2}}>
+              {equiposMes} equipos · {horasMes}h · ocupación {resumenMes?.ocupacion||0}%
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            {['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'].map((m,i)=>{
+              const r=data?.resumenAnual?.[i]
+              const c=r?.ocupacion>80?'#DC2626':r?.ocupacion>50?'#D97706':'#16A34A'
+              return (
+                <button key={m} onClick={()=>setMesSel(i+1)} style={{padding:'3px 6px',borderRadius:4,border:`0.5px solid ${mesSel===i+1?'#3B4FE8':'#E4E4E7'}`,background:mesSel===i+1?'#EEF2FF':'#fff',color:mesSel===i+1?'#3B4FE8':'#71717A',fontSize:10,cursor:'pointer',fontWeight:mesSel===i+1?500:400}}>
+                  {m}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div style={{flex:1,overflowY:'auto',padding:'20px 24px'}}>
+
+          {/* CRONOGRAMA */}
+          {seccion==='cronograma'&&(
+            loading?(
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {Array.from({length:5}).map((_,i)=>(
+                  <div key={i} style={{height:80,background:'#F8F9FA',borderRadius:10,border:'0.5px solid #E4E4E7'}}/>
+                ))}
               </div>
-              <div className="p-4 grid grid-cols-12 gap-2">
-                {(data?.resumenAnual || Array.from({length:12},(_,i)=>({mes:i+1,nombre:MESES_LARGO[i],totalEquipos:0,totalHoras:0,ocupacion:0,items:0}))).map((r:any) => {
-                  const esActual = r.mes === new Date().getMonth()+1
-                  const color = r.ocupacion > 80 ? '#ef4444' : r.ocupacion > 50 ? '#f59e0b' : '#10b981'
+            ):mesItems.length===0?(
+              <div style={{textAlign:'center',padding:'60px 20px',color:'#A1A1AA'}}>
+                <i className="ti ti-calendar-off" style={{fontSize:40,display:'block',marginBottom:12}}/>
+                <p style={{fontSize:14,margin:0}}>Sin mantenimientos este mes</p>
+              </div>
+            ):(
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {mesItems.sort((a:any,b:any)=>{const o:any={alto:0,medio:1,bajo:2};return o[a.riesgo]-o[b.riesgo]}).map((item:any,i:number)=>{
+                  const tc=tipoColor[item.tipo]||tipoColor.preventivo
                   return (
-                    <button key={r.mes}
-                      onClick={()=>setMesSeleccionado(r.mes)}
-                      className="rounded-lg p-3 transition-all text-left"
-                      style={{
-                        background: mesSeleccionado===r.mes ? '#1e2d3d' : '#111827',
-                        border: mesSeleccionado===r.mes ? '1px solid #2dd4bf' : '1px solid #1e2d3d',
-                      }}>
-                      <div className="text-xs font-bold mb-2" style={{color: esActual?'#2dd4bf':'#7a9bb5'}}>
-                        {MESES_CORTO[r.mes-1]}
-                        {esActual && <span className="ml-1 text-xs" style={{color:'#2dd4bf'}}>●</span>}
+                    <div key={i} style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',padding:'14px 18px'}}>
+                      <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                        <div style={{width:8,height:8,borderRadius:'50%',background:item.riesgo==='alto'?'#DC2626':item.riesgo==='medio'?'#D97706':'#16A34A',marginTop:6,flexShrink:0}}/>
+                        <div style={{flex:1}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                            <span style={{fontSize:13,fontWeight:500,color:'#18181B'}}>{item.nombre}</span>
+                            <span style={{fontSize:11,padding:'2px 8px',borderRadius:20,background:tc.bg,color:tc.text,fontWeight:500,textTransform:'capitalize'}}>{item.tipo}</span>
+                            <span style={{fontSize:11,color:'#A1A1AA'}}>{item.frecuencia}</span>
+                          </div>
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                            {item.asignaciones?.map((asig:any,j:number)=>(
+                              <div key={j} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:6,background:'#F8F9FA',border:'0.5px solid #E4E4E7',fontSize:11}}>
+                                <div style={{width:6,height:6,borderRadius:'50%',background:tecColor[j%3]}}/>
+                                <span style={{color:'#71717A'}}>{asig.tecnico}:</span>
+                                <span style={{fontWeight:500,color:'#18181B'}}>{asig.cantidad} eq.</span>
+                                <span style={{color:tecColor[j%3]}}>{asig.horas}h</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{textAlign:'right',flexShrink:0}}>
+                          <div style={{fontSize:18,fontWeight:600,color:'#18181B'}}>{item.cantidad}</div>
+                          <div style={{fontSize:11,color:'#A1A1AA'}}>equipos</div>
+                          <div style={{fontSize:13,fontWeight:600,color:'#3B4FE8',marginTop:2}}>{item.horasTotales}h</div>
+                        </div>
                       </div>
-                      <div className="h-1.5 rounded-full mb-2" style={{background:'#1e2d3d'}}>
-                        <div className="h-1.5 rounded-full transition-all"
-                          style={{width:`${Math.min(r.ocupacion,100)}%`, background:color}}/>
-                      </div>
-                      <div className="text-xs font-bold" style={{color}}>{r.ocupacion}%</div>
-                      <div className="text-xs" style={{color:'#3d5166'}}>{r.totalEquipos} equip.</div>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
-            </div>
+            )
+          )}
 
-            {/* Detalle del mes seleccionado */}
-            <div className="rounded-xl overflow-hidden" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="px-5 py-4 flex items-center justify-between" style={{borderBottom:'1px solid #1e2d3d'}}>
-                <div>
-                  <div className="text-base font-bold" style={{color:'#e2e8f0'}}>
-                    {MESES_LARGO[mesSeleccionado-1]} 2025
-                  </div>
-                  <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>
-                    {equiposMes} equipos · {horasMes} horas · {mesItems.length} tipos
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="text-right">
-                    <div className="text-xs" style={{color:'#3d5166'}}>Ocupación</div>
-                    <div className="text-xl font-bold" style={{color: resumenMes?.ocupacion>80?'#f87171':resumenMes?.ocupacion>50?'#fcd34d':'#4ade80'}}>
-                      {loading ? '—' : `${resumenMes?.ocupacion||0}%`}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs" style={{color:'#3d5166'}}>Intervenciones</div>
-                    <div className="text-xl font-bold" style={{color:'#2dd4bf'}}>{loading?'—':equiposMes}</div>
-                  </div>
-                </div>
-              </div>
-              {loading ? (
-                <div className="p-5 space-y-3">
-                  {Array.from({length:5}).map((_,i)=>(
-                    <div key={i} className="h-16 rounded animate-pulse" style={{background:'#1e2d3d'}}/>
-                  ))}
-                </div>
-              ) : mesItems.length === 0 ? (
-                <div className="py-12 text-center" style={{color:'#3d5166'}}>
-                  <Calendar className="w-8 h-8 mx-auto mb-3 opacity-30"/>
-                  <p className="text-sm">No hay mantenimientos en este mes</p>
-                </div>
-              ) : (
-                <div className="divide-y" style={{borderColor:'#1e2d3d'}}>
-                  {mesItems
-                    .sort((a:any,b:any)=>{const o:any={alto:0,medio:1,bajo:2};return o[a.riesgo]-o[b.riesgo]})
-                    .map((item:any,i:number) => {
-                      const tc = tipoColor[item.tipo]||tipoColor.preventivo
-                      return (
-                        <div key={i} className="px-5 py-4">
-                          <div className="flex items-start gap-4">
-                            <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                              style={{background:riesgoColor[item.riesgo]}}/>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <span className="text-sm font-semibold" style={{color:'#e2e8f0'}}>{item.nombre}</span>
-                                <span className="text-xs font-semibold px-2 py-0.5 rounded capitalize"
-                                  style={{background:tc.bg,color:tc.text,border:`1px solid ${tc.border}`}}>
-                                  {item.tipo}
-                                </span>
-                                <span className="text-xs" style={{color:'#3d5166'}}>{item.frecuencia}</span>
-                              </div>
-                              {/* Distribución por técnico */}
-                              <div className="flex gap-3 flex-wrap">
-                                {item.asignaciones?.map((asig:any,j:number) => (
-                                  <div key={j} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-                                    style={{background:'#111827',border:'1px solid #1e2d3d'}}>
-                                    <div className="w-1.5 h-1.5 rounded-full" style={{background:tecnicoColor[j]}}/>
-                                    <span style={{color:'#7a9bb5'}}>{asig.tecnico}:</span>
-                                    <span className="font-bold" style={{color:'#e2e8f0'}}>{asig.cantidad} equipos</span>
-                                    <span style={{color:'#3d5166'}}>·</span>
-                                    <span style={{color:tecnicoColor[j]}}>{asig.horas}h</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>{item.cantidad}</div>
-                              <div className="text-xs" style={{color:'#3d5166'}}>equipos</div>
-                              <div className="text-sm font-bold mt-1" style={{color:'#2dd4bf'}}>{item.horasTotales}h</div>
-                            </div>
-                          </div>
-                          {item.diasNecesarios > 7 && (
-                            <div className="mt-2 ml-6 flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg w-fit"
-                              style={{background:'#f59e0b10',border:'1px solid #f59e0b20',color:'#fcd34d'}}>
-                              <Clock className="w-3.5 h-3.5"/>
-                              Distribuido en ~{item.diasNecesarios} días hábiles por técnico
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── SECCIÓN 2: POR TÉCNICO ── */}
-        {seccion === 'asignacion' && (
-          <div className="space-y-4">
-            {/* Selector mes */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium" style={{color:'#3d5166'}}>Mes:</span>
-              <div className="flex gap-1">
-                {MESES_CORTO.map((m,i) => (
-                  <button key={m} onClick={()=>setMesSeleccionado(i+1)}
-                    className="px-3 py-1.5 rounded text-xs font-medium transition-all"
-                    style={{
-                      background: mesSeleccionado===i+1?'#0d9488':'#0d1626',
-                      color: mesSeleccionado===i+1?'#fff':'#3d5166',
-                      border: `1px solid ${mesSeleccionado===i+1?'#0d9488':'#1e2d3d'}`,
-                    }}>
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Cards por técnico */}
-            <div className="grid grid-cols-3 gap-4">
-              {(data?.tecnicos || ['Biomédico 1','Biomédico 2','Biomédico 3']).map((tec:string, ti:number) => {
-                const tareasDelTecnico = mesItems.flatMap((item:any) =>
-                  (item.asignaciones||[])
-                    .filter((a:any) => a.tecnico === tec)
-                    .map((a:any) => ({...a, nombre:item.nombre, tipo:item.tipo, riesgo:item.riesgo, frecuencia:item.frecuencia}))
-                )
-                const totalHoras = tareasDelTecnico.reduce((a:number,b:any)=>a+b.horas,0)
-                const totalEquipos = tareasDelTecnico.reduce((a:number,b:any)=>a+b.cantidad,0)
-                const ocupacion = Math.round((totalHoras / (8*22)) * 100)
-                const color = tecnicoColor[ti]
-
+          {/* POR TÉCNICO */}
+          {seccion==='asignacion'&&(
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+              {(data?.tecnicos||['Biomédico 1','Biomédico 2','Biomédico 3']).map((tec:string,ti:number)=>{
+                const tareas=mesItems.flatMap((item:any)=>(item.asignaciones||[]).filter((a:any)=>a.tecnico===tec).map((a:any)=>({...a,nombre:item.nombre,tipo:item.tipo,riesgo:item.riesgo})))
+                const totalH=tareas.reduce((a:number,b:any)=>a+b.horas,0)
+                const totalE=tareas.reduce((a:number,b:any)=>a+b.cantidad,0)
+                const oc=Math.round((totalH/(8*22))*100)
+                const tc=tecColor[ti]
                 return (
-                  <div key={tec} className="rounded-xl overflow-hidden"
-                    style={{background:'#0d1626',border:`1px solid ${color}30`}}>
-                    <div className="px-4 py-4" style={{borderBottom:'1px solid #1e2d3d'}}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center"
-                          style={{background:color+'20',border:`1px solid ${color}40`}}>
-                          <User className="w-4 h-4" style={{color}}/>
+                  <div key={tec} style={{background:'#fff',borderRadius:12,border:'0.5px solid #E4E4E7',overflow:'hidden'}}>
+                    <div style={{padding:'16px 18px',borderBottom:'0.5px solid #F4F4F5'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+                        <div style={{width:38,height:38,borderRadius:'50%',background:tc+'15',border:`1px solid ${tc}30`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          <i className="ti ti-user" style={{fontSize:18,color:tc}}/>
                         </div>
                         <div>
-                          <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>{tec}</div>
-                          <div className="text-xs" style={{color:'#3d5166'}}>{MESES_LARGO[mesSeleccionado-1]} 2025</div>
+                          <div style={{fontSize:13,fontWeight:600,color:'#18181B'}}>{tec}</div>
+                          <div style={{fontSize:11,color:'#A1A1AA'}}>{MESES_LARGO[mesSel-1]}</div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 mb-3">
-                        <div className="rounded-lg p-2 text-center" style={{background:'#111827'}}>
-                          <div className="text-lg font-bold" style={{color}}>{totalEquipos}</div>
-                          <div className="text-xs" style={{color:'#3d5166'}}>equipos</div>
-                        </div>
-                        <div className="rounded-lg p-2 text-center" style={{background:'#111827'}}>
-                          <div className="text-lg font-bold" style={{color:'#e2e8f0'}}>{totalHoras}h</div>
-                          <div className="text-xs" style={{color:'#3d5166'}}>horas</div>
-                        </div>
-                        <div className="rounded-lg p-2 text-center" style={{background:'#111827'}}>
-                          <div className="text-lg font-bold" style={{
-                            color: ocupacion>80?'#f87171':ocupacion>50?'#fcd34d':'#4ade80'
-                          }}>{ocupacion}%</div>
-                          <div className="text-xs" style={{color:'#3d5166'}}>carga</div>
-                        </div>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:12}}>
+                        {[{l:'Equipos',v:totalE,c:tc},{l:'Horas',v:`${totalH}h`,c:'#18181B'},{l:'Carga',v:`${oc}%`,c:oc>80?'#DC2626':oc>50?'#D97706':'#16A34A'}].map(s=>(
+                          <div key={s.l} style={{background:'#F8F9FA',borderRadius:8,padding:'8px',textAlign:'center'}}>
+                            <div style={{fontSize:18,fontWeight:600,color:s.c}}>{s.v}</div>
+                            <div style={{fontSize:10,color:'#A1A1AA'}}>{s.l}</div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="h-1.5 rounded-full" style={{background:'#1e2d3d'}}>
-                        <div className="h-1.5 rounded-full transition-all"
-                          style={{width:`${Math.min(ocupacion,100)}%`,background:color}}/>
+                      <div style={{height:4,background:'#F4F4F5',borderRadius:2}}>
+                        <div style={{height:4,borderRadius:2,width:`${Math.min(oc,100)}%`,background:tc}}/>
                       </div>
                     </div>
-                    <div className="divide-y max-h-80 overflow-y-auto" style={{borderColor:'#1e2d3d'}}>
-                      {loading ? (
-                        Array.from({length:3}).map((_,i)=>(
-                          <div key={i} className="px-4 py-3 animate-pulse">
-                            <div className="h-3 w-40 rounded" style={{background:'#1e2d3d'}}/>
-                          </div>
-                        ))
-                      ) : tareasDelTecnico.length === 0 ? (
-                        <div className="px-4 py-6 text-center text-xs" style={{color:'#3d5166'}}>
-                          Sin asignaciones este mes
-                        </div>
-                      ) : tareasDelTecnico.map((tarea:any,i:number)=>{
-                        const tc2 = tipoColor[tarea.tipo]||tipoColor.preventivo
+                    <div style={{maxHeight:300,overflowY:'auto'}}>
+                      {loading?Array.from({length:3}).map((_,i)=><div key={i} style={{padding:'10px 16px'}}><div style={{height:14,background:'#F4F4F5',borderRadius:3}}/></div>):
+                      tareas.length===0?<div style={{padding:'24px',textAlign:'center',fontSize:12,color:'#A1A1AA'}}>Sin asignaciones este mes</div>:
+                      tareas.map((t:any,i:number)=>{
+                        const tc2=tipoColor[t.tipo]||tipoColor.preventivo
                         return (
-                          <div key={i} className="px-4 py-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                    style={{background:riesgoColor[tarea.riesgo]}}/>
-                                  <span className="text-xs font-medium truncate" style={{color:'#e2e8f0'}}>{tarea.nombre}</span>
-                                </div>
-                                <span className="text-xs px-1.5 py-0.5 rounded capitalize"
-                                  style={{background:tc2.bg,color:tc2.text,border:`1px solid ${tc2.border}`}}>
-                                  {tarea.tipo}
-                                </span>
+                          <div key={i} style={{padding:'10px 16px',borderBottom:'0.5px solid #F8F9FA',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                            <div>
+                              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+                                <div style={{width:5,height:5,borderRadius:'50%',background:t.riesgo==='alto'?'#DC2626':t.riesgo==='medio'?'#D97706':'#16A34A'}}/>
+                                <span style={{fontSize:12,fontWeight:500,color:'#18181B'}}>{t.nombre}</span>
                               </div>
-                              <div className="text-right flex-shrink-0">
-                                <div className="text-xs font-bold" style={{color:'#e2e8f0'}}>{tarea.cantidad} eq.</div>
-                                <div className="text-xs" style={{color}}>{tarea.horas}h</div>
-                              </div>
+                              <span style={{fontSize:10,padding:'2px 6px',borderRadius:20,background:tc2.bg,color:tc2.text}}>{t.tipo}</span>
+                            </div>
+                            <div style={{textAlign:'right'}}>
+                              <div style={{fontSize:12,fontWeight:500,color:'#18181B'}}>{t.cantidad} eq.</div>
+                              <div style={{fontSize:11,color:tecColor[ti]}}>{t.horas}h</div>
                             </div>
                           </div>
                         )
@@ -349,118 +211,9 @@ export default function MantenimientoPage() {
                 )
               })}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ── SECCIÓN 3: ÓRDENES DE TRABAJO ── */}
-        {seccion === 'ordenes' && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>
-                Órdenes del mes actual — {MESES_LARGO[new Date().getMonth()]}
-              </div>
-              <div className="flex items-center gap-1 p-1 rounded-lg ml-auto"
-                style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                {['todos',...(data?.tecnicos||[])].map((tec:string) => (
-                  <button key={tec} onClick={()=>setTecnicoFiltro(tec)}
-                    className="px-3 py-1.5 rounded text-xs font-medium transition-all"
-                    style={{
-                      background: tecnicoFiltro===tec?'#1e2d3d':'transparent',
-                      color: tecnicoFiltro===tec?'#e2e8f0':'#3d5166',
-                    }}>
-                    {tec === 'todos' ? 'Todos' : tec}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-xl overflow-hidden" style={{border:'1px solid #1e2d3d'}}>
-              <table className="w-full">
-                <thead>
-                  <tr style={{background:'#0d1626',borderBottom:'1px solid #1e2d3d'}}>
-                    {['ID Orden','Equipo','Tipo','Prioridad','Técnico Asignado','Equipos','Horas Est.','Estado'].map(h=>(
-                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider"
-                        style={{color:'#3d5166'}}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    Array.from({length:6}).map((_,i)=>(
-                      <tr key={i} style={{borderBottom:'1px solid #1e2d3d'}}>
-                        {Array.from({length:8}).map((_,j)=>(
-                          <td key={j} className="px-4 py-3">
-                            <div className="h-4 rounded animate-pulse" style={{background:'#1e2d3d',width:j===0?'120px':'80px'}}/>
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  ) : ordenesFiltradas.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="px-4 py-12 text-center text-sm" style={{color:'#3d5166'}}>
-                        No hay órdenes para este filtro
-                      </td>
-                    </tr>
-                  ) : ordenesFiltradas.map((o:any,i:number)=>{
-                    const pc = prioridadColor[o.prioridad]||prioridadColor.baja
-                    const tc = tipoColor[o.tipo]||tipoColor.preventivo
-                    const tIdx = (data?.tecnicos||[]).indexOf(o.tecnico)
-                    return (
-                      <tr key={i} style={{
-                        background:i%2===0?'#080e16':'#0a1120',
-                        borderBottom:'1px solid #1e2d3d'
-                      }}>
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-xs" style={{color:'#4a6580'}}>{o.id}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{background:riesgoColor[o.riesgo]}}/>
-                            <span className="text-sm font-medium" style={{color:'#e2e8f0'}}>{o.equipo}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded capitalize"
-                            style={{background:tc.bg,color:tc.text,border:`1px solid ${tc.border}`}}>
-                            {o.tipo}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded capitalize"
-                            style={{background:pc.bg,color:pc.text,border:`1px solid ${pc.border}`}}>
-                            {o.prioridad}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full"
-                              style={{background:tecnicoColor[tIdx>=0?tIdx:0]}}/>
-                            <span className="text-sm" style={{color:'#7a9bb5'}}>{o.tecnico}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold" style={{color:'#e2e8f0'}}>{o.cantidad}</td>
-                        <td className="px-4 py-3 text-sm font-bold" style={{color:'#2dd4bf'}}>{o.horas}h</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5 text-xs font-medium" style={{color:'#7a9bb5'}}>
-                            <div className="w-1.5 h-1.5 rounded-full" style={{background:'#7a9bb5'}}/>
-                            Programado
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              <div className="px-5 py-3 flex items-center justify-between" style={{borderTop:'1px solid #1e2d3d'}}>
-                <span className="text-xs" style={{color:'#3d5166'}}>
-                  {ordenesFiltradas.length} órdenes · {ordenesFiltradas.reduce((a:number,b:any)=>a+b.cantidad,0)} equipos
-                </span>
-                <span className="text-xs font-mono" style={{color:'#253447'}}>Res. 4816/2008</span>
-              </div>
-            </div>
-          </div>
-        )}
-
+        </div>
       </div>
     </div>
   )
