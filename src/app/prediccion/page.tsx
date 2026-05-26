@@ -1,99 +1,76 @@
 'use client'
-
 import { useState, useEffect } from 'react'
-import { TrendingUp, AlertTriangle, Activity, Package, Search, ChevronRight, ChevronDown, Clock, Calendar, Users } from 'lucide-react'
-
-const alertaColor: Record<string,{bg:string;text:string;border:string;label:string}> = {
-  critico: {bg:'#ef444415',text:'#f87171',border:'#ef444430',label:'Crítico'},
-  alto:    {bg:'#f59e0b15',text:'#fcd34d',border:'#f59e0b30',label:'Alto'},
-  medio:   {bg:'#818cf815',text:'#818cf8',border:'#818cf830',label:'Medio'},
-  bajo:    {bg:'#10b98115',text:'#4ade80',border:'#10b98130',label:'Bajo'},
-}
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-function GaugeRing({ score, size=100 }: {score:number;size?:number}) {
-  const color = score>=70?'#ef4444':score>=45?'#f59e0b':score>=25?'#818cf8':'#10b981'
-  const r=size*0.4, circ=2*Math.PI*r, dash=(score/100)*circ
-  return (
-    <div className="relative flex items-center justify-center" style={{width:size,height:size}}>
-      <svg width={size} height={size} style={{transform:'rotate(-90deg)'}}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1e2d3d" strokeWidth={size*0.1}/>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={size*0.1}
-          strokeDasharray={`${dash} ${circ-dash}`} strokeLinecap="round"/>
-      </svg>
-      <div className="absolute text-center">
-        <div className="font-black" style={{color, fontSize:size*0.2}}>{score}</div>
-        <div style={{fontSize:size*0.09, color:'#3d5166'}}>RIESGO</div>
-      </div>
-    </div>
-  )
+const alertaStyle: Record<string,{bg:string;text:string;border:string;label:string}> = {
+  critico: {bg:'#FEF2F2',text:'#DC2626',border:'#FECACA',label:'Crítico'},
+  alto:    {bg:'#FFFBEB',text:'#D97706',border:'#FDE68A',label:'Alto'},
+  medio:   {bg:'#EEF2FF',text:'#3B4FE8',border:'#C7D2FE',label:'Medio'},
+  bajo:    {bg:'#F0FDF4',text:'#16A34A',border:'#BBF7D0',label:'Bajo'},
 }
 
-function LineCompareChart({ actual, prediccion, labels, height=160 }: any) {
-  const max = Math.max(...actual, ...prediccion, 1)
-  const w=600, h=height, padX=30, padY=20
-  function getPath(data: number[]) {
-    return data.map((v,i)=>{
-      const x=padX+(i/(data.length-1))*(w-padX*2)
-      const y=padY+((max-v)/max)*(h-padY*2)
-      return `${i===0?'M':'L'} ${x} ${y}`
-    }).join(' ')
-  }
-  return (
-    <div>
-      <svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%',height}}>
-        {[0,25,50,75,100].map(pct=>{
-          const y=padY+((100-pct)/100)*(h-padY*2)
-          return <g key={pct}>
-            <line x1={padX} y1={y} x2={w-padX} y2={y} stroke="#1e2d3d" strokeWidth={1}/>
-            <text x={padX-5} y={y+4} fontSize={8} fill="#3d5166" textAnchor="end">{Math.round((pct/100)*max)}</text>
-          </g>
-        })}
-        <path d={`${getPath(prediccion)} L ${padX+((prediccion.length-1)/(prediccion.length-1))*(w-padX*2)} ${h-padY} L ${padX} ${h-padY} Z`} fill="#818cf820"/>
-        <path d={getPath(prediccion)} fill="none" stroke="#818cf8" strokeWidth={2.5} strokeDasharray="6,3" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d={getPath(actual)} fill="none" stroke="#f87171" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/>
-        {actual.map((v:number,i:number)=>{
-          const x=padX+(i/(actual.length-1))*(w-padX*2)
-          const y=padY+((max-v)/max)*(h-padY*2)
-          return <circle key={i} cx={x} cy={y} r={3.5} fill="#f87171" stroke="#080e16" strokeWidth={1.5}/>
-        })}
-        {prediccion.map((v:number,i:number)=>{
-          const x=padX+(i/(prediccion.length-1))*(w-padX*2)
-          const y=padY+((max-v)/max)*(h-padY*2)
-          return <circle key={i} cx={x} cy={y} r={3.5} fill="#818cf8" stroke="#080e16" strokeWidth={1.5}/>
-        })}
-        {labels.map((label:string,i:number)=>{
-          const x=padX+(i/(labels.length-1))*(w-padX*2)
-          return <text key={i} x={x} y={h-2} fontSize={9} fill="#3d5166" textAnchor="middle">{label}</text>
-        })}
-      </svg>
-      <div className="flex items-center gap-6 mt-2">
-        <div className="flex items-center gap-2"><div className="w-6 h-0.5" style={{background:'#f87171'}}/><span className="text-xs" style={{color:'#3d5166'}}>Fallas actuales 2025</span></div>
-        <div className="flex items-center gap-2"><div className="w-6 h-0.5 border-t-2 border-dashed" style={{borderColor:'#818cf8'}}/><span className="text-xs" style={{color:'#3d5166'}}>Predicción 2026</span></div>
-      </div>
-    </div>
-  )
-}
-
-function DoubleBarChart({ actual, prediccion, labels, height=140 }: any) {
+function BarChart({ actual, prediccion, labels, height=130 }: any) {
   const max = Math.max(...actual, ...prediccion, 1)
   return (
     <div>
-      <div className="flex items-end gap-1.5" style={{height}}>
-        {labels.map((label:string,i:number)=>(
-          <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-            <div className="w-full flex items-end gap-0.5" style={{height:height-18}}>
-              <div className="flex-1 rounded-t-sm" style={{height:`${(actual[i]/max)*100}%`,background:'#f87171',opacity:0.8,minHeight:actual[i]>0?'3px':'0'}}/>
-              <div className="flex-1 rounded-t-sm" style={{height:`${(prediccion[i]/max)*100}%`,background:'#818cf8',opacity:0.8,minHeight:prediccion[i]>0?'3px':'0'}}/>
+      <div style={{display:'flex',alignItems:'flex-end',gap:3,height}}>
+        {labels.map((l:string,i:number)=>(
+          <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
+            <div style={{width:'100%',display:'flex',alignItems:'flex-end',gap:1,height:height-16}}>
+              <div style={{flex:1,borderRadius:'3px 3px 0 0',background:'#EF4444',opacity:0.8,height:`${(actual[i]/max)*100}%`,minHeight:actual[i]>0?3:0}}/>
+              <div style={{flex:1,borderRadius:'3px 3px 0 0',background:'#3B4FE8',opacity:0.6,height:`${(prediccion[i]/max)*100}%`,minHeight:prediccion[i]>0?3:0}}/>
             </div>
-            <div style={{fontSize:'9px',color:'#3d5166',textAlign:'center'}}>{label}</div>
+            <div style={{fontSize:9,color:'#A1A1AA'}}>{l}</div>
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-4 mt-3">
-        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background:'#f87171'}}/><span className="text-xs" style={{color:'#3d5166'}}>2025 actual</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm" style={{background:'#818cf8'}}/><span className="text-xs" style={{color:'#3d5166'}}>2026 predicción</span></div>
+      <div style={{display:'flex',gap:12,marginTop:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'#71717A'}}><div style={{width:10,height:10,borderRadius:2,background:'#EF4444',opacity:0.8}}/> 2025 actual</div>
+        <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'#71717A'}}><div style={{width:10,height:10,borderRadius:2,background:'#3B4FE8',opacity:0.6}}/> 2026 predicción</div>
+      </div>
+    </div>
+  )
+}
+
+function LineChart({ actual, prediccion, labels, height=130 }: any) {
+  const max = Math.max(...actual, ...prediccion, 1)
+  const w=560, h=height, px=24, py=12
+  const path = (d:number[]) => d.map((v,i)=>`${i===0?'M':'L'} ${px+(i/(d.length-1))*(w-px*2)} ${py+((max-v)/max)*(h-py*2)}`).join(' ')
+  return (
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%',height}}>
+        {[0,25,50,75,100].map(p=>{
+          const y=py+((100-p)/100)*(h-py*2)
+          return <g key={p}><line x1={px} y1={y} x2={w-px} y2={y} stroke="#F4F4F5" strokeWidth={1}/><text x={px-3} y={y+3} fontSize={8} fill="#D4D4D8" textAnchor="end">{Math.round((p/100)*max)}</text></g>
+        })}
+        <path d={`${path(prediccion)} L ${px+((prediccion.length-1)/(prediccion.length-1))*(w-px*2)} ${h-py} L ${px} ${h-py} Z`} fill="#3B4FE808"/>
+        <path d={path(prediccion)} fill="none" stroke="#3B4FE8" strokeWidth={2} strokeDasharray="5,3" strokeLinecap="round"/>
+        <path d={path(actual)} fill="none" stroke="#EF4444" strokeWidth={2} strokeLinecap="round"/>
+        {actual.map((v:number,i:number)=>{ const x=px+(i/(actual.length-1))*(w-px*2),y=py+((max-v)/max)*(h-py*2); return <circle key={i} cx={x} cy={y} r={3} fill="#EF4444" stroke="#fff" strokeWidth={1.5}/> })}
+        {prediccion.map((v:number,i:number)=>{ const x=px+(i/(prediccion.length-1))*(w-px*2),y=py+((max-v)/max)*(h-py*2); return <circle key={i} cx={x} cy={y} r={3} fill="#3B4FE8" stroke="#fff" strokeWidth={1.5}/> })}
+        {labels.map((l:string,i:number)=>{ const x=px+(i/(labels.length-1))*(w-px*2); return <text key={i} x={x} y={h-1} fontSize={8} fill="#A1A1AA" textAnchor="middle">{l}</text> })}
+      </svg>
+      <div style={{display:'flex',gap:12,marginTop:6}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#71717A'}}><div style={{width:14,height:2,background:'#EF4444',borderRadius:1}}/> Fallas 2025</div>
+        <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#71717A'}}><div style={{width:14,height:2,background:'#3B4FE8',borderRadius:1,borderTop:'2px dashed #3B4FE8'}}/> Predicción 2026</div>
+      </div>
+    </div>
+  )
+}
+
+function ScoreRing({ score }: { score:number }) {
+  const color = score>=70?'#DC2626':score>=45?'#D97706':score>=25?'#3B4FE8':'#16A34A'
+  const r=36, c=2*Math.PI*r, d=(score/100)*c
+  return (
+    <div style={{position:'relative',width:90,height:90,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+      <svg width={90} height={90} style={{transform:'rotate(-90deg)',position:'absolute'}}>
+        <circle cx={45} cy={45} r={r} fill="none" stroke="#F4F4F5" strokeWidth={8}/>
+        <circle cx={45} cy={45} r={r} fill="none" stroke={color} strokeWidth={8} strokeDasharray={`${d} ${c-d}`} strokeLinecap="round"/>
+      </svg>
+      <div style={{textAlign:'center'}}>
+        <div style={{fontSize:18,fontWeight:700,color,lineHeight:1}}>{score}</div>
+        <div style={{fontSize:8,color:'#A1A1AA',textTransform:'uppercase',letterSpacing:'0.05em'}}>riesgo</div>
       </div>
     </div>
   )
@@ -104,476 +81,186 @@ export default function PrediccionPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'general'|'equipos'|'servicios'|'repuestos'>('general')
   const [search, setSearch] = useState('')
-  const [equipoSel, setEquipoSel] = useState<any>(null)
-  const [serviciosAbiertos, setServiciosAbiertos] = useState<Record<string,boolean>>({})
+  const [eqSel, setEqSel] = useState<any>(null)
+  const [svcAbiertos, setSvcAbiertos] = useState<Record<string,boolean>>({})
 
-  useEffect(()=>{
-    fetch('/api/prediccion').then(r=>r.json()).then(d=>{setData(d);setLoading(false)}).catch(()=>setLoading(false))
-  },[])
+  useEffect(()=>{ fetch('/api/prediccion').then(r=>r.json()).then(d=>{ setData(d); setLoading(false) }).catch(()=>setLoading(false)) },[])
 
-  const corrActual    = data?.tendencia?.correctivos || Array(12).fill(0)
-  const prevActual    = data?.tendencia?.preventivos || Array(12).fill(0)
-  const corrPrediccion = corrActual.map((v:number)=>Math.round(v*1.18+1))
-  const prevPrediccion = prevActual.map((v:number)=>Math.round(v*1.35+2))
-  const totalCorrActual = corrActual.reduce((a:number,b:number)=>a+b,0)
-  const totalCorrPred   = corrPrediccion.reduce((a:number,b:number)=>a+b,0)
+  const corrActual = data?.tendencia?.correctivos||Array(12).fill(0)
+  const corrPred   = corrActual.map((v:number)=>Math.round(v*1.18+1))
+  const totalCA    = corrActual.reduce((a:number,b:number)=>a+b,0)
+  const totalCP    = corrPred.reduce((a:number,b:number)=>a+b,0)
 
-  // Agrupar equipos por servicio
-  const equiposPorServicio: Record<string,any[]> = {}
-  const equiposFiltrados = (data?.equipoRiesgo||[]).filter((e:any)=>
-    !search || e.nombre.toLowerCase().includes(search.toLowerCase()) || e.servicio?.toLowerCase().includes(search.toLowerCase())
-  )
-  equiposFiltrados.forEach((e:any)=>{
-    const svc = e.servicio || 'Sin servicio'
-    if (!equiposPorServicio[svc]) equiposPorServicio[svc]=[]
-    equiposPorServicio[svc].push(e)
-  })
-  const serviciosOrdenados = Object.entries(equiposPorServicio)
-    .sort(([,a],[,b])=>Math.max(...b.map((e:any)=>e.score))-Math.max(...a.map((e:any)=>e.score)))
+  const eqFiltrados = (data?.equipoRiesgo||[]).filter((e:any)=>!search||e.nombre.toLowerCase().includes(search.toLowerCase())||e.servicio?.toLowerCase().includes(search.toLowerCase()))
+  const porServicio: Record<string,any[]> = {}
+  eqFiltrados.forEach((e:any)=>{ const s=e.servicio||'Sin servicio'; if(!porServicio[s]) porServicio[s]=[]; porServicio[s].push(e) })
+  const svcOrdenados = Object.entries(porServicio).sort(([,a],[,b])=>Math.max(...b.map((e:any)=>e.score))-Math.max(...a.map((e:any)=>e.score)))
 
-  function toggleServicio(svc:string){
-    setServiciosAbiertos(prev=>({...prev,[svc]:!prev[svc]}))
-  }
-
-  // Detalle del equipo seleccionado
-  function DetalleEquipo({e}: {e:any}) {
-    const ac = alertaColor[e.alerta]
-    const pctVida = e.pctVida
-    const vidaRestante = e.vidaUtil ? e.vidaUtil - e.edadAnios : null
-    const color = e.score>=70?'#ef4444':e.score>=45?'#f59e0b':e.score>=25?'#818cf8':'#10b981'
-
-    // Similares del mismo servicio
-    const similares = (data?.equipoRiesgo||[])
-      .filter((eq:any)=>eq.servicio===e.servicio && eq.id!==e.id)
-      .slice(0,3)
-
-    // Próximos mantenimientos (simulados basados en frecuencia)
-    const hoy = new Date()
-    const proximos = [
-      {tipo:'Preventivo', fecha: new Date(hoy.getTime()+30*24*3600000).toLocaleDateString('es-CO',{month:'short',day:'numeric'}), dias:30, color:'#4ade80'},
-      {tipo:'Calibración', fecha: new Date(hoy.getTime()+90*24*3600000).toLocaleDateString('es-CO',{month:'short',day:'numeric'}), dias:90, color:'#fcd34d'},
-      {tipo:'Preventivo', fecha: new Date(hoy.getTime()+180*24*3600000).toLocaleDateString('es-CO',{month:'short',day:'numeric'}), dias:180, color:'#4ade80'},
-      {tipo:'Correctivo est.', fecha: e.fechaFalla, dias:e.diasParaFalla, color:'#f87171'},
-    ].sort((a,b)=>a.dias-b.dias)
-
-    // Datos para gráfica mensual del equipo
-    const eqCorr = MESES.map((_,i)=> i < 6 ? Math.max(0,Math.round((e.correctivos/Math.max(6,1))*1)) : 0)
-    const eqPred = eqCorr.map((v:number)=>Math.round(v*1.3+0.3))
-
-    return (
-      <div className="overflow-y-auto" style={{maxHeight:'78vh'}}>
-        {/* Header */}
-        <div className="px-5 py-4 sticky top-0 z-10" style={{background:'#0d1626', borderBottom:'1px solid #1e2d3d'}}>
-          <div className="flex items-center gap-3">
-            <GaugeRing score={e.score} size={70}/>
-            <div className="flex-1">
-              <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>{e.nombre}</div>
-              <div className="text-xs" style={{color:'#3d5166'}}>{e.servicio} · {e.marca||'—'}</div>
-              <span className="text-xs px-2 py-0.5 rounded font-semibold mt-1 inline-block"
-                style={{background:ac.bg,color:ac.text,border:`1px solid ${ac.border}`}}>
-                Riesgo {ac.label}
-              </span>
-            </div>
-            <div className="text-right">
-              <div className="text-xs" style={{color:'#3d5166'}}>Prob. falla 90d</div>
-              <div className="text-2xl font-black" style={{color:e.probFalla>=70?'#f87171':e.probFalla>=45?'#fcd34d':'#4ade80'}}>{e.probFalla}%</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 space-y-4">
-
-          {/* 1. VIDA ÚTIL */}
-          <div className="rounded-xl p-4" style={{background:'#111827', border:'1px solid #1e2d3d'}}>
-            <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{color:'#7a9bb5'}}>
-              <Clock className="w-3.5 h-3.5"/> Vida útil consumida vs restante
-            </div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex-1">
-                <div className="flex justify-between text-xs mb-1.5">
-                  <span style={{color:'#3d5166'}}>Consumido</span>
-                  <span className="font-bold" style={{color:pctVida>=80?'#f87171':pctVida>=60?'#fcd34d':'#4ade80'}}>{pctVida}%</span>
-                </div>
-                <div className="h-4 rounded-full overflow-hidden" style={{background:'#1e2d3d'}}>
-                  <div className="h-4 rounded-full flex items-center justify-end pr-2 transition-all"
-                    style={{
-                      width:`${pctVida}%`,
-                      background: pctVida>=80?'linear-gradient(90deg,#f59e0b,#ef4444)':pctVida>=60?'linear-gradient(90deg,#fcd34d,#f59e0b)':'linear-gradient(90deg,#10b981,#4ade80)',
-                      minWidth:'20px'
-                    }}>
-                    <span className="text-white font-bold" style={{fontSize:'9px'}}>{e.edadAnios}a</span>
-                  </div>
-                </div>
-                <div className="flex justify-between text-xs mt-1">
-                  <span style={{color:'#3d5166'}}>0 años</span>
-                  <span style={{color:vidaRestante!==null&&vidaRestante<=2?'#f87171':'#3d5166'}}>
-                    {vidaRestante!==null
-                      ? vidaRestante>0?`Quedan ${vidaRestante} años`:'⚠ Vida útil vencida'
-                      : `${e.edadAnios} años en uso`
-                    }
-                  </span>
-                  <span style={{color:'#3d5166'}}>{e.vidaUtil||'?'} años</span>
-                </div>
-              </div>
-            </div>
-            {vidaRestante!==null && vidaRestante<=2 && (
-              <div className="mt-2 px-3 py-2 rounded-lg text-xs" style={{background:'#ef444410',color:'#fca5a5',border:'1px solid #ef444430'}}>
-                ⚠ Este equipo vence su vida útil en {vidaRestante<=0?'este año':`${vidaRestante} año(s)`}. Evaluar reemplazo.
-              </div>
-            )}
-          </div>
-
-          {/* 2. SEMÁFORO DE RIESGO */}
-          <div className="rounded-xl p-4" style={{background:'#111827', border:'1px solid #1e2d3d'}}>
-            <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{color:'#7a9bb5'}}>
-              <Activity className="w-3.5 h-3.5"/> Score de riesgo con justificación
-            </div>
-            <div className="flex items-center gap-4 mb-3">
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-black"
-                style={{background:ac.bg, color:ac.text, border:`2px solid ${ac.border}`}}>
-                {e.score}
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-bold mb-1" style={{color:ac.text}}>Riesgo {ac.label}</div>
-                <div className="space-y-1">
-                  {[
-                    {label:'Vida útil consumida', valor:Math.round(pctVida*0.35), max:35, color:pctVida>=80?'#f87171':'#4ade80'},
-                    {label:'Ratio correctivos', valor:Math.round(e.correctivos>0?30:0), max:35, color:e.correctivos>0?'#f87171':'#4ade80'},
-                    {label:'Clase de riesgo INVIMA', valor:e.riesgo==='alto'?30:e.riesgo==='medio'?15:5, max:30, color:e.riesgo==='alto'?'#f87171':'#fcd34d'},
-                  ].map(f=>(
-                    <div key={f.label} className="flex items-center gap-2">
-                      <div className="text-xs w-36 truncate" style={{color:'#3d5166'}}>{f.label}</div>
-                      <div className="flex-1 h-1.5 rounded-full" style={{background:'#1e2d3d'}}>
-                        <div className="h-1.5 rounded-full" style={{width:`${(f.valor/f.max)*100}%`, background:f.color}}/>
-                      </div>
-                      <div className="text-xs font-mono w-8 text-right" style={{color:f.color}}>{f.valor}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="px-3 py-2.5 rounded-lg text-xs leading-relaxed" style={{background:'#0d1626',color:'#7a9bb5'}}>
-              <strong style={{color:ac.text}}>💡 </strong>
-              {e.alerta==='critico'
-                ? `Intervención urgente requerida. Falla probable en ~${e.diasParaFalla} días. Programar mantenimiento preventivo inmediato y evaluar reemplazo.`
-                : e.alerta==='alto'
-                ? `Inspección técnica recomendada en los próximos 15 días. Verificar componentes críticos y asegurar stock de repuestos.`
-                : e.alerta==='medio'
-                ? `Mantener plan de mantenimiento preventivo. Monitoreo mensual de indicadores de funcionamiento.`
-                : `Equipo en buen estado predictivo. Continuar con cronograma establecido.`
-              }
-            </div>
-          </div>
-
-          {/* 3. COMPARATIVA CON SIMILARES */}
-          {similares.length > 0 && (
-            <div className="rounded-xl p-4" style={{background:'#111827', border:'1px solid #1e2d3d'}}>
-              <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{color:'#7a9bb5'}}>
-                <Users className="w-3.5 h-3.5"/> Comparativa con equipos similares — {e.servicio}
-              </div>
-              <div className="space-y-2">
-                {/* Equipo actual */}
-                <div className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{background:'#0d948815', border:'1px solid #0d948830'}}>
-                  <div className="w-2 h-2 rounded-full" style={{background:'#2dd4bf'}}/>
-                  <div className="flex-1 text-xs font-bold truncate" style={{color:'#2dd4bf'}}>{e.nombre} (este)</div>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span style={{color:ac.text}}>{e.score} pts</span>
-                    <div className="w-20 h-1.5 rounded-full" style={{background:'#1e2d3d'}}>
-                      <div className="h-1.5 rounded-full" style={{width:`${e.score}%`, background:ac.text}}/>
-                    </div>
-                  </div>
-                </div>
-                {similares.map((sim:any,i:number)=>{
-                  const sac = alertaColor[sim.alerta]
-                  return (
-                    <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer"
-                      style={{background:'#0d1626'}}
-                      onClick={()=>setEquipoSel(sim)}>
-                      <div className="w-2 h-2 rounded-full" style={{background:sac.text}}/>
-                      <div className="flex-1 text-xs truncate" style={{color:'#7a9bb5'}}>{sim.nombre}</div>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span style={{color:sac.text}}>{sim.score} pts</span>
-                        <div className="w-20 h-1.5 rounded-full" style={{background:'#1e2d3d'}}>
-                          <div className="h-1.5 rounded-full" style={{width:`${sim.score}%`, background:sac.text}}/>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 4. LÍNEA DE TIEMPO */}
-          <div className="rounded-xl p-4" style={{background:'#111827', border:'1px solid #1e2d3d'}}>
-            <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{color:'#7a9bb5'}}>
-              <Calendar className="w-3.5 h-3.5"/> Línea de tiempo — Próximas intervenciones
-            </div>
-            <div className="relative">
-              <div className="absolute left-3 top-0 bottom-0 w-0.5" style={{background:'linear-gradient(to bottom, #0d9488, #1e2d3d)'}}/>
-              <div className="space-y-3">
-                {proximos.map((p,i)=>(
-                  <div key={i} className="flex items-start gap-4 pl-8 relative">
-                    <div className="absolute left-0 w-6 h-6 rounded-full flex items-center justify-center"
-                      style={{background:p.color+'20', border:`2px solid ${p.color}`, top:0}}>
-                      <div className="w-1.5 h-1.5 rounded-full" style={{background:p.color}}/>
-                    </div>
-                    <div className="flex-1 rounded-lg px-3 py-2" style={{background:'#0d1626'}}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold" style={{color:p.color}}>{p.tipo}</span>
-                        <span className="text-xs font-mono" style={{color:'#3d5166'}}>{p.fecha}</span>
-                      </div>
-                      <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>En ~{p.dias} días</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 5. GRÁFICA FALLAS HISTÓRICAS VS PREDICCIÓN */}
-          <div className="rounded-xl p-4" style={{background:'#111827', border:'1px solid #1e2d3d'}}>
-            <div className="text-xs font-bold mb-3 flex items-center gap-2" style={{color:'#7a9bb5'}}>
-              <TrendingUp className="w-3.5 h-3.5"/> Correctivos actuales vs predicción 2026
-            </div>
-            <DoubleBarChart actual={eqCorr} prediccion={eqPred} labels={MESES} height={90}/>
-            <div className="mt-2 px-3 py-2 rounded-lg text-xs" style={{background:'#0d1626', color:'#3d5166'}}>
-              Sin plan preventivo se esperan <strong style={{color:'#818cf8'}}>{eqPred.reduce((a:number,b:number)=>a+b,0)} intervenciones</strong> en 2026
-              vs <strong style={{color:'#f87171'}}>{eqCorr.reduce((a:number,b:number)=>a+b,0)} actuales</strong>.
-            </div>
-          </div>
-
-        </div>
-      </div>
-    )
-  }
+  const Sk = ({h=20,w='100%'}:any) => <div style={{height:h,width:w,background:'#F4F4F5',borderRadius:4}}/>
 
   return (
-    <div className="flex flex-col min-h-screen" style={{background:'#080e16'}}>
-
-      {/* Topbar */}
-      <div className="px-8 py-5 flex items-center justify-between"
-        style={{borderBottom:'1px solid #1e2d3d', background:'#0a1120'}}>
+    <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#fff'}}>
+      <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'16px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs" style={{color:'#3d5166'}}>BioMed AI</span>
-            <span style={{color:'#1e2d3d'}}>/</span>
-            <span className="text-xs font-medium" style={{color:'#2dd4bf'}}>Predicción</span>
-          </div>
-          <h1 className="text-xl font-bold" style={{color:'#e2e8f0'}}>Análisis Predictivo de Fallas</h1>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI / Predicción</div>
+          <h1 style={{fontSize:18,fontWeight:600,color:'#18181B',margin:0}}>Análisis predictivo de fallas</h1>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
-          style={{background:'#0d948815', border:'1px solid #0d948830', color:'#2dd4bf'}}>
-          <Activity className="w-3.5 h-3.5"/>
-          Modelo estadístico activo
+        <div style={{display:'flex',alignItems:'center',gap:6,background:'#EEF2FF',padding:'6px 12px',borderRadius:6,border:'0.5px solid #C7D2FE'}}>
+          <div style={{width:6,height:6,borderRadius:'50%',background:'#3B4FE8'}}/>
+          <span style={{fontSize:11,color:'#3B4FE8',fontWeight:500}}>Modelo estadístico activo</span>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 px-8 py-3"
-        style={{borderBottom:'1px solid #1e2d3d', background:'#0a1120'}}>
-        {[
-          {id:'general',   label:'🔮 Vista General'},
-          {id:'equipos',   label:'🔧 Por Equipo'},
-          {id:'servicios', label:'🏥 Por Servicio'},
-          {id:'repuestos', label:'📦 Repuestos Críticos'},
-        ].map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id as any)}
-            className="px-4 py-2 rounded-lg text-xs font-semibold transition-all"
-            style={{
-              background: tab===t.id?'#0d948820':'transparent',
-              color: tab===t.id?'#2dd4bf':'#3d5166',
-              border: tab===t.id?'1px solid #0d948840':'1px solid transparent',
-            }}>
-            {t.label}
+      <div style={{display:'flex',gap:1,padding:'0 28px',borderBottom:'0.5px solid #E4E4E7',background:'#fff'}}>
+        {[{id:'general',l:'Vista general'},{id:'equipos',l:'Por equipo'},{id:'servicios',l:'Por servicio'},{id:'repuestos',l:'Repuestos críticos'}].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id as any)} style={{padding:'10px 16px',border:'none',borderBottom:`2px solid ${tab===t.id?'#3B4FE8':'transparent'}`,background:'transparent',color:tab===t.id?'#3B4FE8':'#71717A',fontSize:13,fontWeight:tab===t.id?500:400,cursor:'pointer'}}>
+            {t.l}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 px-8 py-6 overflow-y-auto">
+      <div style={{flex:1,padding:'24px 28px',overflowY:'auto'}}>
 
-        {/* ── VISTA GENERAL ── */}
-        {tab==='general' && (
-          <div className="space-y-5 max-w-6xl">
-            <div className="grid grid-cols-3 gap-4">
-              {loading ? Array.from({length:6}).map((_,i)=>(
-                <div key={i} className="rounded-xl p-5 animate-pulse h-28" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}/>
-              )) : [
-                {label:'Score riesgo global', value:data?.kpis?.scoreGlobal, unit:'/100', color:data?.kpis?.scoreGlobal>=70?'#f87171':data?.kpis?.scoreGlobal>=45?'#fcd34d':'#4ade80', sub:'Promedio del parque'},
-                {label:'Equipos críticos', value:data?.kpis?.criticos, unit:'', color:'#f87171', sub:'Intervención urgente'},
-                {label:'Fallas esperadas 30d', value:data?.kpis?.fallaEsperada30, unit:'', color:'#fcd34d', sub:'Basado en tendencia'},
-                {label:'Fallas esperadas 90d', value:data?.kpis?.fallaEsperada90, unit:'', color:'#fb923c', sub:'Proyección trimestral'},
-                {label:'Incremento correctivos 2026', value:`+${Math.round(((totalCorrPred-totalCorrActual)/Math.max(totalCorrActual,1))*100)}%`, unit:'', color:'#f87171', sub:`${totalCorrActual} → ${totalCorrPred} anuales`},
-                {label:'Equipos analizados', value:data?.kpis?.totalEquipos, unit:'', color:'#2dd4bf', sub:'Con modelo predictivo'},
-              ].map(k=>(
-                <div key={k.label} className="rounded-xl p-5 relative overflow-hidden" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                  <div className="absolute top-0 left-0 right-0 h-0.5" style={{background:k.color,opacity:0.6}}/>
-                  <div className="text-2xl font-black mb-1" style={{color:k.color}}>{k.value}{k.unit&&<span className="text-sm ml-1">{k.unit}</span>}</div>
-                  <div className="text-xs font-bold mb-0.5" style={{color:'#7a9bb5'}}>{k.label}</div>
-                  <div className="text-xs" style={{color:'#3d5166'}}>{k.sub}</div>
+        {tab==='general'&&(
+          <div style={{display:'flex',flexDirection:'column',gap:16,maxWidth:1100}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+              {loading?Array.from({length:6}).map((_,i)=><div key={i} style={{height:90,background:'#F8F9FA',borderRadius:10,border:'0.5px solid #E4E4E7'}}/>):[
+                {l:'Score riesgo global',    v:data?.kpis?.scoreGlobal,    u:'/100', c:data?.kpis?.scoreGlobal>=70?'#DC2626':data?.kpis?.scoreGlobal>=45?'#D97706':'#16A34A', sub:'Promedio del parque'},
+                {l:'Equipos críticos',       v:data?.kpis?.criticos,       u:'',     c:'#DC2626', sub:'Requieren intervención urgente'},
+                {l:'Fallas esperadas 30d',   v:data?.kpis?.fallaEsperada30,u:'',     c:'#D97706', sub:'Basado en tendencia histórica'},
+                {l:'Fallas esperadas 90d',   v:data?.kpis?.fallaEsperada90,u:'',     c:'#D97706', sub:'Proyección trimestral'},
+                {l:'Incremento correctivos', v:`+${Math.round(((totalCP-totalCA)/Math.max(totalCA,1))*100)}%`,u:'', c:'#DC2626', sub:`${totalCA} → ${totalCP} anuales`},
+                {l:'Equipos analizados',     v:data?.kpis?.totalEquipos,   u:'',     c:'#3B4FE8', sub:'Con modelo predictivo activo'},
+              ].map((k:any)=>(
+                <div key={k.l} style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',padding:'18px 20px'}}>
+                  <div style={{fontSize:12,color:'#71717A',marginBottom:8}}>{k.l}</div>
+                  <div style={{fontSize:26,fontWeight:600,color:k.c,marginBottom:4}}>{k.v}<span style={{fontSize:13,marginLeft:2,opacity:0.7}}>{k.u}</span></div>
+                  <div style={{fontSize:11,color:'#A1A1AA'}}>{k.sub}</div>
                 </div>
               ))}
             </div>
 
-            {/* Gráfica comparativa línea */}
-            <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="flex items-start justify-between mb-4">
+            <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',padding:'20px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
                 <div>
-                  <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>Comparativa: Fallas 2025 vs Predicción 2026</div>
-                  <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>Proyección mensual sin intervención preventiva</div>
+                  <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:4}}>Comparativa: Fallas 2025 vs Predicción 2026</div>
+                  <div style={{fontSize:11,color:'#A1A1AA'}}>Proyección mensual sin intervención preventiva</div>
                 </div>
-                <div className="flex gap-4 text-xs">
-                  <div className="text-right"><div className="font-bold" style={{color:'#f87171'}}>{totalCorrActual}</div><div style={{color:'#3d5166'}}>Corr. 2025</div></div>
-                  <div className="text-right"><div className="font-bold" style={{color:'#818cf8'}}>{totalCorrPred}</div><div style={{color:'#3d5166'}}>Pred. 2026</div></div>
+                <div style={{display:'flex',gap:16,fontSize:12}}>
+                  <div style={{textAlign:'right'}}><div style={{fontWeight:600,color:'#EF4444'}}>{totalCA}</div><div style={{color:'#A1A1AA'}}>Correctivos 2025</div></div>
+                  <div style={{textAlign:'right'}}><div style={{fontWeight:600,color:'#3B4FE8'}}>{totalCP}</div><div style={{color:'#A1A1AA'}}>Predicción 2026</div></div>
                 </div>
               </div>
-              {loading ? <div className="animate-pulse rounded" style={{height:160,background:'#1e2d3d'}}/> : <LineCompareChart actual={corrActual} prediccion={corrPrediccion} labels={MESES} height={160}/>}
+              {loading?<Sk h={130}/>:<LineChart actual={corrActual} prediccion={corrPred} labels={MESES} height={130}/>}
             </div>
 
-            {/* Barras + Escenarios */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                <div className="text-sm font-bold mb-1" style={{color:'#e2e8f0'}}>Correctivos por Mes — Actual vs Predicción</div>
-                <div className="text-xs mb-4" style={{color:'#3d5166'}}>Rojo=2025 · Morado=predicción 2026</div>
-                {loading ? <div className="animate-pulse rounded" style={{height:140,background:'#1e2d3d'}}/> : <DoubleBarChart actual={corrActual} prediccion={corrPrediccion} labels={MESES} height={140}/>}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',padding:'20px'}}>
+                <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:4}}>Correctivos por mes — Actual vs Predicción</div>
+                <div style={{fontSize:11,color:'#A1A1AA',marginBottom:16}}>Rojo = 2025 · Azul = 2026</div>
+                {loading?<Sk h={130}/>:<BarChart actual={corrActual} prediccion={corrPred} labels={MESES} height={130}/>}
               </div>
-              <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                <div className="text-sm font-bold mb-1" style={{color:'#e2e8f0'}}>Impacto del Mantenimiento Preventivo</div>
-                <div className="text-xs mb-4" style={{color:'#3d5166'}}>Reducción estimada de correctivos en 2026</div>
-                {loading ? <div className="animate-pulse rounded" style={{height:140,background:'#1e2d3d'}}/> : (
-                  <div className="space-y-3">
-                    {[
-                      {label:'Sin plan preventivo', pct:100, color:'#ef4444', grad:'linear-gradient(90deg,#ef4444,#dc2626)'},
-                      {label:'Preventivo básico (50%)', pct:65, color:'#f59e0b', grad:'linear-gradient(90deg,#f59e0b,#d97706)'},
-                      {label:'Preventivo completo (80%+)', pct:35, color:'#16a34a', grad:'linear-gradient(90deg,#16a34a,#15803d)'},
-                    ].map(s=>(
-                      <div key={s.label}>
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span style={{color:'#7a9bb5'}}>{s.label}</span>
-                          <span className="font-bold" style={{color:s.color}}>{Math.round(totalCorrPred*(s.pct/100))} fallas</span>
+              <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',padding:'20px'}}>
+                <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:4}}>Impacto del mantenimiento preventivo</div>
+                <div style={{fontSize:11,color:'#A1A1AA',marginBottom:16}}>Reducción estimada de correctivos en 2026</div>
+                {loading?<Sk h={130}/>:(
+                  <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                    {[{l:'Sin plan preventivo',pct:100,c:'#DC2626'},{l:'Preventivo básico (50%)',pct:65,c:'#D97706'},{l:'Preventivo completo (80%+)',pct:35,c:'#16A34A'}].map(s=>(
+                      <div key={s.l}>
+                        <div style={{display:'flex',justifyContent:'space-between',marginBottom:5,fontSize:12}}>
+                          <span style={{color:'#52525B'}}>{s.l}</span>
+                          <span style={{fontWeight:500,color:s.c}}>{Math.round(totalCP*(s.pct/100))} fallas</span>
                         </div>
-                        <div className="h-5 rounded-lg overflow-hidden" style={{background:'#1e2d3d'}}>
-                          <div className="h-5 rounded-lg flex items-center px-2" style={{width:`${s.pct}%`,background:s.grad,minWidth:'30px'}}>
-                            <span className="text-white font-bold" style={{fontSize:'10px'}}>{s.pct}%</span>
+                        <div style={{height:16,background:'#F4F4F5',borderRadius:4,overflow:'hidden'}}>
+                          <div style={{height:16,width:`${s.pct}%`,background:s.c,borderRadius:4,display:'flex',alignItems:'center',paddingLeft:6}}>
+                            <span style={{fontSize:10,fontWeight:600,color:'#fff'}}>{s.pct}%</span>
                           </div>
                         </div>
                       </div>
                     ))}
-                    <div className="rounded-lg p-2.5 mt-1" style={{background:'#0d948810',border:'1px solid #0d948830'}}>
-                      <div className="text-xs" style={{color:'#2dd4bf'}}>
-                        💡 Plan preventivo completo: reducción del <strong style={{color:'#4ade80'}}>{Math.round(((totalCorrPred-Math.round(totalCorrPred*0.35))/totalCorrPred)*100)}%</strong> de fallas · Ahorro ≈ <strong style={{color:'#4ade80'}}>${(((totalCorrPred-Math.round(totalCorrPred*0.35))*850000)/1000000).toFixed(1)}M COP</strong>
-                      </div>
+                    <div style={{padding:'10px 12px',borderRadius:8,background:'#EEF2FF',border:'0.5px solid #C7D2FE',fontSize:12,color:'#3B4FE8',marginTop:4}}>
+                      💡 Plan preventivo completo: reducción del <strong>{Math.round(((totalCP-Math.round(totalCP*0.35))/totalCP)*100)}%</strong> · Ahorro ≈ <strong>${(((totalCP-Math.round(totalCP*0.35))*850000)/1000000).toFixed(1)}M COP</strong>
                     </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Top 5 críticos */}
-            <div className="rounded-xl overflow-hidden" style={{border:'1px solid #1e2d3d'}}>
-              <div className="px-5 py-4 flex items-center justify-between" style={{background:'#0d1626',borderBottom:'1px solid #1e2d3d'}}>
+            <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',overflow:'hidden'}}>
+              <div style={{padding:'16px 20px',borderBottom:'0.5px solid #F4F4F5',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div>
-                  <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>Top Equipos — Mayor Riesgo</div>
-                  <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>Ordenados por score predictivo</div>
+                  <div style={{fontSize:13,fontWeight:600,color:'#18181B'}}>Top equipos — Mayor riesgo de falla</div>
+                  <div style={{fontSize:11,color:'#A1A1AA'}}>Ordenados por score predictivo</div>
                 </div>
-                <button onClick={()=>setTab('equipos')} className="text-xs flex items-center gap-1" style={{color:'#2dd4bf'}}>
-                  Ver todos <ChevronRight className="w-3.5 h-3.5"/>
+                <button onClick={()=>setTab('equipos')} style={{fontSize:12,color:'#3B4FE8',background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                  Ver todos <i className="ti ti-chevron-right" style={{fontSize:13}}/>
                 </button>
               </div>
-              <div className="divide-y" style={{borderColor:'#1e2d3d'}}>
-                {loading ? Array.from({length:5}).map((_,i)=>(
-                  <div key={i} className="px-5 py-4 animate-pulse flex gap-4">
-                    <div className="w-20 h-16 rounded" style={{background:'#1e2d3d'}}/>
-                    <div className="flex-1 space-y-2"><div className="h-4 w-48 rounded" style={{background:'#1e2d3d'}}/><div className="h-3 w-32 rounded" style={{background:'#1e2d3d'}}/></div>
-                  </div>
-                )) : (data?.equipoRiesgo||[]).slice(0,5).map((e:any,i:number)=>{
-                  const ac=alertaColor[e.alerta]
-                  return (
-                    <div key={i} className="px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-slate-800/20 transition-colors"
-                      onClick={()=>{setEquipoSel(e);setTab('equipos')}}>
-                      <GaugeRing score={e.score} size={80}/>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-bold" style={{color:'#e2e8f0'}}>{e.nombre}</span>
-                          <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{background:ac.bg,color:ac.text,border:`1px solid ${ac.border}`}}>{ac.label}</span>
-                        </div>
-                        <div className="text-xs mb-2" style={{color:'#3d5166'}}>{e.servicio} · {e.marca||''}</div>
-                        <div className="flex items-center gap-4 text-xs">
-                          <span style={{color:'#fcd34d'}}>⚡ Falla en ~{e.diasParaFalla} días</span>
-                          <span style={{color:'#3d5166'}}>Vida útil: {e.pctVida}%</span>
-                          <span style={{color:'#f87171'}}>Correctivos: {e.correctivos}</span>
-                        </div>
+              {loading?Array.from({length:4}).map((_,i)=><div key={i} style={{height:70,borderBottom:'0.5px solid #F8F9FA'}}/>):(data?.equipoRiesgo||[]).slice(0,5).map((e:any,i:number)=>{
+                const as=alertaStyle[e.alerta]||alertaStyle.bajo
+                return (
+                  <div key={i} onClick={()=>{setEqSel(e);setTab('equipos')}} style={{padding:'14px 20px',borderBottom:'0.5px solid #F8F9FA',display:'flex',alignItems:'center',gap:16,cursor:'pointer',transition:'background 0.1s'}}
+                    onMouseEnter={el=>el.currentTarget.style.background='#FAFAFA'}
+                    onMouseLeave={el=>el.currentTarget.style.background='#fff'}>
+                    <ScoreRing score={e.score}/>
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                        <span style={{fontSize:13,fontWeight:500,color:'#18181B'}}>{e.nombre}</span>
+                        <span style={{fontSize:11,padding:'2px 8px',borderRadius:20,background:as.bg,color:as.text,border:`0.5px solid ${as.border}`,fontWeight:500}}>{as.label}</span>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-xs mb-0.5" style={{color:'#3d5166'}}>Prob. falla 90d</div>
-                        <div className="text-2xl font-black" style={{color:e.probFalla>=70?'#f87171':e.probFalla>=45?'#fcd34d':'#4ade80'}}>{e.probFalla}%</div>
-                        <div className="text-xs" style={{color:'#3d5166'}}>~{e.fechaFalla}</div>
+                      <div style={{fontSize:11,color:'#A1A1AA',marginBottom:4}}>{e.servicio} · {e.marca||''}</div>
+                      <div style={{display:'flex',gap:12,fontSize:11}}>
+                        <span style={{color:'#D97706'}}>⚡ Falla en ~{e.diasParaFalla} días</span>
+                        <span style={{color:'#A1A1AA'}}>Vida útil: {e.pctVida}%</span>
+                        <span style={{color:'#DC2626'}}>Correctivos: {e.correctivos}</span>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
+                    <div style={{textAlign:'right',flexShrink:0}}>
+                      <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>Prob. falla 90d</div>
+                      <div style={{fontSize:24,fontWeight:700,color:e.probFalla>=70?'#DC2626':e.probFalla>=45?'#D97706':'#16A34A'}}>{e.probFalla}%</div>
+                      <div style={{fontSize:11,color:'#A1A1AA'}}>{e.fechaFalla}</div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
 
-        {/* ── POR EQUIPO ── */}
-        {tab==='equipos' && (
-          <div className="flex gap-4" style={{height:'80vh'}}>
-
-            {/* Lista agrupada por servicio */}
-            <div className="w-72 flex-shrink-0 flex flex-col rounded-xl overflow-hidden" style={{border:'1px solid #1e2d3d'}}>
-              <div className="px-4 py-3 flex-shrink-0" style={{background:'#0d1626',borderBottom:'1px solid #1e2d3d'}}>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{color:'#3d5166'}}/>
-                  <input type="text" placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-lg text-xs focus:outline-none"
-                    style={{background:'#111827',border:'1px solid #1e2d3d',color:'#e2e8f0'}}/>
+        {tab==='equipos'&&(
+          <div style={{display:'flex',gap:16,height:'75vh'}}>
+            <div style={{width:280,flexShrink:0,display:'flex',flexDirection:'column',border:'0.5px solid #E4E4E7',borderRadius:10,overflow:'hidden'}}>
+              <div style={{padding:'12px',borderBottom:'0.5px solid #E4E4E7',background:'#FAFAFA'}}>
+                <div style={{position:'relative'}}>
+                  <i className="ti ti-search" style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',color:'#A1A1AA',fontSize:13}}/>
+                  <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar..." style={{paddingLeft:28,width:'100%',fontSize:12,height:32}}/>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto">
-                {loading ? (
-                  Array.from({length:8}).map((_,i)=>(
-                    <div key={i} className="px-4 py-3 animate-pulse">
-                      <div className="h-3 w-32 rounded" style={{background:'#1e2d3d'}}/>
-                    </div>
-                  ))
-                ) : serviciosOrdenados.map(([svc, eqs])=>{
-                  const abierto = serviciosAbiertos[svc] !== false
-                  const maxScore = Math.max(...eqs.map((e:any)=>e.score))
-                  const criticos = eqs.filter((e:any)=>e.alerta==='critico').length
-                  const svcColor = maxScore>=70?'#f87171':maxScore>=45?'#fcd34d':'#4ade80'
+              <div style={{flex:1,overflowY:'auto'}}>
+                {loading?Array.from({length:8}).map((_,i)=><div key={i} style={{padding:'10px 14px'}}><Sk h={14} w="70%"/></div>):
+                svcOrdenados.map(([svc,eqs])=>{
+                  const abierto=svcAbiertos[svc]!==false
+                  const maxScore=Math.max(...eqs.map((e:any)=>e.score))
+                  const sc=maxScore>=70?'#DC2626':maxScore>=45?'#D97706':'#16A34A'
                   return (
                     <div key={svc}>
-                      <button onClick={()=>toggleServicio(svc)}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 transition-all"
-                        style={{background:'#0d1626',borderBottom:'1px solid #1e2d3d'}}>
-                        <ChevronDown className="w-3.5 h-3.5 flex-shrink-0 transition-transform"
-                          style={{color:'#3d5166',transform:abierto?'rotate(0)':'rotate(-90deg)'}}/>
-                        <div className="flex-1 text-left">
-                          <div className="text-xs font-bold truncate" style={{color:'#e2e8f0'}}>{svc}</div>
-                          <div className="text-xs" style={{color:'#3d5166'}}>{eqs.length} equipos{criticos>0?` · ${criticos} críticos`:''}</div>
+                      <button onClick={()=>setSvcAbiertos(p=>({...p,[svc]:!p[svc]}))} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 12px',border:'none',borderBottom:'0.5px solid #F4F4F5',background:'#FAFAFA',cursor:'pointer'}}>
+                        <i className={'ti '+(abierto?'ti-chevron-down':'ti-chevron-right')} style={{fontSize:12,color:'#A1A1AA',flexShrink:0}}/>
+                        <div style={{flex:1,textAlign:'left'}}>
+                          <div style={{fontSize:11,fontWeight:500,color:'#18181B'}}>{svc}</div>
+                          <div style={{fontSize:10,color:'#A1A1AA'}}>{eqs.length} equipos</div>
                         </div>
-                        <div className="text-xs font-bold w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
-                          style={{background:svcColor+'20',color:svcColor}}>{maxScore}</div>
+                        <div style={{fontSize:11,fontWeight:600,color:sc}}>{maxScore}</div>
                       </button>
-                      {abierto && eqs.map((e:any,i:number)=>{
-                        const ac=alertaColor[e.alerta]
-                        const sel=equipoSel?.id===e.id
+                      {abierto&&eqs.map((e:any,i:number)=>{
+                        const as=alertaStyle[e.alerta]||alertaStyle.bajo
+                        const sel=eqSel?.id===e.id
                         return (
-                          <div key={i} onClick={()=>setEquipoSel(e)}
-                            className="flex items-center gap-2 px-4 py-2.5 cursor-pointer transition-all"
-                            style={{
-                              background:sel?'#0d948815':'#080e16',
-                              borderBottom:'1px solid #1e2d3d',
-                              borderLeft:sel?'3px solid #0d9488':'3px solid transparent',
-                              paddingLeft:sel?'13px':'16px'
-                            }}>
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0"
-                              style={{background:ac.bg,color:ac.text}}>{e.score}</div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium truncate" style={{color:sel?'#2dd4bf':'#e2e8f0'}}>{e.nombre}</div>
-                              <div className="text-xs" style={{color:'#3d5166'}}>{e.probFalla}% · {e.diasParaFalla}d</div>
+                          <div key={i} onClick={()=>setEqSel(e)} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderBottom:'0.5px solid #F8F9FA',cursor:'pointer',background:sel?'#EEF2FF':'#fff',borderLeft:`2px solid ${sel?'#3B4FE8':'transparent'}`}}>
+                            <div style={{width:28,height:28,borderRadius:6,background:as.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:as.text,flexShrink:0}}>{e.score}</div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:11,fontWeight:sel?500:400,color:sel?'#3B4FE8':'#18181B',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.nombre}</div>
+                              <div style={{fontSize:10,color:'#A1A1AA'}}>{e.probFalla}% · {e.diasParaFalla}d</div>
                             </div>
                           </div>
                         )
@@ -584,110 +271,208 @@ export default function PrediccionPage() {
               </div>
             </div>
 
-            {/* Detalle */}
-            <div className="flex-1 rounded-xl overflow-hidden" style={{border:'1px solid #1e2d3d', background:'#0d1626'}}>
-              {!equipoSel ? (
-                <div className="flex flex-col items-center justify-center h-full" style={{color:'#3d5166'}}>
-                  <TrendingUp className="w-12 h-12 mb-4 opacity-20"/>
-                  <p className="text-sm">Selecciona un equipo del listado</p>
-                  <p className="text-xs mt-1 opacity-60">Ver vida útil, riesgo, similares y línea de tiempo</p>
+            <div style={{flex:1,border:'0.5px solid #E4E4E7',borderRadius:10,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+              {!eqSel?(
+                <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'#A1A1AA'}}>
+                  <i className="ti ti-trending-up" style={{fontSize:40,marginBottom:12,opacity:0.3}}/>
+                  <p style={{fontSize:13,margin:0}}>Selecciona un equipo</p>
+                  <p style={{fontSize:11,margin:'4px 0 0',opacity:0.6}}>Ver vida útil, riesgo, similares y línea de tiempo</p>
                 </div>
-              ) : <DetalleEquipo e={equipoSel}/>}
-            </div>
-          </div>
-        )}
+              ):(()=>{
+                const as=alertaStyle[eqSel.alerta]||alertaStyle.bajo
+                const similares=(data?.equipoRiesgo||[]).filter((e:any)=>e.servicio===eqSel.servicio&&e.id!==eqSel.id).slice(0,3)
+                const hoy=new Date()
+                const proximos=[
+                  {tipo:'Preventivo',dias:30,c:'#16A34A'},
+                  {tipo:'Calibración',dias:90,c:'#D97706'},
+                  {tipo:'Preventivo',dias:180,c:'#16A34A'},
+                  {tipo:'Correctivo est.',dias:eqSel.diasParaFalla,c:'#DC2626'},
+                ].sort((a,b)=>a.dias-b.dias)
+                return (
+                  <div style={{flex:1,overflowY:'auto'}}>
+                    <div style={{padding:'16px 20px',borderBottom:'0.5px solid #F4F4F5',background:'#FAFAFA',display:'flex',alignItems:'center',gap:14}}>
+                      <ScoreRing score={eqSel.score}/>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:14,fontWeight:600,color:'#18181B',marginBottom:2}}>{eqSel.nombre}</div>
+                        <div style={{fontSize:11,color:'#A1A1AA',marginBottom:6}}>{eqSel.servicio} · {eqSel.marca||'—'}</div>
+                        <span style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:as.bg,color:as.text,border:`0.5px solid ${as.border}`,fontWeight:500}}>Riesgo {as.label}</span>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:11,color:'#A1A1AA'}}>Prob. falla 90d</div>
+                        <div style={{fontSize:26,fontWeight:700,color:eqSel.probFalla>=70?'#DC2626':eqSel.probFalla>=45?'#D97706':'#16A34A'}}>{eqSel.probFalla}%</div>
+                      </div>
+                    </div>
+                    <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:14}}>
 
-        {/* ── POR SERVICIO ── */}
-        {tab==='servicios' && (
-          <div className="space-y-4 max-w-4xl">
-            <div className="rounded-xl overflow-hidden" style={{border:'1px solid #1e2d3d'}}>
-              <div className="px-5 py-4" style={{background:'#0d1626',borderBottom:'1px solid #1e2d3d'}}>
-                <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>Riesgo predictivo por servicio hospitalario</div>
-              </div>
-              <div className="divide-y" style={{borderColor:'#1e2d3d'}}>
-                {loading ? Array.from({length:6}).map((_,i)=>(
-                  <div key={i} className="px-5 py-5 animate-pulse"><div className="h-4 w-48 rounded mb-3" style={{background:'#1e2d3d'}}/><div className="h-3 rounded" style={{background:'#1e2d3d'}}/></div>
-                )) : (data?.prediccionServicios||[]).map((s:any,i:number)=>{
-                  const color=s.scorePromedio>=70?'#f87171':s.scorePromedio>=45?'#fcd34d':'#4ade80'
-                  const corrSvc=Math.round(s.correctivos)
-                  const predSvc=Math.round(s.correctivos*1.18)
-                  return (
-                    <div key={i} className="px-5 py-5" style={{background:i%2===0?'#080e16':'#0a1120'}}>
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div className="text-sm font-bold mb-1" style={{color:'#e2e8f0'}}>{s.nombre}</div>
-                          <div className="flex items-center gap-3 text-xs" style={{color:'#3d5166'}}>
-                            <span>{s.equipos} equipos</span>·
-                            <span style={{color:'#f87171'}}>{s.criticos} críticos</span>·
-                            <span style={{color:'#f87171'}}>2025: {corrSvc}</span>→
-                            <span style={{color:'#818cf8'}}>2026: {predSvc}</span>
+                      {/* Vida útil */}
+                      <div style={{background:'#F8F9FA',borderRadius:8,padding:'14px'}}>
+                        <div style={{fontSize:12,fontWeight:500,color:'#52525B',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+                          <i className="ti ti-clock" style={{fontSize:13,color:'#3B4FE8'}}/> Vida útil
+                        </div>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:6}}>
+                          <span style={{color:'#71717A'}}>{eqSel.edadAnios} años en uso</span>
+                          <span style={{fontWeight:500,color:eqSel.pctVida>=80?'#DC2626':'#16A34A'}}>{eqSel.pctVida}% consumido</span>
+                        </div>
+                        <div style={{height:8,background:'#E4E4E7',borderRadius:4,overflow:'hidden'}}>
+                          <div style={{height:8,borderRadius:4,width:`${eqSel.pctVida}%`,background:eqSel.pctVida>=80?'#DC2626':eqSel.pctVida>=60?'#D97706':'#22C55E'}}/>
+                        </div>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#A1A1AA',marginTop:4}}>
+                          <span>{eqSel.vidaUtil?`${eqSel.vidaUtil} años útiles`:'—'}</span>
+                          <span>{eqSel.vidaUtil&&eqSel.edadAnios?`Quedan ${Math.max(eqSel.vidaUtil-eqSel.edadAnios,0)} años`:'—'}</span>
+                        </div>
+                      </div>
+
+                      {/* Score breakdown */}
+                      <div style={{background:'#F8F9FA',borderRadius:8,padding:'14px'}}>
+                        <div style={{fontSize:12,fontWeight:500,color:'#52525B',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+                          <i className="ti ti-activity" style={{fontSize:13,color:'#3B4FE8'}}/> Composición del score
+                        </div>
+                        {[
+                          {l:'Vida útil consumida',v:Math.round(eqSel.pctVida*0.35),max:35,c:eqSel.pctVida>=80?'#DC2626':'#22C55E'},
+                          {l:'Ratio correctivos',v:Math.round(eqSel.correctivos>0?30:0),max:35,c:eqSel.correctivos>0?'#DC2626':'#22C55E'},
+                          {l:'Clase INVIMA',v:eqSel.riesgo==='alto'?30:eqSel.riesgo==='medio'?15:5,max:30,c:eqSel.riesgo==='alto'?'#DC2626':'#D97706'},
+                        ].map(f=>(
+                          <div key={f.l} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                            <div style={{fontSize:11,color:'#71717A',width:160,flexShrink:0}}>{f.l}</div>
+                            <div style={{flex:1,height:5,background:'#E4E4E7',borderRadius:3}}>
+                              <div style={{height:5,borderRadius:3,width:`${(f.v/f.max)*100}%`,background:f.c}}/>
+                            </div>
+                            <div style={{fontSize:11,fontWeight:500,color:f.c,width:24,textAlign:'right'}}>{f.v}</div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-black" style={{color}}>{s.scorePromedio}</div>
-                          <div className="text-xs" style={{color:'#3d5166'}}>score riesgo</div>
+                        ))}
+                        <div style={{padding:'8px 10px',borderRadius:6,background:as.bg,border:`0.5px solid ${as.border}`,fontSize:11,color:as.text,marginTop:4}}>
+                          💡 {eqSel.alerta==='critico'?`Intervención urgente. Falla probable en ~${eqSel.diasParaFalla} días.`:eqSel.alerta==='alto'?`Inspección técnica recomendada en los próximos 15 días.`:`Mantener plan preventivo actual.`}
                         </div>
                       </div>
-                      <div className="h-2 rounded-full" style={{background:'#1e2d3d'}}>
-                        <div className="h-2 rounded-full" style={{width:`${s.scorePromedio}%`,background:color}}/>
+
+                      {/* Similares */}
+                      {similares.length>0&&(
+                        <div style={{background:'#F8F9FA',borderRadius:8,padding:'14px'}}>
+                          <div style={{fontSize:12,fontWeight:500,color:'#52525B',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+                            <i className="ti ti-users" style={{fontSize:13,color:'#3B4FE8'}}/> Comparativa con similares — {eqSel.servicio}
+                          </div>
+                          <div style={{padding:'8px 10px',borderRadius:6,background:'#EEF2FF',border:'0.5px solid #C7D2FE',marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                            <span style={{fontSize:11,fontWeight:500,color:'#3B4FE8',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{eqSel.nombre} (este)</span>
+                            <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+                              <div style={{width:60,height:4,background:'#E4E4E7',borderRadius:2}}><div style={{height:4,width:`${eqSel.score}%`,background:'#3B4FE8',borderRadius:2}}/></div>
+                              <span style={{fontSize:11,fontWeight:600,color:'#3B4FE8',width:24}}>{eqSel.score}</span>
+                            </div>
+                          </div>
+                          {similares.map((s:any,i:number)=>{
+                            const sas=alertaStyle[s.alerta]||alertaStyle.bajo
+                            return (
+                              <div key={i} onClick={()=>setEqSel(s)} style={{padding:'8px 10px',borderRadius:6,background:'#fff',border:'0.5px solid #E4E4E7',marginBottom:4,display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+                                <span style={{fontSize:11,color:'#52525B',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.nombre}</span>
+                                <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+                                  <div style={{width:60,height:4,background:'#E4E4E7',borderRadius:2}}><div style={{height:4,width:`${s.score}%`,background:sas.text,borderRadius:2}}/></div>
+                                  <span style={{fontSize:11,fontWeight:600,color:sas.text,width:24}}>{s.score}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* Línea de tiempo */}
+                      <div style={{background:'#F8F9FA',borderRadius:8,padding:'14px'}}>
+                        <div style={{fontSize:12,fontWeight:500,color:'#52525B',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                          <i className="ti ti-calendar" style={{fontSize:13,color:'#3B4FE8'}}/> Próximas intervenciones
+                        </div>
+                        <div style={{position:'relative',paddingLeft:20}}>
+                          <div style={{position:'absolute',left:7,top:0,bottom:0,width:1,background:'#E4E4E7'}}/>
+                          {proximos.map((p,i)=>{
+                            const fecha=new Date(hoy.getTime()+p.dias*86400000).toLocaleDateString('es-CO',{month:'short',day:'numeric'})
+                            return (
+                              <div key={i} style={{position:'relative',marginBottom:10,paddingLeft:16}}>
+                                <div style={{position:'absolute',left:-6,top:4,width:10,height:10,borderRadius:'50%',background:p.c,border:'2px solid #fff'}}/>
+                                <div style={{background:'#fff',borderRadius:6,padding:'6px 10px',border:'0.5px solid #E4E4E7'}}>
+                                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                    <span style={{fontSize:11,fontWeight:500,color:p.c}}>{p.tipo}</span>
+                                    <span style={{fontSize:10,color:'#A1A1AA'}}>{fecha} · {p.dias}d</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
+
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )}
 
-        {/* ── REPUESTOS ── */}
-        {tab==='repuestos' && (
-          <div className="space-y-4 max-w-3xl">
-            {!loading && data?.repuestosCriticos?.length===0 ? (
-              <div className="rounded-xl p-8 text-center" style={{background:'#0d1626',border:'1px solid #10b98130'}}>
-                <Package className="w-10 h-10 mx-auto mb-3" style={{color:'#4ade80'}}/>
-                <div className="text-base font-bold mb-1" style={{color:'#4ade80'}}>Stock en buen estado</div>
-                <div className="text-sm" style={{color:'#3d5166'}}>No hay repuestos con stock bajo</div>
+        {tab==='servicios'&&(
+          <div style={{maxWidth:800}}>
+            <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',overflow:'hidden'}}>
+              <div style={{padding:'16px 20px',borderBottom:'0.5px solid #F4F4F5'}}>
+                <div style={{fontSize:13,fontWeight:600,color:'#18181B'}}>Riesgo predictivo por servicio hospitalario</div>
               </div>
-            ) : (
-              <>
-                {(data?.repuestosCriticos?.length>0) && (
-                  <div className="rounded-xl p-4 flex items-center gap-3" style={{background:'#ef444410',border:'1px solid #ef444430'}}>
-                    <AlertTriangle className="w-5 h-5 flex-shrink-0" style={{color:'#f87171'}}/>
-                    <div className="text-sm" style={{color:'#fca5a5'}}>
-                      <strong>{data?.repuestosCriticos?.length} repuestos</strong> con stock bajo. Reposición recomendada.
+              {loading?Array.from({length:6}).map((_,i)=><div key={i} style={{height:60,borderBottom:'0.5px solid #F8F9FA'}}/>):(data?.prediccionServicios||[]).map((s:any,i:number)=>{
+                const c=s.scorePromedio>=70?'#DC2626':s.scorePromedio>=45?'#D97706':'#16A34A'
+                return (
+                  <div key={i} style={{padding:'14px 20px',borderBottom:'0.5px solid #F8F9FA'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:500,color:'#18181B',marginBottom:2}}>{s.nombre}</div>
+                        <div style={{display:'flex',gap:10,fontSize:11,color:'#A1A1AA'}}>
+                          <span>{s.equipos} equipos</span>
+                          <span style={{color:'#DC2626'}}>{s.criticos} críticos</span>
+                          <span>2025: {Math.round(s.correctivos)} → 2026: {Math.round(s.correctivos*1.18)}</span>
+                        </div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:22,fontWeight:700,color:c}}>{s.scorePromedio}</div>
+                        <div style={{fontSize:10,color:'#A1A1AA'}}>score riesgo</div>
+                      </div>
                     </div>
+                    <div style={{height:4,background:'#F4F4F5',borderRadius:2}}>
+                      <div style={{height:4,borderRadius:2,width:`${s.scorePromedio}%`,background:c}}/>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {tab==='repuestos'&&(
+          <div style={{maxWidth:700}}>
+            {!loading&&(!data?.repuestosCriticos||data.repuestosCriticos.length===0)?(
+              <div style={{background:'#F0FDF4',borderRadius:10,border:'0.5px solid #BBF7D0',padding:'32px',textAlign:'center'}}>
+                <i className="ti ti-package" style={{fontSize:36,color:'#16A34A',display:'block',marginBottom:10}}/>
+                <div style={{fontSize:15,fontWeight:600,color:'#16A34A',marginBottom:4}}>Stock en buen estado</div>
+                <div style={{fontSize:12,color:'#71717A'}}>No hay repuestos con stock bajo o agotado</div>
+              </div>
+            ):(
+              <>
+                {(data?.repuestosCriticos?.length>0)&&(
+                  <div style={{padding:'12px 16px',borderRadius:8,background:'#FEF2F2',border:'0.5px solid #FECACA',marginBottom:14,display:'flex',gap:10,alignItems:'flex-start'}}>
+                    <i className="ti ti-alert-triangle" style={{fontSize:16,color:'#DC2626',flexShrink:0,marginTop:1}}/>
+                    <div style={{fontSize:12,color:'#DC2626'}}><strong>{data?.repuestosCriticos?.length} repuestos</strong> con stock bajo. Reposición recomendada antes de la próxima ronda.</div>
                   </div>
                 )}
-                <div className="rounded-xl overflow-hidden" style={{border:'1px solid #1e2d3d'}}>
-                  <div className="px-5 py-4" style={{background:'#0d1626',borderBottom:'1px solid #1e2d3d'}}>
-                    <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>Repuestos a reponer</div>
+                <div style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',overflow:'hidden'}}>
+                  <div style={{padding:'14px 20px',borderBottom:'0.5px solid #F4F4F5'}}>
+                    <div style={{fontSize:13,fontWeight:600,color:'#18181B'}}>Repuestos a reponer</div>
                   </div>
-                  <div className="divide-y" style={{borderColor:'#1e2d3d'}}>
-                    {loading ? Array.from({length:4}).map((_,i)=>(
-                      <div key={i} className="px-5 py-4 animate-pulse"><div className="h-4 w-48 rounded mb-2" style={{background:'#1e2d3d'}}/><div className="h-2 rounded" style={{background:'#1e2d3d'}}/></div>
-                    )) : (data?.repuestosCriticos||[]).map((r:any,i:number)=>(
-                      <div key={i} className="px-5 py-4" style={{background:i%2===0?'#080e16':'#0a1120'}}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <div className="text-sm font-bold" style={{color:'#e2e8f0'}}>{r.nombre}</div>
-                            <div className="flex items-center gap-3 text-xs mt-0.5">
-                              <span style={{color:r.stock===0?'#f87171':'#fcd34d'}}>Stock: {r.stock} {r.stock===0?'— AGOTADO':'— BAJO'}</span>
-                              <span style={{color:'#3d5166'}}>Mín: {r.minimo}</span>
-                            </div>
-                          </div>
-                          {r.costoReposicion && (
-                            <div className="text-right">
-                              <div className="text-xs" style={{color:'#3d5166'}}>Costo reposición</div>
-                              <div className="text-sm font-bold" style={{color:'#2dd4bf'}}>${r.costoReposicion.toLocaleString('es-CO')}</div>
-                            </div>
-                          )}
+                  {loading?Array.from({length:4}).map((_,i)=><div key={i} style={{height:56,borderBottom:'0.5px solid #F8F9FA'}}/>):(data?.repuestosCriticos||[]).map((r:any,i:number)=>(
+                    <div key={i} style={{padding:'14px 20px',borderBottom:'0.5px solid #F8F9FA'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:500,color:'#18181B'}}>{r.nombre}</div>
+                          <div style={{fontSize:11,color:r.stock===0?'#DC2626':'#D97706'}}>{r.stock===0?'Sin stock':r.stock+' unidades — Stock bajo'} · Mínimo: {r.minimo}</div>
                         </div>
-                        <div className="h-2 rounded-full" style={{background:'#1e2d3d'}}>
-                          <div className="h-2 rounded-full" style={{width:`${Math.min((r.stock/r.minimo)*100,100)}%`,background:r.stock===0?'#ef4444':'#f59e0b'}}/>
-                        </div>
+                        {r.costoReposicion&&<div style={{textAlign:'right'}}><div style={{fontSize:11,color:'#A1A1AA'}}>Costo reposición</div><div style={{fontSize:13,fontWeight:600,color:'#3B4FE8'}}>${r.costoReposicion.toLocaleString('es-CO')}</div></div>}
                       </div>
-                    ))}
-                  </div>
+                      <div style={{height:4,background:'#F4F4F5',borderRadius:2}}>
+                        <div style={{height:4,borderRadius:2,width:`${Math.min((r.stock/r.minimo)*100,100)}%`,background:r.stock===0?'#DC2626':'#D97706'}}/>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </>
             )}
