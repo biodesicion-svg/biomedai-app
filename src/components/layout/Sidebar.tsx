@@ -18,6 +18,7 @@ const navItems = [
   { href:'/kpis',          label:'KPIs',                icon:BarChart3,       desc:'Indicadores clave' },
   { href:'/presupuesto',   label:'Presupuesto',         icon:DollarSign,      desc:'Control financiero' },
   { href:'/auditoria',     label:'Auditoría',           icon:ShieldCheck,     desc:'Simulación y cumplimiento' },
+  { href:'/admin', icon:'ti-shield-check', label:'Super Admin', desc:'Panel de control' },
   { href:'/chat',          label:'Asistente IA',        icon:MessageSquare,   desc:'Consulta de datos' },
 ]
 
@@ -77,3 +78,4 @@ export default function Sidebar() {
     </aside>
   )
 }
+// Ya incluido en el componente
