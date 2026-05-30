@@ -1,81 +1,213 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard, ClipboardList, Wrench, BarChart3,
-  DollarSign, MessageSquare, Activity, ClipboardCheck,
-  ShieldCheck, Package, TrendingUp,
-} from 'lucide-react'
 
-const navItems = [
-  { href:'/dashboard',     label:'Dashboard',          icon:LayoutDashboard, desc:'Vista general' },
-  { href:'/inventario',    label:'Inventario',          icon:ClipboardList,   desc:'Equipos biomédicos' },
-  { href:'/mantenimiento', label:'Mantenimiento',       icon:Wrench,          desc:'Cronogramas' },
-  { href:'/ordenes',       label:'Órdenes de Trabajo',  icon:ClipboardCheck,  desc:'Kanban de órdenes' },
-  { href:'/repuestos',     label:'Repuestos',           icon:Package,         desc:'Stock y asignaciones' },
-  { href:'/prediccion',    label:'Predicción',          icon:TrendingUp,      desc:'Análisis predictivo' },
-  { href:'/kpis',          label:'KPIs',                icon:BarChart3,       desc:'Indicadores clave' },
-  { href:'/presupuesto',   label:'Presupuesto',         icon:DollarSign,      desc:'Control financiero' },
-  { href:'/auditoria',     label:'Auditoría',           icon:ShieldCheck,     desc:'Simulación y cumplimiento' },
-  { href:'/admin', icon:'ti-shield-check', label:'Super Admin', desc:'Panel de control' },
-  { href:'/chat',          label:'Asistente IA',        icon:MessageSquare,   desc:'Consulta de datos' },
+const NAV = [
+  {
+    label: 'Inicio',
+    icon: 'ti-home',
+    href: '/dashboard',
+    single: true,
+  },
+  {
+    label: 'Activos',
+    icon: 'ti-device-heart-monitor',
+    children: [
+      { label: 'Inventario',      icon: 'ti-clipboard-list',  href: '/inventario',    desc: 'Equipos biomédicos' },
+      { label: 'Hoja de vida',    icon: 'ti-file-description', href: '/inventario',   desc: 'Por equipo' },
+    ],
+  },
+  {
+    label: 'Mantenimiento',
+    icon: 'ti-tool',
+    children: [
+      { label: 'Cronograma',       icon: 'ti-calendar',        href: '/mantenimiento', desc: 'Plan anual' },
+      { label: 'Órdenes de trabajo', icon: 'ti-clipboard-check', href: '/ordenes',    desc: 'Kanban' },
+      { label: 'Protocolos',       icon: 'ti-list-check',      href: '/ordenes',      desc: 'Por tipo de equipo' },
+    ],
+  },
+  {
+    label: 'Almacén',
+    icon: 'ti-package',
+    children: [
+      { label: 'Repuestos',        icon: 'ti-package',         href: '/repuestos',    desc: 'Stock e inventario' },
+      { label: 'Movimientos',      icon: 'ti-arrows-exchange', href: '/repuestos',    desc: 'Entradas y salidas' },
+    ],
+  },
+  {
+    label: 'Business Intelligence',
+    icon: 'ti-chart-bar',
+    children: [
+      { label: 'Dashboard',        icon: 'ti-layout-dashboard', href: '/dashboard',   desc: 'Vista ejecutiva' },
+      { label: 'KPIs',             icon: 'ti-chart-dots',       href: '/kpis',        desc: 'Indicadores clave' },
+      { label: 'Predicción IA',    icon: 'ti-trending-up',      href: '/prediccion',  desc: 'Análisis predictivo' },
+      { label: 'Presupuesto',      icon: 'ti-currency-dollar',  href: '/presupuesto', desc: 'Control financiero' },
+    ],
+  },
+  {
+    label: 'Calidad',
+    icon: 'ti-shield-check',
+    children: [
+      { label: 'Auditorías',       icon: 'ti-shield-check',    href: '/auditoria',    desc: 'MSPS, Supersalud' },
+    ],
+  },
+  {
+    label: 'Asistente IA',
+    icon: 'ti-message',
+    href: '/chat',
+    single: true,
+  },
 ]
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const [abiertos, setAbiertos] = useState<Record<string,boolean>>({
+    'Business Intelligence': true,
+  })
+
+  function toggle(label: string) {
+    setAbiertos(p => ({ ...p, [label]: !p[label] }))
+  }
+
+  const isActive = (href: string) => pathname.startsWith(href)
+
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 flex flex-col z-50"
-      style={{ background:'#0f1623', borderRight:'1px solid #1e2d3d' }}>
-      <div className="px-6 py-6" style={{ borderBottom:'1px solid #1e2d3d' }}>
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background:'linear-gradient(135deg, #0d9488, #0f766e)' }}>
-            <Activity className="w-5 h-5 text-white" />
+    <>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.26.0/dist/tabler-icons.min.css"/>
+      <aside style={{
+        position: 'fixed', left: 0, top: 0, height: '100vh', width: 248,
+        background: '#fff', borderRight: '0.5px solid #E4E4E7',
+        display: 'flex', flexDirection: 'column', zIndex: 50, overflowY: 'auto',
+      }}>
+
+        {/* Logo */}
+        <div style={{ padding: '16px', borderBottom: '0.5px solid #E4E4E7', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, background: '#3B4FE8', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className="ti ti-activity" style={{ color: '#fff', fontSize: 19 }}/>
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#18181B', lineHeight: 1.2 }}>BioMed AI</div>
+              <div style={{ fontSize: 10, color: '#A1A1AA' }}>v0.1.0</div>
+            </div>
           </div>
-          <div className="text-white font-bold text-base tracking-tight">BioMed AI</div>
         </div>
-        <div className="mt-3 px-2 py-1.5 rounded text-xs font-medium"
-          style={{ background:'#0d948815', color:'#2dd4bf', border:'1px solid #0d948820' }}>
-          IPS Mediana Complejidad
-        </div>
-      </div>
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        <div className="px-3 mb-2">
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color:'#3d5166' }}>Módulos</span>
-        </div>
-        {navItems.map(({ href, label, icon: Icon, desc }) => {
-          const active = pathname.startsWith(href)
-          return (
-            <Link key={href} href={href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative"
-              style={{
-                background: active?'#0d948812':'transparent',
-                border: active?'1px solid #0d948830':'1px solid transparent',
-              }}>
-              {active && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full" style={{ background:'#0d9488' }}/>}
-              <div className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
-                style={{ background: active?'#0d948820':'#1e2d3d' }}>
-                <Icon className="w-4 h-4" style={{ color: active?'#2dd4bf':'#4a6580' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium leading-none mb-0.5" style={{ color: active?'#e2e8f0':'#7a9bb5' }}>{label}</div>
-                <div className="text-xs truncate" style={{ color: active?'#4a9090':'#3d5166' }}>{desc}</div>
-              </div>
-            </Link>
-          )
-        })}
-      </nav>
-      <div className="px-5 py-4" style={{ borderTop:'1px solid #1e2d3d' }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background:'#10b981' }} />
-            <span className="text-xs" style={{ color:'#3d5166' }}>Sistema operativo</span>
+
+        {/* Institución activa */}
+        <div style={{ padding: '10px 14px', borderBottom: '0.5px solid #E4E4E7', flexShrink: 0 }}>
+          <div style={{ fontSize: 10, color: '#A1A1AA', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Institución</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 26, height: 26, borderRadius: 6, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className="ti ti-building-hospital" style={{ fontSize: 13, color: '#3B4FE8' }}/>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: '#18181B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>IPS Demo</div>
+              <div style={{ fontSize: 10, color: '#A1A1AA' }}>Plan Profesional</div>
+            </div>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }}/>
           </div>
-          <span className="text-xs font-mono" style={{ color:'#3d5166' }}>v0.1.0</span>
         </div>
-      </div>
-    </aside>
+
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }}>
+          {NAV.map((item) => {
+
+            // Item simple sin hijos
+            if (item.single && item.href) {
+              const active = isActive(item.href)
+              return (
+                <Link key={item.label} href={item.href} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 14px', margin: '1px 8px', borderRadius: 7,
+                  textDecoration: 'none',
+                  background: active ? '#EEF2FF' : 'transparent',
+                  color: active ? '#3B4FE8' : '#52525B',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#F8F9FA' }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                  <i className={'ti ' + item.icon} style={{ fontSize: 17, color: active ? '#3B4FE8' : '#A1A1AA', flexShrink: 0 }}/>
+                  <span style={{ fontSize: 13, fontWeight: active ? 500 : 400 }}>{item.label}</span>
+                </Link>
+              )
+            }
+
+            // Item con hijos (grupo desplegable)
+            const abierto = abiertos[item.label] !== false && abiertos[item.label] !== undefined
+              ? abiertos[item.label]
+              : false
+            const anyChildActive = item.children?.some(c => isActive(c.href))
+
+            return (
+              <div key={item.label}>
+                <button onClick={() => toggle(item.label)} style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 14px', margin: '1px 0', border: 'none',
+                  background: anyChildActive ? '#EEF2FF' : 'transparent',
+                  cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { if (!anyChildActive) e.currentTarget.style.background = '#F8F9FA' }}
+                onMouseLeave={e => { if (!anyChildActive) e.currentTarget.style.background = anyChildActive ? '#EEF2FF' : 'transparent' }}>
+                  <i className={'ti ' + item.icon} style={{ fontSize: 17, color: anyChildActive ? '#3B4FE8' : '#A1A1AA', flexShrink: 0 }}/>
+                  <span style={{ fontSize: 13, fontWeight: anyChildActive ? 500 : 400, color: anyChildActive ? '#3B4FE8' : '#52525B', flex: 1 }}>{item.label}</span>
+                  <i className={'ti ' + (abierto ? 'ti-chevron-down' : 'ti-chevron-right')} style={{ fontSize: 13, color: '#A1A1AA', flexShrink: 0, transition: 'transform 0.2s' }}/>
+                </button>
+
+                {/* Submenú */}
+                {abierto && (
+                  <div style={{ paddingLeft: 14, paddingBottom: 4 }}>
+                    {item.children?.map(child => {
+                      const active = pathname === child.href || (child.href !== '/dashboard' && isActive(child.href))
+                      return (
+                        <Link key={child.label} href={child.href} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '7px 10px 7px 14px', margin: '1px 8px 1px 0',
+                          borderRadius: 7, textDecoration: 'none',
+                          background: active ? '#EEF2FF' : 'transparent',
+                          borderLeft: `2px solid ${active ? '#3B4FE8' : 'transparent'}`,
+                          transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#F8F9FA'; e.currentTarget.style.borderLeftColor = '#E4E4E7' } }}
+                        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeftColor = 'transparent' } }}>
+                          <i className={'ti ' + child.icon} style={{ fontSize: 15, color: active ? '#3B4FE8' : '#A1A1AA', flexShrink: 0 }}/>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: active ? 500 : 400, color: active ? '#3B4FE8' : '#3F3F46', lineHeight: 1.3 }}>{child.label}</div>
+                            <div style={{ fontSize: 10, color: '#A1A1AA', lineHeight: 1.3 }}>{child.desc}</div>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 14px', borderTop: '0.5px solid #E4E4E7', flexShrink: 0 }}>
+          <Link href="/admin" style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
+            borderRadius: 7, textDecoration: 'none', background: '#F8F9FA',
+            border: '0.5px solid #E4E4E7', marginBottom: 8, transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#7C3AED'; e.currentTarget.style.background = '#FDF4FF' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#E4E4E7'; e.currentTarget.style.background = '#F8F9FA' }}>
+            <i className="ti ti-shield-check" style={{ fontSize: 15, color: '#7C3AED' }}/>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: '#18181B' }}>Super Admin</div>
+              <div style={{ fontSize: 10, color: '#A1A1AA' }}>Panel de control</div>
+            </div>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E' }}/>
+            <span style={{ fontSize: 11, color: '#A1A1AA' }}>Sistema operativo</span>
+          </div>
+        </div>
+
+      </aside>
+    </>
   )
 }
-// Ya incluido en el componente
