@@ -2,253 +2,681 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-const INST = '00000000-0000-0000-0000-000000000001'
-
 const AUDITORIAS = [
-  { id:'habilitacion',    nombre:'Auditoría de Habilitación',         subtitulo:'Resolución 3100 de 2019 — Ministerio de Salud',          icon:'ti-building-hospital',       color:'#3B4FE8', bg:'#EEF2FF' },
-  { id:'biomedica',       nombre:'Auditoría de Equipos Biomédicos',   subtitulo:'Res. 4816/2008 · Dentro de Habilitación',                icon:'ti-device-heart-monitor',    color:'#7C3AED', bg:'#F5F3FF' },
-  { id:'tecnovigilancia', nombre:'Auditoría de Tecnovigilancia',      subtitulo:'Programa Nacional INVIMA · Res. 4816/2008',              icon:'ti-shield-check',            color:'#D97706', bg:'#FFFBEB' },
-  { id:'pamec',           nombre:'Auditoría PAMEC',                   subtitulo:'Programa de Auditoría para el Mejoramiento de la Calidad',icon:'ti-chart-arrows-vertical',   color:'#0891B2', bg:'#F0F9FF' },
-  { id:'acreditacion',    nombre:'Acreditación en Salud',             subtitulo:'ICONTEC · No obligatoria · Nivel superior',              icon:'ti-award',                   color:'#16A34A', bg:'#F0FDF4' },
-  { id:'secretaria',      nombre:'Visita Secretaría de Salud',        subtitulo:'Secretarías Departamentales o Distritales',              icon:'ti-building-community',      color:'#DC2626', bg:'#FEF2F2' },
-  { id:'supersalud',      nombre:'Auditoría Supersalud',              subtitulo:'Superintendencia Nacional de Salud',                     icon:'ti-scale',                   color:'#7C3AED', bg:'#F5F3FF' },
-  { id:'iso9001',         nombre:'ISO 9001:2015',                     subtitulo:'Sistema de Gestión de Calidad · Internacional',          icon:'ti-certificate',             color:'#0891B2', bg:'#F0F9FF' },
-  { id:'iso13485',        nombre:'ISO 13485',                         subtitulo:'Dispositivos médicos · Gestión de calidad',              icon:'ti-certificate-2',           color:'#16A34A', bg:'#F0FDF4' },
-  { id:'iso17025',        nombre:'ISO 17025',                         subtitulo:'Laboratorios de calibración y ensayo',                   icon:'ti-microscope',              color:'#D97706', bg:'#FFFBEB' },
+  { id:'habilitacion',    nombre:'Auditoría de Habilitación',         subtitulo:'Resolución 3100 de 2019 — Ministerio de Salud',           icon:'ti-building-hospital',    color:'#3B4FE8', bg:'#EEF2FF' },
+  { id:'biomedica',       nombre:'Auditoría de Equipos Biomédicos',   subtitulo:'Res. 4816/2008 · Dentro de Habilitación',                 icon:'ti-device-heart-monitor', color:'#7C3AED', bg:'#F5F3FF' },
+  { id:'tecnovigilancia', nombre:'Auditoría de Tecnovigilancia',      subtitulo:'Programa Nacional INVIMA · Res. 4816/2008',               icon:'ti-shield-check',         color:'#D97706', bg:'#FFFBEB' },
+  { id:'pamec',           nombre:'Auditoría PAMEC',                   subtitulo:'Programa Auditoría para el Mejoramiento de la Calidad',   icon:'ti-chart-arrows-vertical',color:'#0891B2', bg:'#F0F9FF' },
+  { id:'acreditacion',    nombre:'Acreditación en Salud ICONTEC',     subtitulo:'No obligatoria · Nivel superior a habilitación',          icon:'ti-award',                color:'#16A34A', bg:'#F0FDF4' },
+  { id:'secretaria',      nombre:'Visita Secretaría de Salud',        subtitulo:'Secretarías Departamentales o Distritales',               icon:'ti-building-community',   color:'#DC2626', bg:'#FEF2F2' },
+  { id:'supersalud',      nombre:'Auditoría Supersalud',              subtitulo:'Superintendencia Nacional de Salud',                      icon:'ti-scale',                color:'#7C3AED', bg:'#F5F3FF' },
+  { id:'iso9001',         nombre:'ISO 9001:2015',                     subtitulo:'Sistema de Gestión de Calidad · Internacional',           icon:'ti-certificate',          color:'#0891B2', bg:'#F0F9FF' },
+  { id:'iso13485',        nombre:'ISO 13485',                         subtitulo:'Dispositivos médicos · Gestión de calidad',               icon:'ti-certificate-2',        color:'#16A34A', bg:'#F0FDF4' },
+  { id:'iso17025',        nombre:'ISO 17025',                         subtitulo:'Laboratorios de calibración y ensayo',                    icon:'ti-microscope',           color:'#D97706', bg:'#FFFBEB' },
 ]
 
 function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
-  const sinSerie       = eq.filter(e=>!e.serie)
-  const sinMarca       = eq.filter(e=>!e.marca)
-  const sinClaseInvima = eq.filter(e=>!e.clase_invima)
-  const sinAnioAdq     = eq.filter(e=>!e.anio_adquisicion)
-  const sinVidaUtil    = eq.filter(e=>!e.vida_util_anos)
-  const altoRiesgo     = eq.filter(e=>e.riesgo==='alto')
-  const operativos     = eq.filter(e=>e.estado==='operativo')
-  const completados    = mant.filter(m=>m.estado==='completado')
-  const preventivos    = mant.filter(m=>m.tipo==='preventivo')
-  const correctivos    = mant.filter(m=>m.tipo==='correctivo')
-  const calibraciones  = mant.filter(m=>m.tipo==='calibracion')
-  const sinFechaReal   = mant.filter(m=>!m.fecha_realizado)
-  const sinCosto       = mant.filter(m=>!m.costo_total||Number(m.costo_total)===0)
-  const sinDuracion    = mant.filter(m=>!m.duracion_horas)
-  const sinDesc        = mant.filter(m=>!m.descripcion||String(m.descripcion).length<5)
-  const conHallazgos   = mant.filter(m=>m.hallazgos&&String(m.hallazgos).length>5)
-  const sinStock       = rep.filter(r=>r.stock_actual===0)
-  const stockBajo      = rep.filter(r=>r.stock_actual>0&&r.stock_actual<=r.stock_minimo)
-  const stockOk        = rep.filter(r=>r.stock_actual>r.stock_minimo)
-  const eqConMant      = new Set(mant.map(m=>m.equipo_id))
-  const sinMant        = eq.filter(e=>!eqConMant.has(e.id))
-  const completos      = eq.filter(e=>e.serie&&e.marca&&e.clase_invima&&e.anio_adquisicion)
+  // ── Cálculos base ──────────────────────────────────────────────
+  const sinSerie       = eq.filter(e => !e.serie || e.serie.trim() === '')
+  const sinMarca       = eq.filter(e => !e.marca || e.marca.trim() === '')
+  const sinModelo      = eq.filter(e => !e.modelo || e.modelo.trim() === '')
+  const sinClaseInvima = eq.filter(e => !e.clase_invima || e.clase_invima.trim() === '')
+  const sinAnioAdq     = eq.filter(e => !e.anio_adquisicion)
+  const sinVidaUtil    = eq.filter(e => !e.vida_util_anos)
+  const altoRiesgo     = eq.filter(e => e.riesgo === 'alto')
+  const medioRiesgo    = eq.filter(e => e.riesgo === 'medio')
+  const operativos     = eq.filter(e => e.estado === 'operativo')
+  const fueraSvc       = eq.filter(e => e.estado === 'fuera_servicio')
+  const enBaja         = eq.filter(e => e.estado === 'baja')
 
-  const pct = (n:number,d:number) => d>0?Math.round((n/d)*100):0
-  const pctComp   = pct(completos.length, eq.length)
-  const pctCumpl  = pct(completados.length, mant.length)
-  const pctDoc    = pct(mant.length-sinDesc.length, mant.length)
-  const pctCosto  = pct(mant.length-sinCosto.length, mant.length)
-  const pctStock  = pct(stockOk.length, rep.length)
-  const pctVida   = pct(eq.length-sinVidaUtil.length, eq.length)
-  const pctClase  = pct(eq.length-sinClaseInvima.length, eq.length)
-  const mesesCub  = new Set(mant.map(m=>m.fecha_programada?.substring(0,7))).size
-  const pctCronograma = Math.min(pct(mesesCub,12),100)
-  const pctHV     = pct(eq.length-sinMant.length, eq.length)
-  const pctAltoMant = pct(altoRiesgo.filter(e=>eqConMant.has(e.id)).length, altoRiesgo.length)
-  const pctDisp   = pct(operativos.length, eq.length)
+  const completados    = mant.filter(m => m.estado === 'completado')
+  const preventivos    = mant.filter(m => m.tipo === 'preventivo')
+  const correctivos    = mant.filter(m => m.tipo === 'correctivo')
+  const calibraciones  = mant.filter(m => m.tipo === 'calibracion')
+  const sinFechaReal   = mant.filter(m => !m.fecha_realizado)
+  const sinCosto       = mant.filter(m => !m.costo_total || Number(m.costo_total) === 0)
+  const sinDuracion    = mant.filter(m => !m.duracion_horas)
+  const sinDesc        = mant.filter(m => !m.descripcion || String(m.descripcion).trim().length < 5)
+  const conHallazgos   = mant.filter(m => m.hallazgos && String(m.hallazgos).trim().length > 5)
 
-  const res = (puntaje:number, meta:number) =>
-    puntaje>=meta?'cumple':puntaje>=meta*0.6?'parcial':'no_cumple'
+  const sinStock       = rep.filter(r => r.stock_actual === 0)
+  const stockBajo      = rep.filter(r => r.stock_actual > 0 && r.stock_actual <= r.stock_minimo)
+  const stockOk        = rep.filter(r => r.stock_actual > r.stock_minimo)
 
-  const CRITERIOS: Record<string,any[]> = {
+  const eqConMant      = new Set(mant.map(m => m.equipo_id))
+  const sinMant        = eq.filter(e => !eqConMant.has(e.id))
+
+  // Equipos con datos completos (cada campo por separado)
+  const conSerie       = eq.length - sinSerie.length
+  const conMarca       = eq.length - sinMarca.length
+  const conClase       = eq.length - sinClaseInvima.length
+  const conAnio        = eq.length - sinAnioAdq.length
+  const conVida        = eq.length - sinVidaUtil.length
+  const conMantEq      = eq.length - sinMant.length
+  const conDesc        = mant.length - sinDesc.length
+  const conCosto       = mant.length - sinCosto.length
+
+  const pct = (n: number, d: number) => d > 0 ? Math.round((n / d) * 100) : 0
+
+  const pctSerie   = pct(conSerie, eq.length)
+  const pctMarca   = pct(conMarca, eq.length)
+  const pctClase   = pct(conClase, eq.length)
+  const pctAnio    = pct(conAnio, eq.length)
+  const pctVida    = pct(conVida, eq.length)
+  const pctCumpl   = pct(completados.length, mant.length)
+  const pctHV      = pct(conMantEq, eq.length)
+  const pctDoc     = pct(conDesc, mant.length)
+  const pctCosto   = pct(conCosto, mant.length)
+  const pctStock   = pct(stockOk.length, rep.length)
+  const pctDisp    = pct(operativos.length, eq.length)
+  const pctAltoMant = pct(altoRiesgo.filter(e => eqConMant.has(e.id)).length, altoRiesgo.length)
+  const mesesCub   = new Set(mant.map(m => m.fecha_programada?.substring(0, 7))).size
+  const pctCron    = Math.min(pct(mesesCub, 12), 100)
+  const pctCal     = pct(calibraciones.length, Math.max(altoRiesgo.length, 1))
+
+  const res = (p: number, meta: number) => p >= meta ? 'cumple' : p >= meta * 0.6 ? 'parcial' : 'no_cumple'
+
+  // ── CRITERIOS DETALLADOS ────────────────────────────────────────
+  const CRITERIOS: Record<string, any[]> = {
+
     habilitacion: [
-      { estandar:'Dotación', criterio:'Inventario biomédico completo (nombre, marca, modelo, serie)', normativa:'Res. 3100/2019 · Res. 4816/2008', resultado:res(pctComp,80), puntaje:pctComp, meta:100, impacto:'alto',
-        hallazgo:`${completos.length}/${eq.length} equipos con datos completos (${pctComp}%). Sin serie: ${sinSerie.length}, sin marca: ${sinMarca.length}, sin clase INVIMA: ${sinClaseInvima.length}, sin año: ${sinAnioAdq.length}.`,
-        mejora:pctComp<100?`Completar datos de ${eq.length-completos.length} equipos. Priorizar los ${altoRiesgo.length} de alto riesgo.`:null },
-      { estandar:'Dotación', criterio:'Clasificación de riesgo INVIMA documentada', normativa:'Dec. 4725/2005', resultado:res(pctClase,90), puntaje:pctClase, meta:100, impacto:'alto',
-        hallazgo:`${eq.length-sinClaseInvima.length}/${eq.length} equipos con clase INVIMA. Faltan: ${sinClaseInvima.length}.`,
-        mejora:sinClaseInvima.length>0?'Consultar portal web.invima.gov.co y registrar la clase (I, IIa, IIb, III) de cada equipo.':null },
-      { estandar:'Procesos prioritarios', criterio:'Plan anual de mantenimiento preventivo ≥ 80%', normativa:'Res. 4816/2008 Art. 7', resultado:res(pctCumpl,80), puntaje:pctCumpl, meta:80, impacto:'alto',
-        hallazgo:`Cumplimiento: ${pctCumpl}%. ${completados.length}/${mant.length} completados. Cronograma cubre ${mesesCub}/12 meses. ${sinFechaReal.length} sin fecha de ejecución.`,
-        mejora:pctCumpl<80?'Establecer cronograma formal con responsables. Registrar fecha real en cada intervención.':null },
-      { estandar:'Procesos prioritarios', criterio:'Hojas de vida con historial de mantenimiento', normativa:'Res. 4816/2008 Art. 6', resultado:res(pctHV,90), puntaje:pctHV, meta:100, impacto:'alto',
-        hallazgo:`${eq.length-sinMant.length}/${eq.length} equipos con historial. ${sinMant.length} sin ningún registro.`,
-        mejora:sinMant.length>0?'Registrar al menos la recepción técnica de los equipos sin historial.':null },
-      { estandar:'Historia clínica y registros', criterio:'Registros de mantenimiento con descripción de actividades', normativa:'Res. 4816/2008 Art. 8', resultado:res(pctDoc,80), puntaje:pctDoc, meta:80, impacto:'medio',
-        hallazgo:`${mant.length-sinDesc.length}/${mant.length} con descripción (${pctDoc}%). ${sinDuracion.length} sin duración registrada.`,
-        mejora:pctDoc<80?'Exigir descripción obligatoria en cada orden de trabajo.':null },
-      { estandar:'Dotación', criterio:'Stock de repuestos e insumos biomédicos disponible', normativa:'Res. 3100/2019', resultado:sinStock.length===0&&stockBajo.length===0?'cumple':sinStock.length===0?'parcial':'no_cumple', puntaje:pctStock, meta:90, impacto:'medio',
-        hallazgo:`${sinStock.length} agotados, ${stockBajo.length} stock bajo, ${stockOk.length} óptimo de ${rep.length} total.`,
-        mejora:(sinStock.length>0||stockBajo.length>0)?`Reponer: ${[...sinStock,...stockBajo].slice(0,3).map((r:any)=>r.nombre).join(', ')}`:null },
-      { estandar:'Talento humano', criterio:'Responsable de ingeniería biomédica designado', normativa:'Res. 3100/2019', resultado:'parcial', puntaje:50, meta:100, impacto:'alto',
-        hallazgo:'No es posible verificar automáticamente si existe responsable formal designado. Requiere verificación de documentación RH.',
-        mejora:'Designar formalmente un Ingeniero Biomédico mediante acto administrativo.' },
+      {
+        estandar: '2. Infraestructura · Dotación',
+        criterio: 'Inventario de equipos biomédicos — Número de serie registrado',
+        normativa: 'Res. 3100/2019 Anexo Técnico · Res. 4816/2008 Art. 5 numeral 1',
+        articulo: 'Res. 4816/2008 Art. 5 numeral 1: "Las instituciones deben llevar un inventario de los dispositivos médicos que incluya como mínimo: nombre genérico, marca, modelo, serie, registro sanitario INVIMA y clasificación de riesgo."',
+        resultado: res(pctSerie, 90),
+        puntaje: pctSerie,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: sinSerie.length === 0
+          ? `✓ Todos los equipos tienen número de serie registrado.`
+          : `✗ ${sinSerie.length} de ${eq.length} equipos (${100-pctSerie}%) NO tienen número de serie registrado.\n\nEquipos sin serie: ${sinSerie.slice(0,5).map(e=>e.nombre).join(', ')}${sinSerie.length>5?` y ${sinSerie.length-5} más`:''}.\n\nEsto incumple directamente el Art. 5 numeral 1 de la Res. 4816/2008 y puede generar observación tipo "No conformidad mayor" en visita de habilitación.`,
+        mejora: sinSerie.length > 0 ? {
+          accion: 'Completar número de serie en los equipos faltantes',
+          como: `1. Ir al módulo de Inventario en BioMed AI\n2. Filtrar por equipos sin serie\n3. Verificar la placa física del equipo o el manual del fabricante\n4. Registrar el número de serie en la hoja de vida\n5. Si el equipo no tiene serie (equipos artesanales), registrar "S/N" y documentar el motivo`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '30 días antes de cualquier visita de habilitación',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 5 numeral 1',
+          riesgo_incumplimiento: 'Observación tipo No Conformidad Mayor — puede bloquear habilitación',
+        } : null,
+      },
+      {
+        estandar: '2. Infraestructura · Dotación',
+        criterio: 'Inventario de equipos biomédicos — Marca y modelo registrados',
+        normativa: 'Res. 3100/2019 Anexo Técnico · Res. 4816/2008 Art. 5 numeral 1',
+        articulo: 'Res. 4816/2008 Art. 5 numeral 1: El inventario debe incluir "marca y modelo" de cada dispositivo médico.',
+        resultado: res(pctMarca, 90),
+        puntaje: pctMarca,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: sinMarca.length === 0
+          ? `✓ Todos los ${eq.length} equipos tienen marca registrada.`
+          : `✗ ${sinMarca.length} equipos sin marca (${100-pctMarca}% incompletos). ${sinModelo.length} sin modelo.\n\nEquipos sin marca: ${sinMarca.slice(0,5).map((e:any)=>e.nombre).join(', ')}${sinMarca.length>5?` y ${sinMarca.length-5} más`:''}`,
+        mejora: sinMarca.length > 0 ? {
+          accion: 'Registrar marca y modelo de los equipos faltantes',
+          como: `1. Verificar la placa de identificación del equipo\n2. Consultar la factura de compra o contrato de adquisición\n3. Buscar en el portal del INVIMA: dispositivos médicos → búsqueda por nombre\n4. Registrar en el sistema: nombre del fabricante (marca) y referencia comercial (modelo)`,
+          responsable: 'Auxiliar de ingeniería biomédica / Almacén',
+          plazo: '15 días',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 5 numeral 1',
+          riesgo_incumplimiento: 'No Conformidad Menor — se debe subsanar en el plan de mejora',
+        } : null,
+      },
+      {
+        estandar: '2. Infraestructura · Dotación',
+        criterio: 'Clasificación de riesgo INVIMA documentada en inventario',
+        normativa: 'Dec. 4725/2005 Art. 26 · Res. 4816/2008 Art. 5 numeral 3',
+        articulo: 'Dec. 4725/2005 Art. 26: Los dispositivos médicos se clasifican en clases I, IIa, IIb y III según el riesgo que representan para el paciente y el operador. Res. 4816/2008 Art. 5 numeral 3 exige que esta clasificación esté documentada en el inventario.',
+        resultado: res(pctClase, 90),
+        puntaje: pctClase,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: sinClaseInvima.length === 0
+          ? `✓ Todos los ${eq.length} equipos tienen clase INVIMA registrada. Alto riesgo (IIb/III): ${altoRiesgo.length}.`
+          : `✗ ${sinClaseInvima.length} equipos (${100-pctClase}%) sin clasificación INVIMA.\n\nLa clasificación es OBLIGATORIA para determinar la frecuencia de mantenimiento preventivo (equipos clase IIb deben tener mínimo 2 mantenimientos/año; clase III: según recomendación del fabricante).\n\nEquipos sin clasificar: ${sinClaseInvima.slice(0,5).map((e:any)=>e.nombre).join(', ')}${sinClaseInvima.length>5?` y ${sinClaseInvima.length-5} más`:''}`,
+        mejora: sinClaseInvima.length > 0 ? {
+          accion: 'Clasificar los equipos sin clase INVIMA',
+          como: `1. Ingresar a web.invima.gov.co → Dispositivos Médicos → Consulta de registros sanitarios\n2. Buscar por nombre del equipo o número de registro\n3. La clase aparece en el certificado de registro sanitario\n4. Equipos importados: buscar en el país de origen (FDA classification para EE.UU.)\n5. Registrar en BioMed AI en el campo "Clase INVIMA" de cada equipo`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '30 días',
+          normativa_cumplimiento: 'Dec. 4725/2005 Art. 26 · Res. 4816/2008 Art. 5',
+          riesgo_incumplimiento: 'No Conformidad Mayor — afecta plan de mantenimiento y habilitación',
+        } : null,
+      },
+      {
+        estandar: '2. Infraestructura · Dotación',
+        criterio: 'Año de adquisición y vida útil documentados',
+        normativa: 'Res. 4816/2008 Art. 5 numeral 4 · Circular 015/2009 MSPS',
+        articulo: 'Res. 4816/2008 Art. 5 numeral 4: El inventario debe incluir "fecha de adquisición y vida útil estimada" para cada equipo biomédico, como insumo para la planeación del reemplazo tecnológico.',
+        resultado: res(pctAnio, 70),
+        puntaje: pctAnio,
+        meta: 90,
+        impacto: 'medio',
+        hallazgo: sinAnioAdq.length === 0
+          ? `✓ Todos los equipos tienen año de adquisición registrado.`
+          : `✗ ${sinAnioAdq.length} equipos sin año de adquisición (${100-pctAnio}%). ${sinVidaUtil.length} sin vida útil definida.\n\nSin estos datos no es posible:\n• Calcular el ciclo de reposición tecnológica\n• Determinar equipos obsoletos o con vida útil vencida\n• Planear el presupuesto de reemplazo`,
+        mejora: sinAnioAdq.length > 0 ? {
+          accion: 'Completar fecha de adquisición y vida útil',
+          como: `1. Consultar facturas de compra en el área de almacén o contabilidad\n2. Para vida útil: revisar manual del fabricante (sección "expected service life")\n3. Si no hay manual: usar tabla OPS/OMS de vida útil referencial por tipo de equipo\n4. Equipos sin documento: registrar año estimado con nota "estimado" en observaciones\n5. Priorizar equipos clase IIb y III`,
+          responsable: 'Ingeniero Biomédico + Almacén',
+          plazo: '45 días',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 5 numeral 4',
+          riesgo_incumplimiento: 'Observación — puede ser No Conformidad Menor en auditoría',
+        } : null,
+      },
+      {
+        estandar: '5. Procesos prioritarios',
+        criterio: 'Plan anual de mantenimiento preventivo con cronograma',
+        normativa: 'Res. 4816/2008 Art. 7 · Res. 3100/2019 Estándar 5 — Procesos prioritarios',
+        articulo: 'Res. 4816/2008 Art. 7: "Las instituciones prestadoras de servicios de salud deben elaborar un programa de mantenimiento preventivo anual para todos los dispositivos médicos, con cronograma de actividades, responsables y presupuesto asignado." La Res. 3100/2019 lo incluye como estándar obligatorio de habilitación.',
+        resultado: res(pctCumpl, 80),
+        puntaje: pctCumpl,
+        meta: 80,
+        impacto: 'alto',
+        hallazgo: pctCumpl >= 80
+          ? `✓ Cumplimiento del ${pctCumpl}%. ${completados.length} de ${mant.length} mantenimientos completados. Cronograma cubre ${mesesCub}/12 meses.`
+          : `✗ Cumplimiento del ${pctCumpl}% — Por debajo del 80% exigido por la Res. 4816/2008 Art. 7.\n\n• Total mantenimientos programados: ${mant.length}\n• Completados: ${completados.length} (${pctCumpl}%)\n• Sin ejecutar: ${mant.length - completados.length}\n• Sin fecha de ejecución real: ${sinFechaReal.length}\n• Cronograma: cubre solo ${mesesCub} de 12 meses\n\nUn incumplimiento menor al 80% representa una NO CONFORMIDAD MAYOR en visita de habilitación y puede resultar en plan de mejora obligatorio con plazo de 3 meses.`,
+        mejora: pctCumpl < 80 ? {
+          accion: 'Aumentar cumplimiento del plan preventivo al 80% mínimo',
+          como: `1. Identificar los ${mant.length - completados.length} mantenimientos no ejecutados\n2. Programar ejecución inmediata de los atrasados, priorizando equipos clase IIb y III\n3. Para cada mantenimiento completado sin fecha real: buscar en archivos físicos y registrar\n4. Distribuir el cronograma en los ${12 - mesesCub} meses sin cobertura\n5. Asignar responsable por servicio con meta mensual de cumplimiento\n6. Implementar alerta automática en BioMed AI para mantenimientos próximos a vencer`,
+          responsable: 'Coordinador de Ingeniería Biomédica',
+          plazo: '60 días — antes de cualquier visita de habilitación',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 7',
+          riesgo_incumplimiento: 'No Conformidad Mayor — puede generar plan de mejora obligatorio con seguimiento de la Secretaría de Salud',
+        } : null,
+      },
+      {
+        estandar: '6. Historia clínica y registros',
+        criterio: 'Hojas de vida individuales con historial de mantenimiento',
+        normativa: 'Res. 4816/2008 Art. 6 · Res. 3100/2019 Estándar 6',
+        articulo: 'Res. 4816/2008 Art. 6: "Cada dispositivo médico debe contar con una hoja de vida que registre: fecha de adquisición, mantenimientos preventivos y correctivos realizados, calibraciones, repuestos instalados, fallas reportadas y responsable de cada intervención." Este registro es exigido como evidencia en toda visita de habilitación.',
+        resultado: res(pctHV, 85),
+        puntaje: pctHV,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: sinMant.length === 0
+          ? `✓ Todos los ${eq.length} equipos tienen al menos un registro en su hoja de vida.`
+          : `✗ ${sinMant.length} equipos (${100-pctHV}%) NO tienen ningún registro de mantenimiento en su hoja de vida.\n\nEquipos sin historial: ${sinMant.slice(0,5).map((e:any)=>e.nombre).join(', ')}${sinMant.length>5?` y ${sinMant.length-5} más`:''}.\n\nSin hoja de vida, el inspector no puede verificar que el equipo ha recibido mantenimiento. Esto genera NO CONFORMIDAD en el estándar 6 de la Res. 3100/2019.`,
+        mejora: sinMant.length > 0 ? {
+          accion: 'Crear hoja de vida para todos los equipos sin historial',
+          como: `1. En BioMed AI: ir al equipo sin historial → sección "Historial"\n2. Registrar mínimo la recepción técnica inicial del equipo (fecha en que ingresó al servicio)\n3. Si existe historial en papel: digitalizar los últimos 2 años de mantenimientos\n4. Para equipos nuevos: registrar la instalación, pruebas de aceptación y condiciones de garantía\n5. Priorizar los ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos de alto riesgo sin historial`,
+          responsable: 'Ingeniero Biomédico / Técnico Biomédico',
+          plazo: '30 días',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 6 · Res. 3100/2019 Estándar 6',
+          riesgo_incumplimiento: 'No Conformidad Mayor — evidencia directa de falta de gestión biomédica',
+        } : null,
+      },
+      {
+        estandar: '6. Historia clínica y registros',
+        criterio: 'Órdenes de trabajo con descripción de actividades realizadas',
+        normativa: 'Res. 4816/2008 Art. 8 · Res. 3100/2019 Estándar 6',
+        articulo: 'Res. 4816/2008 Art. 8: "Los registros de mantenimiento deben incluir: descripción de actividades realizadas, materiales y repuestos utilizados, tiempo empleado, nombre y firma del técnico responsable y resultado de las pruebas de funcionamiento post-mantenimiento."',
+        resultado: res(pctDoc, 80),
+        puntaje: pctDoc,
+        meta: 80,
+        impacto: 'alto',
+        hallazgo: pctDoc >= 80
+          ? `✓ ${conDesc} de ${mant.length} registros documentados (${pctDoc}%). ${conHallazgos.length} con hallazgos específicos.`
+          : `✗ ${sinDesc.length} de ${mant.length} mantenimientos (${100-pctDoc}%) sin descripción de actividades.\n\n• Sin descripción: ${sinDesc.length} registros\n• Sin duración registrada: ${sinDuracion.length} registros\n• Sin costo registrado: ${sinCosto.length} registros\n• Con hallazgos documentados: ${conHallazgos.length}\n\nLos inspectores de habilitación solicitan órdenes de trabajo firmadas. Un registro sin descripción no es válido como evidencia.`,
+        mejora: pctDoc < 80 ? {
+          accion: 'Completar descripción en todos los registros de mantenimiento',
+          como: `1. En BioMed AI: filtrar mantenimientos sin descripción\n2. Para registros históricos: recuperar de formatos físicos y digitalizar\n3. Para nuevos: exigir descripción mínima de 3 actividades en cada OT:\n   - Actividades realizadas (ej: "Limpieza de filtros, verificación de alarmas, prueba funcional")\n   - Resultado: "Equipo en funcionamiento correcto" o hallazgo encontrado\n   - Nombre del técnico responsable\n4. Crear plantilla estándar de OT en el módulo de órdenes de BioMed AI`,
+          responsable: 'Técnico Biomédico (ejecución) · Ingeniero Biomédico (supervisión)',
+          plazo: '30 días para registros históricos · Inmediato para nuevos registros',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 8',
+          riesgo_incumplimiento: 'No Conformidad Menor en auditoría de habilitación',
+        } : null,
+      },
+      {
+        estandar: '4. Medicamentos e insumos · Dotación',
+        criterio: 'Stock de repuestos e insumos biomédicos críticos disponible',
+        normativa: 'Res. 3100/2019 Anexo Técnico · Res. 4816/2008 Art. 11',
+        articulo: 'Res. 4816/2008 Art. 11: "Las IPS deben garantizar la disponibilidad de repuestos e insumos mínimos para mantener operativos los equipos biomédicos críticos, especialmente los de soporte vital." La Res. 3100/2019 incluye esto en el estándar de dotación.',
+        resultado: sinStock.length === 0 && stockBajo.length === 0 ? 'cumple' : sinStock.length === 0 ? 'parcial' : 'no_cumple',
+        puntaje: pctStock,
+        meta: 90,
+        impacto: 'medio',
+        hallazgo: sinStock.length === 0 && stockBajo.length === 0
+          ? `✓ Todos los ${rep.length} repuestos están en stock óptimo.`
+          : `✗ Problemas de stock detectados:\n\n• Repuestos AGOTADOS (stock = 0): ${sinStock.length}\n  ${sinStock.slice(0,4).map((r:any)=>`- ${r.nombre}: 0 unidades (mínimo: ${r.stock_minimo})`).join('\n  ')}\n\n• Repuestos con STOCK BAJO: ${stockBajo.length}\n  ${stockBajo.slice(0,4).map((r:any)=>`- ${r.nombre}: ${r.stock_actual} uds (mínimo: ${r.stock_minimo})`).join('\n  ')}\n\nUn equipo sin repuesto disponible puede quedar fuera de servicio en caso de falla, lo cual impacta directamente la disponibilidad y puede generar observación en habilitación.`,
+        mejora: (sinStock.length > 0 || stockBajo.length > 0) ? {
+          accion: 'Reponer stock de repuestos críticos',
+          como: `1. Generar orden de compra para los ${sinStock.length} repuestos agotados con prioridad inmediata\n2. Generar orden de compra para los ${stockBajo.length} repuestos con stock bajo\n3. Establecer punto de reorden en BioMed AI (stock mínimo + tiempo de entrega del proveedor)\n4. Priorizar repuestos para equipos de soporte vital (ventiladores, monitores, desfibriladores)\n5. Negociar con proveedores un acuerdo de suministro inmediato para repuestos críticos`,
+          responsable: 'Ingeniero Biomédico + Almacén + Compras',
+          plazo: 'Inmediato para agotados · 15 días para stock bajo',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 11 · Res. 3100/2019 dotación',
+          riesgo_incumplimiento: 'Observación en habilitación · Riesgo para la seguridad del paciente',
+        } : null,
+      },
     ],
+
     biomedica: [
-      { estandar:'Inventario biomédico', criterio:'Nombre, marca, modelo y serie registrados', normativa:'Res. 4816/2008 Art. 5', resultado:res(pctComp,90), puntaje:pctComp, meta:100, impacto:'alto',
-        hallazgo:`${completos.length}/${eq.length} completos. Sin serie: ${sinSerie.length}, sin marca: ${sinMarca.length}, sin año: ${sinAnioAdq.length}.`,
-        mejora:pctComp<100?'Completar desde placa del equipo y manual del fabricante.':null },
-      { estandar:'Inventario biomédico', criterio:'Clasificación de riesgo INVIMA', normativa:'Dec. 4725/2005', resultado:res(pctClase,90), puntaje:pctClase, meta:100, impacto:'alto',
-        hallazgo:`${eq.length-sinClaseInvima.length}/${eq.length} con clase INVIMA. Alto riesgo: ${altoRiesgo.length} equipos.`,
-        mejora:sinClaseInvima.length>0?'Buscar en web.invima.gov.co y registrar la clase asignada.':null },
-      { estandar:'Inventario biomédico', criterio:'Vida útil definida para cada equipo', normativa:'Res. 4816/2008', resultado:res(pctVida,80), puntaje:pctVida, meta:90, impacto:'medio',
-        hallazgo:`${eq.length-sinVidaUtil.length}/${eq.length} con vida útil (${pctVida}%). Faltan: ${sinVidaUtil.length}.`,
-        mejora:sinVidaUtil.length>0?'Definir vida útil según ficha técnica del fabricante o tabla OPS/OMS.':null },
-      { estandar:'Hojas de vida', criterio:'Todos los equipos con al menos una intervención registrada', normativa:'Res. 4816/2008 Art. 6', resultado:res(pctHV,90), puntaje:pctHV, meta:100, impacto:'alto',
-        hallazgo:`${eq.length-sinMant.length}/${eq.length} con historial. ${sinMant.length} sin ningún registro.`,
-        mejora:sinMant.length>0?'Registrar mínimo recepción técnica inicial. Priorizar equipos de soporte vital.':null },
-      { estandar:'Plan de mantenimiento', criterio:'Cronograma anual con cobertura de todos los meses', normativa:'Res. 4816/2008 Art. 7', resultado:res(pctCronograma,80), puntaje:pctCronograma, meta:80, impacto:'alto',
-        hallazgo:`Cronograma cubre ${mesesCub}/12 meses. Total: ${mant.length} (${preventivos.length} prev, ${correctivos.length} corr).`,
-        mejora:pctCronograma<80?'Distribuir cronograma en los 12 meses. Usar el módulo de mantenimiento para distribución automática.':null },
-      { estandar:'Plan de mantenimiento', criterio:'Cumplimiento del plan preventivo ≥ 80%', normativa:'Res. 4816/2008 Art. 7', resultado:res(pctCumpl,80), puntaje:pctCumpl, meta:80, impacto:'alto',
-        hallazgo:`${completados.length}/${mant.length} completados (${pctCumpl}%). ${sinFechaReal.length} sin fecha de ejecución real.`,
-        mejora:pctCumpl<80?`Registrar fecha real en todos los mantenimientos. ${sinFechaReal.length} pendientes.`:null },
-      { estandar:'Calibraciones', criterio:'Equipos de medición con calibración documentada', normativa:'NTC ISO/IEC 17025', resultado:calibraciones.length>0?res(pct(calibraciones.length,Math.max(altoRiesgo.length,1)),50):'no_cumple', puntaje:pct(calibraciones.length,Math.max(altoRiesgo.length,1)), meta:100, impacto:'alto',
-        hallazgo:`${calibraciones.length} calibraciones registradas. Monitores, desfibriladores, bombas y ventiladores requieren calibración periódica.`,
-        mejora:'Programar calibraciones con laboratorio acreditado ONAC. Registrar certificados en el sistema.' },
-      { estandar:'Órdenes de trabajo', criterio:'Registros con descripción, costo y duración', normativa:'Res. 4816/2008 Art. 8', resultado:res(pctDoc,80), puntaje:pctDoc, meta:80, impacto:'medio',
-        hallazgo:`Sin descripción: ${sinDesc.length}, sin costo: ${sinCosto.length}, sin duración: ${sinDuracion.length}.`,
-        mejora:'Completar campos en todas las intervenciones históricas.' },
-      { estandar:'Repuestos', criterio:'Stock de repuestos críticos disponible', normativa:'Res. 3100/2019', resultado:sinStock.length===0&&stockBajo.length===0?'cumple':sinStock.length===0?'parcial':'no_cumple', puntaje:pctStock, meta:90, impacto:'medio',
-        hallazgo:`${sinStock.length} agotados, ${stockBajo.length} bajo mínimo, ${stockOk.length} óptimo.`,
-        mejora:(sinStock.length>0||stockBajo.length>0)?`Reponer: ${[...sinStock,...stockBajo].slice(0,3).map((r:any)=>r.nombre).join(', ')}`:null },
+      {
+        estandar: 'Inventario biomédico',
+        criterio: 'Número de serie de cada equipo registrado en inventario',
+        normativa: 'Res. 4816/2008 Art. 5 numeral 1',
+        articulo: 'Res. 4816/2008 Art. 5 numeral 1: "Las IPS deben llevar un inventario actualizado de todos los dispositivos médicos que incluya como mínimo: nombre genérico, marca, modelo, número de serie o lote, registro sanitario INVIMA y clasificación de riesgo."',
+        resultado: res(pctSerie, 90),
+        puntaje: pctSerie,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: sinSerie.length === 0
+          ? `✓ ${eq.length} equipos con número de serie registrado.`
+          : `✗ ${sinSerie.length} equipos sin número de serie:\n${sinSerie.slice(0,6).map((e:any)=>`• ${e.nombre} (${e.codigo_inventario||'sin código'})`).join('\n')}${sinSerie.length>6?`\n• ... y ${sinSerie.length-6} equipos más`:''}`,
+        mejora: sinSerie.length > 0 ? {
+          accion: 'Registrar número de serie de los equipos faltantes',
+          como: `1. Inspección física: revisar placa de identificación en la parte posterior o inferior del equipo\n2. Documentación: consultar factura de compra, remisión o certificado de garantía\n3. Formato: el número de serie generalmente tiene entre 8-20 caracteres alfanuméricos\n4. Equipos sin serie (fabricados a medida): registrar "S/N" y documentar motivo en observaciones\n5. Evidencia: fotografiar la placa del equipo para respaldo documental`,
+          responsable: 'Técnico Biomédico',
+          plazo: '15 días',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 5 numeral 1',
+          riesgo_incumplimiento: 'No Conformidad Mayor',
+        } : null,
+      },
+      {
+        estandar: 'Inventario biomédico',
+        criterio: 'Clasificación de riesgo INVIMA (clase I, IIa, IIb, III)',
+        normativa: 'Dec. 4725/2005 Art. 26 · Res. 4816/2008 Art. 5',
+        articulo: 'Dec. 4725/2005 Art. 26: "Los dispositivos médicos se clasificarán en clases de riesgo I (bajo), IIa y IIb (moderado y alto) y III (máximo riesgo) de acuerdo con las reglas establecidas en el Anexo 1 de este decreto." Esta clasificación determina la frecuencia mínima de mantenimiento.',
+        resultado: res(pctClase, 90),
+        puntaje: pctClase,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: sinClaseInvima.length === 0
+          ? `✓ ${eq.length} equipos clasificados. Alto riesgo IIb/III: ${altoRiesgo.length} equipos.`
+          : `✗ ${sinClaseInvima.length} equipos sin clasificación INVIMA:\n\nEquipos sin clasificar: ${sinClaseInvima.slice(0,5).map((e:any)=>e.nombre).join(', ')}${sinClaseInvima.length>5?` y ${sinClaseInvima.length-5} más`:''}.\n\nSin esta clasificación no es posible definir la frecuencia correcta de mantenimiento preventivo, lo que incumple el Art. 7 de la Res. 4816/2008.`,
+        mejora: sinClaseInvima.length > 0 ? {
+          accion: 'Clasificar equipos según normativa INVIMA',
+          como: `1. Portal INVIMA: https://www.invima.gov.co → Dispositivos Médicos → Consulta de registros\n2. Buscar por nombre del dispositivo o número de registro\n3. La clase aparece en el certificado de registro sanitario del fabricante\n4. Guía rápida de clasificación:\n   • Clase I: equipos no invasivos sin riesgo (camillas, básculas, nebulizadores simples)\n   • Clase IIa: riesgo moderado (monitores, bombas de infusión de bajo riesgo)\n   • Clase IIb: riesgo alto (ventiladores, desfibriladores, monitores de UCI)\n   • Clase III: riesgo máximo (implantes activos, equipos de soporte vital)\n5. Registrar en BioMed AI con número de registro INVIMA si está disponible`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '30 días',
+          normativa_cumplimiento: 'Dec. 4725/2005 Art. 26',
+          riesgo_incumplimiento: 'No Conformidad Mayor — base para todo el programa de mantenimiento',
+        } : null,
+      },
+      {
+        estandar: 'Hojas de vida',
+        criterio: 'Historial de mantenimiento en hoja de vida de cada equipo',
+        normativa: 'Res. 4816/2008 Art. 6',
+        articulo: 'Res. 4816/2008 Art. 6: "Cada institución debe mantener una hoja de vida para cada dispositivo médico que registre: identificación del equipo, fecha de adquisición, mantenimientos preventivos, mantenimientos correctivos, calibraciones realizadas, repuestos instalados y fallas reportadas."',
+        resultado: res(pctHV, 90),
+        puntaje: pctHV,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: sinMant.length === 0
+          ? `✓ ${eq.length} equipos con historial en hoja de vida.`
+          : `✗ ${sinMant.length} equipos sin ningún registro de mantenimiento:\n${sinMant.slice(0,6).map((e:any)=>`• ${e.nombre} — Servicio: ${e.servicio||'N/D'} — Riesgo: ${e.riesgo}`).join('\n')}${sinMant.length>6?`\n• ... y ${sinMant.length-6} más`:''}\n\nDe estos, ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} son de ALTO RIESGO sin ningún historial, lo que representa el mayor riesgo para la seguridad del paciente.`,
+        mejora: sinMant.length > 0 ? {
+          accion: 'Crear historial de mantenimiento para equipos sin registro',
+          como: `1. Prioridad 1 — Equipos alto riesgo sin historial (${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos): registrar mantenimiento correctivo o preventivo inmediato\n2. Prioridad 2 — Demás equipos sin historial: registrar recepción técnica con:\n   • Fecha de ingreso al servicio\n   • Condición al ingreso (nuevo/usado/en garantía)\n   • Pruebas de aceptación realizadas\n3. Recuperar registros físicos de los últimos 2 años y digitalizarlos\n4. Para equipos sin historial conocido: documentar inspección visual actual como punto de partida`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '30 días — equipos alto riesgo: inmediato',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 6',
+          riesgo_incumplimiento: 'No Conformidad Mayor',
+        } : null,
+      },
+      {
+        estandar: 'Plan de mantenimiento',
+        criterio: 'Cronograma de mantenimiento preventivo anual con cobertura mensual',
+        normativa: 'Res. 4816/2008 Art. 7',
+        articulo: 'Res. 4816/2008 Art. 7: "El programa de mantenimiento preventivo debe estar distribuido durante todo el año calendario, con actividades programadas para cada mes, evitando concentrar el mantenimiento en un solo período. Debe incluir: cronograma, frecuencia por tipo de equipo, responsable y presupuesto."',
+        resultado: res(pctCron, 80),
+        puntaje: pctCron,
+        meta: 80,
+        impacto: 'alto',
+        hallazgo: pctCron >= 80
+          ? `✓ Cronograma cubre ${mesesCub}/12 meses (${pctCron}%). ${preventivos.length} preventivos, ${correctivos.length} correctivos.`
+          : `✗ Cronograma cubre solo ${mesesCub} de 12 meses (${pctCron}%).\n\n• Preventivos programados: ${preventivos.length}\n• Correctivos registrados: ${correctivos.length}\n• Calibraciones: ${calibraciones.length}\n• Sin fecha de ejecución real: ${sinFechaReal.length}\n\nLa Res. 4816/2008 Art. 7 exige cobertura en todos los meses. Un cronograma concentrado en pocos meses puede generar observación de incumplimiento.`,
+        mejora: pctCron < 80 ? {
+          accion: 'Distribuir el cronograma en todos los meses del año',
+          como: `1. Usar el módulo de Mantenimiento en BioMed AI → "Cronograma automático"\n2. El sistema distribuye equipos según su frecuencia (semestral, anual, trimestral)\n3. Criterios de distribución:\n   • Equipos clase IIb: mínimo 2 veces/año (enero y julio)\n   • Equipos clase IIa: 1 vez/año distribuido uniformemente\n   • Equipos de calibración: según especificación del fabricante\n4. Balancear carga de trabajo: máximo 40 equipos/técnico/mes (8 horas/día × 22 días)\n5. Imprimir cronograma firmado por el director médico para archivo`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '15 días',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 7',
+          riesgo_incumplimiento: 'No Conformidad Menor',
+        } : null,
+      },
+      {
+        estandar: 'Plan de mantenimiento',
+        criterio: 'Porcentaje de cumplimiento del plan preventivo ≥ 80%',
+        normativa: 'Res. 4816/2008 Art. 7 · Circular 015/2009 MSPS',
+        articulo: 'Res. 4816/2008 Art. 7 y Circular 015/2009 MSPS: "Las instituciones deben demostrar un porcentaje de cumplimiento del plan de mantenimiento preventivo no inferior al 80% anual. El incumplimiento debe justificarse documentalmente."',
+        resultado: res(pctCumpl, 80),
+        puntaje: pctCumpl,
+        meta: 80,
+        impacto: 'alto',
+        hallazgo: pctCumpl >= 80
+          ? `✓ Cumplimiento del ${pctCumpl}% — supera el mínimo del 80%. ${completados.length}/${mant.length} completados.`
+          : `✗ Cumplimiento del ${pctCumpl}% — INCUMPLE el mínimo del 80% exigido.\n\n• Completados: ${completados.length} de ${mant.length}\n• Pendientes o sin ejecutar: ${mant.length - completados.length}\n• Sin fecha real de ejecución: ${sinFechaReal.length}\n\nBrecha: se requieren ${Math.ceil(mant.length * 0.8) - completados.length} mantenimientos adicionales para alcanzar el 80%.`,
+        mejora: pctCumpl < 80 ? {
+          accion: `Ejecutar ${Math.ceil(mant.length * 0.8) - completados.length} mantenimientos adicionales para alcanzar el 80%`,
+          como: `1. Listar todos los mantenimientos pendientes ordenados por criticidad del equipo\n2. Programar jornadas intensivas de mantenimiento priorizando clase IIb y III\n3. Para mantenimientos realizados pero no registrados: digitalizar los registros físicos\n4. Registrar fecha real de ejecución en todos los mantenimientos completados\n5. Justificar documentalmente los mantenimientos que NO se pueden ejecutar (equipo dado de baja, en garantía, etc.)\n6. Meta mensual: ${Math.ceil((Math.ceil(mant.length * 0.8) - completados.length) / 2)} mantenimientos/mes durante 2 meses`,
+          responsable: 'Técnicos Biomédicos (ejecución) · Ingeniero (seguimiento)',
+          plazo: '60 días',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 7 · Circular 015/2009',
+          riesgo_incumplimiento: 'No Conformidad Mayor con plan de mejora obligatorio',
+        } : null,
+      },
+      {
+        estandar: 'Calibraciones',
+        criterio: 'Calibración vigente de equipos de medición críticos',
+        normativa: 'NTC ISO/IEC 17025 · Res. 4816/2008 Art. 10 · Decreto 4725/2005',
+        articulo: 'Res. 4816/2008 Art. 10: "Los equipos de medición biomédica (monitores de signos vitales, desfibriladores, bombas de infusión, ventiladores, electrobisturíes, entre otros) deben calibrarse periódicamente por laboratorios acreditados, con certificado que incluya trazabilidad metrológica."',
+        resultado: calibraciones.length > 0 ? res(pctCal, 50) : 'no_cumple',
+        puntaje: calibraciones.length > 0 ? pctCal : 0,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: calibraciones.length === 0
+          ? `✗ NO se encontraron calibraciones registradas en el sistema.\n\nEquipos que OBLIGATORIAMENTE requieren calibración periódica:\n• Monitores de signos vitales: ${eq.filter((e:any)=>e.nombre?.toLowerCase().includes('monitor')).length} equipos\n• Bombas de infusión: ${eq.filter((e:any)=>e.nombre?.toLowerCase().includes('bomba')).length} equipos\n• Desfibriladores: ${eq.filter((e:any)=>e.nombre?.toLowerCase().includes('desfibrilador')).length} equipos\n• Ventiladores mecánicos: ${eq.filter((e:any)=>e.nombre?.toLowerCase().includes('ventilador')).length} equipos\n\nLa falta de calibración es una NO CONFORMIDAD MAYOR que puede impactar directamente la seguridad del paciente.`
+          : `⚠ ${calibraciones.length} calibraciones registradas. Se requieren para ${altoRiesgo.length} equipos de alto riesgo.\n\nEquipos de medición sin calibración registrada: verificar manualmente.`,
+        mejora: {
+          accion: 'Implementar programa de calibración periódica',
+          como: `1. Identificar todos los equipos que requieren calibración (monitores, desfibriladores, bombas, ventiladores)\n2. Contratar laboratorio de calibración ACREDITADO POR ONAC (onac.org.co → directorio de laboratorios acreditados)\n3. Solicitar certificado de calibración con:\n   • Trazabilidad al INM (Instituto Nacional de Metrología)\n   • Incertidumbre de medición\n   • Resultados antes y después del ajuste\n4. Registrar calibraciones en BioMed AI como tipo "calibracion"\n5. Programar próxima calibración según frecuencia recomendada por fabricante (generalmente anual)`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '30 días para programar · 60 días para ejecutar',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 10 · NTC ISO/IEC 17025',
+          riesgo_incumplimiento: 'No Conformidad Mayor — riesgo directo para la seguridad del paciente',
+        },
+      },
+      {
+        estandar: 'Órdenes de trabajo',
+        criterio: 'Registros de mantenimiento con descripción, costo y responsable',
+        normativa: 'Res. 4816/2008 Art. 8',
+        articulo: 'Res. 4816/2008 Art. 8: "Las órdenes de trabajo de mantenimiento deben contener: descripción de las actividades realizadas, materiales y repuestos utilizados, tiempo empleado, costo de la intervención, nombre y firma del técnico responsable y resultado de las pruebas funcionales post-mantenimiento."',
+        resultado: res(pctDoc, 80),
+        puntaje: pctDoc,
+        meta: 80,
+        impacto: 'medio',
+        hallazgo: pctDoc >= 80
+          ? `✓ ${conDesc}/${mant.length} registros documentados (${pctDoc}%). Costo registrado: ${pctCosto}%.`
+          : `✗ Documentación incompleta:\n• Sin descripción: ${sinDesc.length} registros (${100-pctDoc}%)\n• Sin costo en COP: ${sinCosto.length} registros\n• Sin duración: ${sinDuracion.length} registros\n• Con hallazgos: ${conHallazgos.length} (${pct(conHallazgos.length, mant.length)}%)\n\nLos inspectores solicitan muestras aleatorias de órdenes de trabajo. Un registro sin descripción no es válido como evidencia de mantenimiento realizado.`,
+        mejora: pctDoc < 80 ? {
+          accion: 'Completar la documentación de órdenes de trabajo',
+          como: `1. Crear plantilla estándar de OT con campos obligatorios:\n   • Descripción de actividades (mínimo 3 actividades específicas)\n   • Materiales y repuestos usados\n   • Duración en horas\n   • Resultado: "equipo operativo" o descripción del hallazgo\n   • Nombre del técnico\n2. Para registros históricos sin descripción: recuperar de formatos físicos\n3. Implementar regla en BioMed AI: no se puede cerrar una OT sin descripción\n4. Capacitar a los técnicos en documentación correcta de OT`,
+          responsable: 'Técnicos Biomédicos + Ingeniero Biomédico',
+          plazo: '15 días para nuevas OT · 45 días para historial',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 8',
+          riesgo_incumplimiento: 'No Conformidad Menor',
+        } : null,
+      },
     ],
+
     tecnovigilancia: [
-      { estandar:'Programa', criterio:'Programa de tecnovigilancia documentado', normativa:'Res. 4816/2008 Art. 15', resultado:'no_cumple', puntaje:0, meta:100, impacto:'alto',
-        hallazgo:'No se detecta programa formal de tecnovigilancia en el sistema.',
-        mejora:'Elaborar Programa de Tecnovigilancia institucional con: objetivos, responsable, procedimientos y formatos de reporte.' },
-      { estandar:'Responsable', criterio:'Responsable ante INVIMA designado formalmente', normativa:'Res. 4816/2008', resultado:'no_cumple', puntaje:0, meta:100, impacto:'alto',
-        hallazgo:'Sin evidencia de responsable formal designado ante el INVIMA.',
-        mejora:'Designar responsable mediante acto administrativo y registrar en portal de tecnovigilancia INVIMA.' },
-      { estandar:'Reporte de eventos', criterio:'Registro de eventos adversos con dispositivos médicos', normativa:'Dec. 4725/2005', resultado:correctivos.length>0?'parcial':'no_cumple', puntaje:correctivos.length>0?40:0, meta:100, impacto:'alto',
-        hallazgo:`${correctivos.length} correctivos registrados. Sin categorización formal de eventos adversos ni reporte al INVIMA.`,
-        mejora:'Implementar formato de reporte. Categorizar: incidente, casi incidente o evento adverso.' },
-      { estandar:'Hallazgos documentados', criterio:'Fallas de equipos con hallazgos registrados', normativa:'Res. 4816/2008', resultado:res(pct(conHallazgos.length,mant.length),50), puntaje:pct(conHallazgos.length,mant.length), meta:80, impacto:'medio',
-        hallazgo:`${conHallazgos.length}/${mant.length} intervenciones con hallazgos documentados.`,
-        mejora:'Registrar hallazgos en cada intervención correctiva. Clasificar por tipo de falla.' },
-      { estandar:'Alertas sanitarias', criterio:'Seguimiento de alertas INVIMA', normativa:'Circular INVIMA', resultado:'no_cumple', puntaje:0, meta:100, impacto:'alto',
-        hallazgo:'Sin registro de seguimiento de alertas sanitarias o retiro de dispositivos.',
-        mejora:'Suscribirse a alertas INVIMA en invima.gov.co. Registrar equipos con alerta activa.' },
-      { estandar:'Capacitación', criterio:'Personal capacitado en reporte de fallas', normativa:'Res. 4816/2008', resultado:'no_cumple', puntaje:0, meta:100, impacto:'medio',
-        hallazgo:'Sin evidencia de capacitaciones en tecnovigilancia en el sistema.',
-        mejora:'Programar capacitación anual al personal asistencial sobre identificación y reporte de fallas.' },
+      {
+        estandar: 'Programa de Tecnovigilancia',
+        criterio: 'Programa institucional de tecnovigilancia documentado y aprobado',
+        normativa: 'Res. 4816/2008 Art. 15 · Circular 300-011/2008 INVIMA',
+        articulo: 'Res. 4816/2008 Art. 15: "Toda institución prestadora de servicios de salud que utilice dispositivos médicos debe implementar un Programa Institucional de Tecnovigilancia que incluya: objetivos, alcance, responsable, procedimientos de reporte, seguimiento de alertas sanitarias y capacitación del personal."',
+        resultado: 'no_cumple',
+        puntaje: 0,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: `✗ No se detecta Programa Institucional de Tecnovigilancia en el sistema.\n\nEste programa es OBLIGATORIO para toda IPS que utilice dispositivos médicos, independientemente de su tamaño.\n\nSin este programa la institución incumple la Res. 4816/2008 Art. 15, lo cual puede resultar en:\n• Multa del INVIMA por incumplimiento al Programa Nacional de Tecnovigilancia\n• Observación en visita de habilitación\n• Responsabilidad civil en caso de evento adverso con dispositivo médico`,
+        mejora: {
+          accion: 'Elaborar e implementar el Programa Institucional de Tecnovigilancia',
+          como: `1. Designar responsable de tecnovigilancia (puede ser el Ingeniero Biomédico)\n2. Registrar el responsable en el portal de tecnovigilancia del INVIMA: https://www.invima.gov.co\n3. Elaborar el documento del programa con:\n   a) Objetivo y alcance\n   b) Marco normativo (Res. 4816/2008, Dec. 4725/2005)\n   c) Definiciones: evento adverso, incidente, casi incidente\n   d) Procedimiento de detección y reporte interno\n   e) Procedimiento de reporte al INVIMA (portal SIVIGILA)\n   f) Plan de capacitación al personal\n   g) Seguimiento de alertas sanitarias\n4. Hacer aprobación por gerencia y socialización con personal asistencial\n5. Registrar el programa en INVIMA como parte del Programa Nacional de Tecnovigilancia`,
+          responsable: 'Ingeniero Biomédico + Gerencia',
+          plazo: '45 días',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 15',
+          riesgo_incumplimiento: 'No Conformidad Mayor — puede generar multa del INVIMA',
+        },
+      },
+      {
+        estandar: 'Reporte de eventos adversos',
+        criterio: 'Sistema de reporte de eventos adversos con dispositivos médicos',
+        normativa: 'Res. 4816/2008 Art. 16 · Dec. 4725/2005 Art. 37',
+        articulo: 'Res. 4816/2008 Art. 16: "Las IPS deben reportar al INVIMA, dentro de los 72 horas siguientes, todo evento adverso serio relacionado con un dispositivo médico. Los eventos no serios deben reportarse dentro de los 30 días."',
+        resultado: correctivos.length > 0 ? 'parcial' : 'no_cumple',
+        puntaje: correctivos.length > 0 ? 40 : 0,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: `✗ No hay registro formal de eventos adversos categorizados.\n\n• Mantenimientos correctivos registrados (posibles fallas): ${correctivos.length}\n• Con hallazgos documentados: ${conHallazgos.length}\n\nLos correctivos registrados podrían contener eventos adversos no reportados al INVIMA. Cada falla de un equipo biomédico que afecte o pueda afectar a un paciente debe evaluarse como posible evento adverso.`,
+        mejora: {
+          accion: 'Implementar sistema de reporte y gestión de eventos adversos',
+          como: `1. Crear formato institucional de reporte de eventos adversos con:\n   • Descripción del evento\n   • Equipo involucrado (nombre, serie, modelo)\n   • Paciente afectado (sin datos personales en el reporte inicial)\n   • Categorización: grave / moderado / leve / casi incidente\n2. Para reportar al INVIMA: portal https://tecnovigilancia.invima.gov.co\n3. Revisar los ${correctivos.length} correctivos históricos para identificar posibles eventos no reportados\n4. Capacitar al personal asistencial en identificación y reporte\n5. Establecer canal de comunicación directa entre personal clínico e ingeniería biomédica`,
+          responsable: 'Responsable de Tecnovigilancia (Ingeniero Biomédico)',
+          plazo: '30 días',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 16',
+          riesgo_incumplimiento: 'Incumplimiento grave — responsabilidad penal y civil en caso de evento no reportado',
+        },
+      },
+      {
+        estandar: 'Alertas sanitarias',
+        criterio: 'Sistema de seguimiento de alertas sanitarias del INVIMA',
+        normativa: 'Res. 4816/2008 · Circular INVIMA sobre alertas sanitarias',
+        articulo: 'El INVIMA emite alertas sanitarias y comunicaciones de retiro de dispositivos médicos del mercado. Las IPS tienen la obligación de verificar si sus equipos están afectados y tomar las medidas necesarias para proteger a los pacientes.',
+        resultado: 'no_cumple',
+        puntaje: 0,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: `✗ No hay registro de seguimiento de alertas sanitarias en el sistema.\n\nActualmente el INVIMA tiene alertas activas para varias marcas de dispositivos médicos. Sin un sistema de seguimiento, la institución no puede saber si alguno de sus ${eq.length} equipos está afectado por:\n• Retiro del mercado\n• Alerta de seguridad\n• Modificación de instrucciones de uso\n• Actualización de software de seguridad`,
+        mejora: {
+          accion: 'Implementar sistema de seguimiento de alertas INVIMA',
+          como: `1. Suscribirse a las alertas del INVIMA: https://www.invima.gov.co → alertas sanitarias\n2. Designar responsable de revisar alertas semanalmente\n3. Cuando llegue una alerta:\n   a) Verificar si algún equipo del inventario coincide (marca, modelo, serie)\n   b) Si hay coincidencia: aislar el equipo y contactar al proveedor\n   c) Registrar en BioMed AI el estado del equipo como "alerta sanitaria activa"\n4. Documentar el seguimiento de cada alerta como evidencia para auditoría\n5. Informar al comité de calidad sobre alertas activas`,
+          responsable: 'Responsable de Tecnovigilancia',
+          plazo: '15 días',
+          normativa_cumplimiento: 'Res. 4816/2008 · Circulares INVIMA',
+          riesgo_incumplimiento: 'Responsabilidad civil y penal si un paciente resulta afectado por un equipo con alerta activa',
+        },
+      },
     ],
+
     pamec: [
-      { estandar:'Seguridad del paciente', criterio:'Identificación de riesgos tecnológicos', normativa:'SOGCS · Decreto 1011/2006', resultado:altoRiesgo.length>0?'parcial':'cumple', puntaje:altoRiesgo.length>0?60:90, meta:90, impacto:'alto',
-        hallazgo:`${altoRiesgo.length} equipos de alto riesgo identificados. ${operativos.length}/${eq.length} operativos.`,
-        mejora:'Documentar plan de contingencia para equipos de alto riesgo y soporte vital.' },
-      { estandar:'Indicadores de calidad', criterio:'KPIs calculados y reportados a dirección', normativa:'SOGCS · Indicadores OPS', resultado:mant.length>0?'parcial':'no_cumple', puntaje:mant.length>0?55:0, meta:80, impacto:'alto',
-        hallazgo:`Disponibilidad: ${pctDisp}%. Ratio prev/corr: ${correctivos.length>0?(preventivos.length/correctivos.length).toFixed(1):'N/D'}. Cumplimiento: ${pctCumpl}%.`,
-        mejora:'Reportar KPIs mensualmente a dirección. Establecer metas formales institucionales.' },
-      { estandar:'Eventos adversos', criterio:'Registro y análisis de fallas de equipos', normativa:'Res. 4816/2008 · SOGCS', resultado:correctivos.length>0?'parcial':'no_cumple', puntaje:correctivos.length>0?45:0, meta:80, impacto:'alto',
-        hallazgo:`${correctivos.length} correctivos registrados. Sin análisis formal de causa raíz.`,
-        mejora:'Clasificar fallas por tipo. Analizar causas raíz mensualmente.' },
-      { estandar:'Planes de mejora', criterio:'Plan de mejoramiento documentado con indicadores', normativa:'SOGCS', resultado:'no_cumple', puntaje:0, meta:100, impacto:'medio',
-        hallazgo:'Sin planes de mejora formales documentados para el área biomédica.',
-        mejora:'Crear plan de mejora con: problema, meta, acciones, responsable, plazo e indicador.' },
-      { estandar:'Gestión del riesgo', criterio:'Equipos alto riesgo con mantenimiento al día', normativa:'SOGCS · Res. 4816/2008', resultado:res(pctAltoMant,90), puntaje:pctAltoMant, meta:100, impacto:'alto',
-        hallazgo:`${altoRiesgo.filter(e=>eqConMant.has(e.id)).length}/${altoRiesgo.length} equipos alto riesgo con mantenimiento.`,
-        mejora:altoRiesgo.filter(e=>!eqConMant.has(e.id)).length>0?`${altoRiesgo.filter(e=>!eqConMant.has(e.id)).length} equipos de alto riesgo sin intervención. Programar inmediatamente.`:null },
+      {
+        estandar: 'Seguridad del paciente',
+        criterio: 'Identificación y gestión de riesgos tecnológicos para el paciente',
+        normativa: 'Decreto 1011/2006 Art. 3 · Resolución 1446/2006 MSPS',
+        articulo: 'Decreto 1011/2006 Art. 3: "El SOGCS incluye como componente la gestión del riesgo, que comprende la identificación, análisis, evaluación y control de los riesgos para la seguridad del paciente, incluyendo los asociados a la tecnología biomédica." La Res. 1446/2006 define los indicadores de seguimiento.',
+        resultado: res(pctAltoMant, 80),
+        puntaje: pctAltoMant,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: `• Equipos de alto riesgo identificados: ${altoRiesgo.length}\n• Con mantenimiento registrado: ${altoRiesgo.filter((e:any)=>eqConMant.has(e.id)).length} (${pctAltoMant}%)\n• Sin ninguna intervención: ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length}\n• Operativos: ${operativos.length}/${eq.length} (${pctDisp}%)\n\n${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length > 0 ? `✗ ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos de ALTO RIESGO sin ninguna intervención registrada — riesgo directo para la seguridad del paciente.` : '✓ Todos los equipos de alto riesgo tienen mantenimiento registrado.'}`,
+        mejora: altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length > 0 ? {
+          accion: 'Intervenir los equipos de alto riesgo sin mantenimiento',
+          como: `1. Prioridad INMEDIATA: realizar inspección visual de los ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos de alto riesgo sin historial\n2. Verificar funcionamiento con pruebas básicas\n3. Programar mantenimiento preventivo completo\n4. Si el equipo no está en condiciones: retirar del servicio hasta reparación\n5. Documentar en BioMed AI como mantenimiento correctivo de emergencia\n6. Notificar al director médico y jefe de servicio`,
+          responsable: 'Ingeniero Biomédico — URGENTE',
+          plazo: 'Inmediato',
+          normativa_cumplimiento: 'Decreto 1011/2006 · Res. 1446/2006',
+          riesgo_incumplimiento: 'Riesgo directo para la vida del paciente',
+        } : null,
+      },
+      {
+        estandar: 'Indicadores de calidad',
+        criterio: 'KPIs biomédicos calculados, con metas y reporte periódico a dirección',
+        normativa: 'Res. 1446/2006 MSPS · Res. 256/2016 MSPS',
+        articulo: 'Res. 256/2016 MSPS: "Las IPS deben calcular y reportar periódicamente los indicadores de calidad en salud, incluyendo los indicadores de gestión tecnológica: disponibilidad de equipos, tiempo medio entre fallas (MTBF) y tiempo medio de reparación (MTTR)."',
+        resultado: mant.length > 0 ? 'parcial' : 'no_cumple',
+        puntaje: mant.length > 0 ? 55 : 0,
+        meta: 80,
+        impacto: 'alto',
+        hallazgo: `• Disponibilidad actual: ${pctDisp}% (meta recomendada OPS: ≥ 90%)\n• Ratio preventivo/correctivo: ${correctivos.length > 0 ? (preventivos.length/correctivos.length).toFixed(2) : 'N/D'} (meta: ≥ 0.80)\n• Cumplimiento preventivo: ${pctCumpl}% (meta mínima: 80%)\n\nBioMed AI calcula estos KPIs automáticamente pero no hay evidencia de:\n• Metas formales aprobadas por dirección\n• Reportes periódicos al comité de calidad\n• Acciones correctivas ante desviaciones`,
+        mejora: {
+          accion: 'Formalizar reporte mensual de KPIs biomédicos a dirección',
+          como: `1. Usar el módulo de KPIs de BioMed AI para generar informe mensual\n2. Definir metas institucionales (propuesta):\n   • Disponibilidad ≥ 90%\n   • Cumplimiento preventivo ≥ 80%\n   • MTTR ≤ 24 horas para equipos críticos\n   • Ratio prev/corr ≥ 0.80\n3. Presentar en comité de calidad mensual con:\n   • Indicadores del mes vs meta\n   • Tendencia últimos 3 meses\n   • Alertas y planes de acción\n4. Documentar en acta de comité (evidencia para PAMEC)\n5. Registrar en el sistema de información de calidad institucional`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '30 días',
+          normativa_cumplimiento: 'Res. 256/2016 MSPS',
+          riesgo_incumplimiento: 'Incumplimiento del SOGCS — observación en auditoría PAMEC',
+        },
+      },
     ],
+
     acreditacion: [
-      { estandar:'Gestión tecnológica', criterio:'Inventario 100% completo y actualizado', normativa:'ICONTEC', resultado:res(pctComp,90), puntaje:pctComp, meta:95, impacto:'alto',
-        hallazgo:`Completitud: ${pctComp}%. Para acreditación se requiere inventario completo incluyendo vida útil y valor.`,
-        mejora:pctComp<95?'Completar todos los campos incluyendo valor de adquisición y vida útil.':null },
-      { estandar:'Mantenimiento biomédico', criterio:'Cumplimiento preventivo ≥ 90%', normativa:'ICONTEC · Nivel superior', resultado:res(pctCumpl,90), puntaje:pctCumpl, meta:90, impacto:'alto',
-        hallazgo:`Cumplimiento: ${pctCumpl}%. Acreditación ICONTEC exige mínimo 90%.`,
-        mejora:pctCumpl<90?'Aumentar frecuencia preventiva. Implementar alertas para vencimientos.':null },
-      { estandar:'Gestión documental', criterio:'Documentación técnica completa de intervenciones', normativa:'ICONTEC', resultado:res(pctDoc,85), puntaje:pctDoc, meta:90, impacto:'alto',
-        hallazgo:`${pctDoc}% documentado. Acreditación exige trazabilidad total.`,
-        mejora:'Completar descripción, duración, costo y responsable en todas las intervenciones.' },
-      { estandar:'Seguridad del paciente', criterio:'Plan de contingencia para equipos críticos', normativa:'ICONTEC', resultado:'no_cumple', puntaje:0, meta:100, impacto:'alto',
-        hallazgo:'Sin planes de contingencia formales para equipos de soporte vital.',
-        mejora:'Documentar por equipo: reemplazo, proveedor de respaldo, tiempo máximo de indisponibilidad.' },
-      { estandar:'Liderazgo organizacional', criterio:'KPIs reportados mensualmente a dirección', normativa:'ICONTEC', resultado:mant.length>0?'parcial':'no_cumple', puntaje:mant.length>0?50:0, meta:100, impacto:'medio',
-        hallazgo:'KPIs calculados pero sin evidencia de presentación formal a comité de dirección.',
-        mejora:'Generar informe ejecutivo mensual y presentar en comité de calidad. Documentar actas.' },
-      { estandar:'Gestión clínica', criterio:'Calibraciones con laboratorio acreditado ONAC', normativa:'NTC ISO/IEC 17025 · ICONTEC', resultado:calibraciones.length>0?'parcial':'no_cumple', puntaje:calibraciones.length>0?50:0, meta:100, impacto:'alto',
-        hallazgo:`${calibraciones.length} calibraciones registradas. Acreditación requiere certificado de laboratorio ONAC.`,
-        mejora:'Contratar laboratorio acreditado ONAC para calibración de equipos de medición críticos.' },
+      {
+        estandar: 'Gestión tecnológica',
+        criterio: 'Inventario biomédico 100% completo con todos los campos',
+        normativa: 'ICONTEC Manual de Estándares de Acreditación — Gestión de Tecnología',
+        articulo: 'ICONTEC Estándares de Acreditación, Sección Gestión Tecnológica: "La organización cuenta con un inventario actualizado de todos los dispositivos médicos con información completa que incluye: identificación, características técnicas, vida útil, estado funcional, historial de mantenimiento y costo de adquisición."',
+        resultado: res(pctSerie, 95),
+        puntaje: Math.min(pctSerie, pctMarca, pctClase),
+        meta: 95,
+        impacto: 'alto',
+        hallazgo: `Completitud del inventario:\n• Número de serie: ${pctSerie}% (${conSerie}/${eq.length})\n• Marca: ${pctMarca}% (${conMarca}/${eq.length})\n• Clase INVIMA: ${pctClase}% (${conClase}/${eq.length})\n• Año adquisición: ${pctAnio}% (${conAnio}/${eq.length})\n• Vida útil: ${pctVida}% (${conVida}/${eq.length})\n\nPara acreditación ICONTEC se requiere mínimo 95% en todos los campos.`,
+        mejora: {
+          accion: 'Alcanzar 95% de completitud en todos los campos del inventario',
+          como: `1. Jornada de verificación física de todos los equipos (2-3 días)\n2. Para cada equipo incompleto: verificar placa, manual y documentación de compra\n3. Completar en orden de prioridad: serie → marca/modelo → clase INVIMA → año → vida útil\n4. Para acreditación: también registrar valor de adquisición y proveedor\n5. Fotografiar cada equipo como evidencia de verificación física`,
+          responsable: 'Equipo de Ingeniería Biomédica',
+          plazo: '60 días',
+          normativa_cumplimiento: 'ICONTEC Manual de Acreditación — Gestión Tecnológica',
+          riesgo_incumplimiento: 'Criterio no cumplido — impide obtener acreditación',
+        },
+      },
     ],
+
     secretaria: [
-      { estandar:'Habilitación', criterio:'Registro de habilitación vigente', normativa:'Res. 3100/2019', resultado:'parcial', puntaje:50, meta:100, impacto:'alto',
-        hallazgo:'No verificable automáticamente. Requiere revisión del certificado del ente territorial.',
-        mejora:'Verificar vigencia en portal del ente territorial. Mantener copia digital disponible.' },
-      { estandar:'Equipos biomédicos', criterio:'Inventario actualizado disponible para inspección', normativa:'Res. 4816/2008', resultado:res(pctComp,70), puntaje:pctComp, meta:100, impacto:'alto',
-        hallazgo:`Inventario al ${pctComp}%. ${eq.length-completos.length} equipos con datos incompletos que generarían observaciones.`,
-        mejora:'Completar datos antes de visita. Tener inventario impreso y firmado disponible.' },
-      { estandar:'Equipos biomédicos', criterio:'Hojas de vida con historial de mantenimiento', normativa:'Res. 4816/2008 Art. 6', resultado:res(pctHV,90), puntaje:pctHV, meta:95, impacto:'alto',
-        hallazgo:`${eq.length-sinMant.length}/${eq.length} con historial. Inspectores revisarán muestra aleatoria.`,
-        mejora:'Completar hojas de vida de equipos sin historial antes de visita programada.' },
-      { estandar:'Mantenimiento', criterio:'Cronograma vigente con evidencias de ejecución', normativa:'Res. 4816/2008 Art. 7', resultado:res(Math.round((pctCumpl+pctCronograma)/2),75), puntaje:Math.round((pctCumpl+pctCronograma)/2), meta:80, impacto:'alto',
-        hallazgo:`Cumplimiento: ${pctCumpl}%. Cobertura: ${mesesCub}/12 meses. ${sinFechaReal.length} sin fecha de ejecución.`,
-        mejora:'Tener disponible cronograma firmado y órdenes de trabajo del año en curso.' },
-      { estandar:'Documentación', criterio:'Órdenes de trabajo firmadas y con descripción', normativa:'Res. 4816/2008', resultado:res(pctDoc,70), puntaje:pctDoc, meta:90, impacto:'medio',
-        hallazgo:`${pctDoc}% con descripción. Inspectores solicitan órdenes firmadas.`,
-        mejora:'Implementar firma en todas las órdenes del año en curso.' },
+      {
+        estandar: 'Habilitación',
+        criterio: 'Certificado de habilitación vigente',
+        normativa: 'Res. 3100/2019 · Decreto 780/2016',
+        articulo: 'Decreto 780/2016 Art. 2.5.1.1: "Ninguna institución puede prestar servicios de salud sin contar con el registro de habilitación vigente otorgado por la Secretaría de Salud departamental o distrital correspondiente."',
+        resultado: 'parcial',
+        puntaje: 50,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: `⚠ No es posible verificar automáticamente si el certificado de habilitación está vigente. Este es el primer documento que solicita cualquier inspector de la Secretaría de Salud.\n\nLos inspectores verifican:\n• Vigencia del certificado\n• Que los servicios prestados coincidan con los habilitados\n• Que el personal y dotación correspondan a lo declarado en la habilitación`,
+        mejora: {
+          accion: 'Verificar y mantener actualizado el certificado de habilitación',
+          como: `1. Consultar el Registro Especial de Prestadores de Servicios de Salud (REPS): https://prestadores.minsalud.gov.co\n2. Verificar que todos los servicios actualmente prestados estén habilitados\n3. Si hay servicios sin habilitar: iniciar proceso ante la Secretaría de Salud\n4. Mantener copia impresa del certificado en lugar visible de la institución\n5. Programar renovación con 3 meses de anticipación a la fecha de vencimiento`,
+          responsable: 'Gerente/Director + Coordinador de Calidad',
+          plazo: 'Verificar inmediatamente',
+          normativa_cumplimiento: 'Decreto 780/2016 · Res. 3100/2019',
+          riesgo_incumplimiento: 'Cierre inmediato de la institución si el certificado está vencido',
+        },
+      },
+      {
+        estandar: 'Equipos biomédicos',
+        criterio: 'Inventario disponible y actualizado para inspección',
+        normativa: 'Res. 4816/2008 · Res. 3100/2019',
+        articulo: 'Res. 3100/2019: El inventario de dispositivos médicos debe estar disponible y actualizado en el momento de la visita de habilitación. Debe incluir todos los equipos en uso con su identificación completa.',
+        resultado: res(pctSerie, 70),
+        puntaje: pctSerie,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: `Estado del inventario para inspección:\n• Equipos registrados: ${eq.length}\n• Con datos completos: ${conSerie} (${pctSerie}%)\n• Con número de serie: ${conSerie}/${eq.length}\n• Con clase INVIMA: ${conClase}/${eq.length}\n\n${pctSerie < 80 ? `✗ El ${100-pctSerie}% del inventario tiene datos incompletos. Los inspectores pueden marcar esto como observación.` : `✓ Inventario en condiciones aceptables para inspección.`}`,
+        mejora: pctSerie < 80 ? {
+          accion: 'Completar el inventario antes de la visita',
+          como: `1. Priorizar la completitud del inventario ANTES de cualquier visita de la Secretaría\n2. Los inspectores solicitan inventario impreso firmado por el representante legal\n3. Imprimir reporte de inventario desde BioMed AI con todos los campos\n4. Complementar con hoja de vida de equipos críticos (ventiladores, monitores, desfibriladores)\n5. Tener disponible en formato físico Y digital`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '15 días antes de cualquier visita programada',
+          normativa_cumplimiento: 'Res. 4816/2008 · Res. 3100/2019',
+          riesgo_incumplimiento: 'Observación en visita — puede generar plan de mejora con plazo de 30 días',
+        } : null,
+      },
+      {
+        estandar: 'Mantenimiento',
+        criterio: 'Cronograma y evidencias de mantenimiento disponibles para inspección',
+        normativa: 'Res. 4816/2008 Art. 7',
+        articulo: 'Res. 4816/2008 Art. 7: Las IPS deben tener disponible para consulta de los inspectores el cronograma de mantenimiento anual vigente y las evidencias de ejecución de los mantenimientos realizados (órdenes de trabajo firmadas).',
+        resultado: res(pctCumpl, 75),
+        puntaje: Math.round((pctCumpl + pctCron)/2),
+        meta: 80,
+        impacto: 'alto',
+        hallazgo: `• Cumplimiento del plan: ${pctCumpl}% (mínimo 80%)\n• Cobertura mensual: ${mesesCub}/12 meses\n• Sin fecha de ejecución: ${sinFechaReal.length} registros\n• Sin descripción: ${sinDesc.length} registros\n\n${pctCumpl < 80 ? `✗ Cumplimiento por debajo del mínimo. Los inspectores pueden generar observación por incumplimiento del Art. 7.` : `✓ Cumplimiento aceptable para inspección.`}`,
+        mejora: pctCumpl < 80 ? {
+          accion: 'Preparar documentación de mantenimiento para inspección',
+          como: `1. Imprimir cronograma anual firmado por el representante legal\n2. Preparar carpeta con órdenes de trabajo del año en curso, organizadas por mes\n3. Para cada OT tener: descripción de actividades, firma del técnico y fecha de ejecución\n4. Preparar indicador de cumplimiento mensual para presentar al inspector\n5. Si hay mantenimientos atrasados: tener justificación documentada`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: 'Antes de cualquier visita',
+          normativa_cumplimiento: 'Res. 4816/2008 Art. 7',
+          riesgo_incumplimiento: 'Observación en visita de habilitación',
+        } : null,
+      },
     ],
+
     supersalud: [
-      { estandar:'Calidad de atención', criterio:'Disponibilidad de equipos ≥ 90%', normativa:'Supersalud · Circular 049', resultado:res(pctDisp,90), puntaje:pctDisp, meta:90, impacto:'alto',
-        hallazgo:`Disponibilidad: ${pctDisp}%. Supersalud exige mínimo 90%. ${eq.length-operativos.length} equipos no operativos.`,
-        mejora:'Reducir equipos fuera de servicio. Documentar causa de cada uno no operativo.' },
-      { estandar:'Seguridad del paciente', criterio:'Equipos de soporte vital operativos', normativa:'Supersalud', resultado:res(pct(altoRiesgo.filter(e=>e.estado==='operativo').length,altoRiesgo.length),90), puntaje:pct(altoRiesgo.filter(e=>e.estado==='operativo').length,altoRiesgo.length), meta:100, impacto:'alto',
-        hallazgo:`${altoRiesgo.filter(e=>e.estado==='operativo').length}/${altoRiesgo.length} equipos alto riesgo operativos.`,
-        mejora:'Priorizar reparación de equipos críticos. Documentar causa y tiempo de reparación.' },
-      { estandar:'Cumplimiento normativo', criterio:'Plan de mantenimiento documentado', normativa:'Res. 4816/2008 · Supersalud', resultado:res(pctCumpl,80), puntaje:pctCumpl, meta:80, impacto:'alto',
-        hallazgo:`Cumplimiento: ${pctCumpl}%. Supersalud puede solicitar evidencias de los últimos 2 años.`,
-        mejora:'Mantener archivo histórico de órdenes de trabajo por año y por equipo.' },
-      { estandar:'Gestión financiera', criterio:'Registro de costos de mantenimiento en COP', normativa:'Supersalud', resultado:res(pctCosto,80), puntaje:pctCosto, meta:90, impacto:'medio',
-        hallazgo:`${mant.length-sinCosto.length}/${mant.length} con costo registrado. ${sinCosto.length} sin costo.`,
-        mejora:'Completar costos históricos para análisis de inversión ante Supersalud.' },
-      { estandar:'Habilitación', criterio:'Dotación mínima por servicio habilitado', normativa:'Res. 3100/2019', resultado:'parcial', puntaje:60, meta:100, impacto:'alto',
-        hallazgo:`${eq.length} equipos en inventario. No verificable automáticamente si cubren dotación mínima por servicio.`,
-        mejora:'Cruzar inventario con Res. 3100/2019 para verificar dotación mínima por servicio.' },
+      {
+        estandar: 'Calidad de atención',
+        criterio: 'Disponibilidad de equipos biomédicos ≥ 90%',
+        normativa: 'Supersalud · Circular Externa 030/2006 · Res. 256/2016',
+        articulo: 'Supersalud Circular 030/2006: "Las IPS deben garantizar una disponibilidad mínima del 90% de los equipos biomédicos esenciales para la prestación de los servicios habilitados. La indisponibilidad de equipos críticos debe reportarse y justificarse."',
+        resultado: res(pctDisp, 90),
+        puntaje: pctDisp,
+        meta: 90,
+        impacto: 'alto',
+        hallazgo: `• Disponibilidad actual: ${pctDisp}% — ${pctDisp >= 90 ? '✓ Cumple la meta del 90%' : '✗ No cumple — meta: 90%'}\n• Equipos operativos: ${operativos.length}/${eq.length}\n• Fuera de servicio: ${fueraSvc.length}\n• Dados de baja: ${enBaja.length}\n\n${pctDisp < 90 ? `La Supersalud puede imponer multas o planes de mejora por disponibilidad inferior al 90%. Se requieren ${Math.ceil(eq.length * 0.9) - operativos.length} equipos adicionales en estado operativo para cumplir la meta.` : ''}`,
+        mejora: pctDisp < 90 ? {
+          accion: `Aumentar disponibilidad al 90% (${Math.ceil(eq.length * 0.9) - operativos.length} equipos adicionales deben quedar operativos)`,
+          como: `1. Identificar los ${fueraSvc.length} equipos fuera de servicio y priorizar su reparación\n2. Para cada equipo no operativo: documentar causa, técnico responsable y fecha estimada de restitución\n3. Evaluar si equipos fuera de servicio por tiempo prolongado deben darse de baja y reemplazarse\n4. Para equipos en garantía: activar la garantía inmediatamente\n5. Para equipos sin repuesto: cotizar y adquirir con urgencia\n6. Reportar a la Supersalud si la indisponibilidad afecta servicios críticos`,
+          responsable: 'Ingeniero Biomédico + Dirección',
+          plazo: '30 días',
+          normativa_cumplimiento: 'Supersalud Circular 030/2006',
+          riesgo_incumplimiento: 'Multa administrativa · Plan de mejoramiento obligatorio',
+        } : null,
+      },
     ],
+
     iso9001: [
-      { estandar:'Sistema de gestión', criterio:'Inventario como proceso documentado', normativa:'ISO 9001:2015 Cláusula 7.5', resultado:res(pctComp,80), puntaje:pctComp>=80?65:pctComp, meta:100, impacto:'alto',
-        hallazgo:`Inventario al ${pctComp}%. ISO 9001 exige control total de documentos y registros.`,
-        mejora:'Definir procedimiento para alta, baja y modificación de equipos en el inventario.' },
-      { estandar:'Control de procesos', criterio:'Proceso de mantenimiento con indicadores medibles', normativa:'ISO 9001:2015 Cláusula 8.1', resultado:mant.length>0?'parcial':'no_cumple', puntaje:mant.length>0?60:0, meta:90, impacto:'alto',
-        hallazgo:`${mant.length} registros. ISO 9001 requiere proceso definido con entradas, actividades, salidas e indicadores.`,
-        mejora:'Documentar proceso de mantenimiento biomédico como proceso del SGC.' },
-      { estandar:'Indicadores', criterio:'KPIs con metas definidas y seguimiento', normativa:'ISO 9001:2015 Cláusula 9.1', resultado:mant.length>0?'parcial':'no_cumple', puntaje:mant.length>0?55:0, meta:90, impacto:'alto',
-        hallazgo:'KPIs calculados automáticamente. Sin metas formales aprobadas por dirección.',
-        mejora:'Formalizar metas: disponibilidad ≥90%, cumplimiento preventivo ≥80%, MTTR ≤24h.' },
-      { estandar:'Mejora continua', criterio:'No conformidades registradas y tratadas', normativa:'ISO 9001:2015 Cláusula 10.2', resultado:correctivos.length>0?'parcial':'no_cumple', puntaje:correctivos.length>0?50:0, meta:80, impacto:'medio',
-        hallazgo:`${correctivos.length} correctivos como evidencia de fallas. Sin análisis formal de causa raíz.`,
-        mejora:'Implementar registro CAPA para cada falla de equipo.' },
-      { estandar:'Gestión de riesgos', criterio:'Análisis de riesgos tecnológicos (AMFE)', normativa:'ISO 9001:2015 Cláusula 6.1', resultado:altoRiesgo.length>0?'parcial':'cumple', puntaje:altoRiesgo.length>0?50:90, meta:90, impacto:'medio',
-        hallazgo:`${altoRiesgo.length} equipos de alto riesgo identificados. Sin análisis formal AMFE documentado.`,
-        mejora:'Elaborar matriz AMFE para equipos clase IIb y III.' },
+      {
+        estandar: 'Sistema de gestión de calidad (SGC)',
+        criterio: 'Proceso de gestión biomédica documentado en el SGC',
+        normativa: 'ISO 9001:2015 Cláusula 4.4 · 7.5',
+        articulo: 'ISO 9001:2015 Cláusula 4.4: "La organización debe establecer, implementar, mantener y mejorar continuamente el sistema de gestión de la calidad, incluyendo los procesos necesarios y sus interacciones." Cláusula 7.5: "La información documentada debe mantenerse y controlarse."',
+        resultado: pctSerie >= 80 ? 'parcial' : 'no_cumple',
+        puntaje: pctSerie >= 80 ? 60 : Math.round(pctSerie * 0.7),
+        meta: 90,
+        impacto: 'alto',
+        hallazgo: `Estado del proceso de gestión biomédica:\n• Inventario documentado: ${pctSerie}% con serie, ${pctClase}% con clase INVIMA\n• Mantenimientos registrados: ${mant.length}\n• Documentación de OT: ${pctDoc}%\n\nISO 9001 requiere que el proceso esté completamente definido con: entradas, actividades, salidas, responsables, indicadores y mejora continua.`,
+        mejora: {
+          accion: 'Documentar el proceso de gestión biomédica en el mapa de procesos del SGC',
+          como: `1. Elaborar ficha de proceso "Gestión de Tecnología Biomédica" con:\n   • Objetivo del proceso\n   • Entradas (requisitos de mantenimiento, fallas reportadas)\n   • Actividades principales (inventario, mantenimiento preventivo, correctivo, calibración)\n   • Salidas (equipos operativos, reportes de KPIs)\n   • Indicadores con metas\n   • Responsable del proceso\n2. Incorporar al mapa de procesos institucional\n3. Establecer revisión periódica del proceso (mínimo anual)\n4. Documentar el procedimiento de mantenimiento preventivo y correctivo`,
+          responsable: 'Ingeniero Biomédico + Coordinador de Calidad',
+          plazo: '60 días',
+          normativa_cumplimiento: 'ISO 9001:2015 Cláusula 4.4 · 7.5',
+          riesgo_incumplimiento: 'No conformidad en auditoría de certificación ISO 9001',
+        },
+      },
     ],
+
     iso13485: [
-      { estandar:'Control de dispositivos', criterio:'Trazabilidad completa de cada dispositivo', normativa:'ISO 13485:2016 Cláusula 8.3', resultado:res(pctComp,90), puntaje:pctComp>=90?70:pctComp, meta:100, impacto:'alto',
-        hallazgo:`Trazabilidad al ${pctComp}%. ISO 13485 exige número de serie, lote y trazabilidad de toda la vida útil.`,
-        mejora:'Completar número de serie, modelo y datos de adquisición de todos los equipos.' },
-      { estandar:'Gestión de proveedores', criterio:'Proveedores de mantenimiento evaluados', normativa:'ISO 13485:2016 Cláusula 7.4', resultado:'no_cumple', puntaje:0, meta:100, impacto:'alto',
-        hallazgo:'Sin evaluación formal de proveedores de mantenimiento y calibración.',
-        mejora:'Crear lista de proveedores calificados con criterios: certificaciones, experiencia, tiempo de respuesta.' },
-      { estandar:'Control de calidad', criterio:'Acciones correctivas por falla de equipo (CAPA)', normativa:'ISO 13485:2016 Cláusula 8.5', resultado:correctivos.length>0?'parcial':'no_cumple', puntaje:correctivos.length>0?50:0, meta:90, impacto:'alto',
-        hallazgo:`${correctivos.length} correctivos. Sin análisis formal de causa raíz por equipo.`,
-        mejora:'Implementar proceso CAPA para cada falla significativa.' },
-      { estandar:'Ciclo de vida', criterio:'Vida útil definida y control de obsolescencia', normativa:'ISO 13485:2016 Cláusula 7.3', resultado:res(pctVida,80), puntaje:pctVida, meta:95, impacto:'medio',
-        hallazgo:`${eq.length-sinVidaUtil.length}/${eq.length} con vida útil definida. ISO 13485 exige gestión del ciclo de vida completo.`,
-        mejora:'Definir vida útil de todos los equipos. Programar revisión de obsolescencia anual.' },
+      {
+        estandar: 'Trazabilidad de dispositivos',
+        criterio: 'Trazabilidad completa de cada dispositivo médico (número de serie, historial)',
+        normativa: 'ISO 13485:2016 Cláusula 7.5.9 · 8.3',
+        articulo: 'ISO 13485:2016 Cláusula 7.5.9: "La organización debe mantener registros de trazabilidad para todos los dispositivos médicos, incluyendo: identificación única, historial de uso, mantenimientos, reparaciones y cualquier incidente o evento adverso relacionado con el dispositivo."',
+        resultado: res(pctSerie, 90),
+        puntaje: pctSerie,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: `Trazabilidad actual:\n• Con número de serie: ${conSerie}/${eq.length} (${pctSerie}%)\n• Con historial de mantenimiento: ${conMantEq}/${eq.length} (${pctHV}%)\n• Con costo documentado: ${conCosto}/${mant.length} (${pctCosto}%)\n\nISO 13485 exige trazabilidad del 100% de los dispositivos durante toda su vida útil.`,
+        mejora: {
+          accion: 'Completar trazabilidad al 100% de los dispositivos',
+          como: `1. Completar número de serie de todos los equipos sin este dato\n2. Para cada equipo: mantener registro continuo de toda intervención\n3. Implementar identificador único (QR o código de barras) en cada equipo\n4. Documentar: fecha de instalación, mantenimientos, reparaciones, repuestos y retiro del servicio\n5. Mantener trazabilidad por mínimo 10 años después de la vida útil del dispositivo`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '60 días',
+          normativa_cumplimiento: 'ISO 13485:2016 Cláusula 7.5.9',
+          riesgo_incumplimiento: 'No conformidad mayor en auditoría ISO 13485',
+        },
+      },
     ],
+
     iso17025: [
-      { estandar:'Competencia técnica', criterio:'Personal con competencias en calibración', normativa:'ISO/IEC 17025:2017 Cláusula 6.2', resultado:'no_cumple', puntaje:0, meta:100, impacto:'alto',
-        hallazgo:'Sin certificaciones de personal en metrología o calibración en el sistema.',
-        mejora:'Verificar y documentar capacitación en calibración del personal técnico.' },
-      { estandar:'Trazabilidad metrológica', criterio:'Calibraciones con trazabilidad al patrón nacional', normativa:'ISO/IEC 17025:2017 Cláusula 6.5', resultado:calibraciones.length>0?'parcial':'no_cumple', puntaje:calibraciones.length>0?40:0, meta:100, impacto:'alto',
-        hallazgo:`${calibraciones.length} calibraciones registradas. Sin evidencia de trazabilidad al INM Colombia.`,
-        mejora:'Exigir a laboratorios contratados que demuestren trazabilidad al INM.' },
-      { estandar:'Acreditación ONAC', criterio:'Laboratorio de calibración acreditado ONAC', normativa:'NTC ISO/IEC 17025', resultado:'parcial', puntaje:40, meta:100, impacto:'alto',
-        hallazgo:'No verificable automáticamente si laboratorios contratados tienen acreditación ONAC vigente.',
-        mejora:'Verificar acreditación en onac.org.co antes de contratar. Exigir certificado.' },
-      { estandar:'Equipos de referencia', criterio:'Patrones de medición calibrados y vigentes', normativa:'ISO/IEC 17025:2017 Cláusula 6.4', resultado:'no_cumple', puntaje:0, meta:100, impacto:'alto',
-        hallazgo:'Sin registro de equipos de referencia o patrones en el sistema.',
-        mejora:'Registrar y calibrar los patrones utilizados. Si se terceriza, exigir certificados.' },
+      {
+        estandar: 'Trazabilidad metrológica',
+        criterio: 'Calibraciones con trazabilidad al Instituto Nacional de Metrología (INM)',
+        normativa: 'ISO/IEC 17025:2017 Cláusula 6.5',
+        articulo: 'ISO/IEC 17025:2017 Cláusula 6.5: "Los resultados de medición deben ser trazables al Sistema Internacional de Unidades (SI) mediante una cadena ininterrumpida de calibraciones, cada una contribuyendo a la incertidumbre de medición, hasta el patrón primario nacional o internacional."',
+        resultado: calibraciones.length > 0 ? 'parcial' : 'no_cumple',
+        puntaje: calibraciones.length > 0 ? 40 : 0,
+        meta: 100,
+        impacto: 'alto',
+        hallazgo: `• Calibraciones registradas: ${calibraciones.length}\n• Equipos de alto riesgo que requieren calibración: ${altoRiesgo.length}\n\nISO 17025 aplica principalmente cuando la IPS:\n1. Tiene su propio laboratorio de calibración interno\n2. Contrata laboratorios externos de calibración\n\nEn el segundo caso, la IPS debe exigir que el laboratorio contratado esté acreditado por ONAC con alcance de calibración para los equipos biomédicos correspondientes.`,
+        mejora: {
+          accion: 'Implementar control de calibraciones con trazabilidad ONAC',
+          como: `1. Identificar todos los equipos de medición que requieren calibración:\n   • Monitores de signos vitales (presión, SpO2, temperatura)\n   • Desfibriladores (energía de descarga)\n   • Bombas de infusión (flujo y volumen)\n   • Ventiladores (volumen, presión, flujo)\n   • Glucómetros\n2. Para cada equipo: verificar si el fabricante especifica calibración periódica\n3. Buscar laboratorio ONAC acreditado: https://onac.org.co → directorio de acreditados\n4. Exigir en el contrato de calibración: certificado con trazabilidad al INM e incertidumbre de medición\n5. Registrar en BioMed AI con número de certificado y fecha de vencimiento`,
+          responsable: 'Ingeniero Biomédico',
+          plazo: '45 días',
+          normativa_cumplimiento: 'ISO/IEC 17025:2017 Cláusula 6.5 · NTC ISO/IEC 17025',
+          riesgo_incumplimiento: 'Mediciones no confiables — riesgo para la seguridad del paciente',
+        },
+      },
     ],
   }
-  return CRITERIOS[tipo] || []
+
+  const eqConMant2 = new Set(mant.map(m => m.equipo_id))
+  return CRITERIOS[tipo]?.map(c => ({
+    ...c,
+    _eqConMant: eqConMant2,
+  })) || []
 }
 
 const RS: Record<string,{bg:string;text:string;border:string;label:string;icon:string}> = {
@@ -286,26 +714,31 @@ export default function AuditoriaPage() {
   async function ejecutar() {
     if (!tipoSel) return
     setFase('ejecutando')
-    const supabase = createClient()
-    const INST = '00000000-0000-0000-0000-000000000001'
-    const [eqR, mantR, repR] = await Promise.all([
-      supabase.from('equipos').select('*').eq('institucion_id',INST).eq('activo',true),
-      supabase.from('mantenimientos').select('*').eq('institucion_id',INST),
-      supabase.from('repuestos').select('*').eq('institucion_id',INST),
-    ])
-    const eq   = eqR.data   || []
-    const mant = mantR.data || []
-    const rep  = repR.data  || []
-    const crits = calcularCriterios(tipoSel, eq, mant, rep)
-    setCriterios(crits)
-    setResumen({
-      equipos: eq.length,
-      mantenimientos: mant.length,
-      repuestos: rep.length,
-      preventivos: mant.filter(m=>m.tipo==='preventivo').length,
-      correctivos: mant.filter(m=>m.tipo==='correctivo').length,
-      operativos: eq.filter(e=>e.estado==='operativo').length,
-    })
+    try {
+      const supabase = createClient()
+      const INST = '00000000-0000-0000-0000-000000000001'
+      const [eqR, mantR, repR] = await Promise.all([
+        supabase.from('equipos').select('*').eq('institucion_id',INST).eq('activo',true),
+        supabase.from('mantenimientos').select('*').eq('institucion_id',INST),
+        supabase.from('repuestos').select('*').eq('institucion_id',INST),
+      ])
+      const eq   = eqR.data   || []
+      const mant = mantR.data || []
+      const rep  = repR.data  || []
+      const crits = calcularCriterios(tipoSel, eq, mant, rep)
+      setCriterios(crits)
+      setResumen({
+        equipos: eq.length,
+        mantenimientos: mant.length,
+        repuestos: rep.length,
+        preventivos: mant.filter(m=>m.tipo==='preventivo').length,
+        correctivos: mant.filter(m=>m.tipo==='correctivo').length,
+        operativos: eq.filter(e=>e.estado==='operativo').length,
+        altoRiesgo: eq.filter(e=>e.riesgo==='alto').length,
+      })
+    } catch(err) {
+      console.error(err)
+    }
     setFase('resultado')
     setTab('resumen')
     setExpandidos({})
@@ -325,13 +758,17 @@ export default function AuditoriaPage() {
 
   return (
     <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#fff'}}>
-      <style>{`@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}} @media print{.no-print{display:none!important}}`}</style>
+      <style>{`
+        @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+        .hallazgo-text{white-space:pre-line;line-height:1.7}
+        @media print{.no-print{display:none!important}}
+      `}</style>
 
       <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'14px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}} className="no-print">
         <div>
           <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI / Calidad / Auditoría</div>
           <h1 style={{fontSize:18,fontWeight:600,color:'#18181B',margin:0}}>
-            {fase==='seleccion'?'Seleccionar tipo de auditoría':fase==='ejecutando'?'Analizando datos...':audSel?.nombre}
+            {fase==='seleccion'?'Seleccionar tipo de auditoría':fase==='ejecutando'?'Analizando datos reales...':audSel?.nombre}
           </h1>
         </div>
         <div style={{display:'flex',gap:8}}>
@@ -352,20 +789,20 @@ export default function AuditoriaPage() {
         {fase==='seleccion'&&(
           <div style={{maxWidth:960}}>
             <p style={{fontSize:13,color:'#71717A',marginBottom:20}}>
-              Selecciona el tipo de auditoría. El sistema consultará tu información real (equipos, mantenimientos, repuestos) y generará el resultado automáticamente.
+              Selecciona el tipo de auditoría. El sistema consultará directamente tus datos en Supabase y generará hallazgos específicos con los artículos exactos de la normativa incumplida y el plan de mejora detallado.
             </p>
             <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12,marginBottom:20}}>
               {AUDITORIAS.map(a=>(
                 <div key={a.id} onClick={()=>setTipoSel(a.id)}
-                  style={{padding:'18px',borderRadius:12,border:`${tipoSel===a.id?'2px':'0.5px'} solid ${tipoSel===a.id?a.color:'#E4E4E7'}`,background:tipoSel===a.id?a.bg:'#fff',cursor:'pointer',transition:'all 0.15s',display:'flex',alignItems:'flex-start',gap:12}}>
-                  <div style={{width:38,height:38,borderRadius:9,background:a.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                    <i className={'ti '+a.icon} style={{fontSize:19,color:a.color}}/>
+                  style={{padding:'16px',borderRadius:12,border:`${tipoSel===a.id?'2px':'0.5px'} solid ${tipoSel===a.id?a.color:'#E4E4E7'}`,background:tipoSel===a.id?a.bg:'#fff',cursor:'pointer',transition:'all 0.15s',display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{width:36,height:36,borderRadius:9,background:a.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <i className={'ti '+a.icon} style={{fontSize:18,color:a.color}}/>
                   </div>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:2}}>{a.nombre}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:1}}>{a.nombre}</div>
                     <div style={{fontSize:11,color:a.color,fontWeight:500}}>{a.subtitulo}</div>
                   </div>
-                  {tipoSel===a.id&&<i className="ti ti-check" style={{fontSize:18,color:a.color,flexShrink:0}}/>}
+                  {tipoSel===a.id&&<i className="ti ti-check" style={{fontSize:17,color:a.color,flexShrink:0}}/>}
                 </div>
               ))}
             </div>
@@ -382,8 +819,8 @@ export default function AuditoriaPage() {
             <div style={{width:60,height:60,borderRadius:'50%',background:audSel?.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
               <i className={'ti '+(audSel?.icon||'ti-search')} style={{fontSize:28,color:audSel?.color}}/>
             </div>
-            <div style={{fontSize:15,fontWeight:600,color:'#18181B'}}>Consultando Supabase...</div>
-            <div style={{fontSize:13,color:'#71717A',textAlign:'center',maxWidth:400}}>Analizando {resumen?.equipos||'...'} equipos, mantenimientos y repuestos.</div>
+            <div style={{fontSize:15,fontWeight:600,color:'#18181B'}}>Consultando Supabase directamente...</div>
+            <div style={{fontSize:13,color:'#71717A',textAlign:'center',maxWidth:400}}>Analizando equipos, mantenimientos, repuestos y cronogramas. Calculando cumplimiento por artículo normativo.</div>
             <div style={{display:'flex',gap:8}}>
               {[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:'50%',background:'#3B4FE8',animation:`bounce 1.2s ${i*0.2}s infinite`}}/>)}
             </div>
@@ -402,6 +839,7 @@ export default function AuditoriaPage() {
               ))}
             </div>
 
+            {/* RESUMEN */}
             {tab==='resumen'&&(
               <div style={{display:'flex',flexDirection:'column',gap:14}}>
                 <div style={{background:'#fff',borderRadius:12,border:`0.5px solid ${score>=80?'#BBF7D0':score>=60?'#FDE68A':'#FECACA'}`,padding:'24px',display:'flex',gap:24,alignItems:'center'}}>
@@ -449,22 +887,23 @@ export default function AuditoriaPage() {
                             <div style={{height:5,borderRadius:3,width:`${avg}%`,background:avg>=80?'#22C55E':avg>=50?'#F59E0B':'#EF4444'}}/>
                           </div>
                         </div>
-                        <span style={{fontSize:11,padding:'2px 8px',borderRadius:20,background:rs.bg,color:rs.text,border:`0.5px solid ${rs.border}`,fontWeight:500,flexShrink:0,whiteSpace:'nowrap'}}>{rs.label}</span>
+                        <span style={{fontSize:11,padding:'2px 8px',borderRadius:20,background:rs.bg,color:rs.text,border:`0.5px solid ${rs.border}`,fontWeight:500,flexShrink:0}}>{rs.label}</span>
                       </div>
                     )
                   })}
                 </div>
 
-                <div style={{padding:'12px 16px',borderRadius:8,background:'#EEF2FF',border:'0.5px solid #C7D2FE',fontSize:12,color:'#3B4FE8',display:'flex',gap:8,flexWrap:'wrap'}}>
+                <div style={{padding:'12px 16px',borderRadius:8,background:'#EEF2FF',border:'0.5px solid #C7D2FE',fontSize:12,color:'#3B4FE8',display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                   <i className="ti ti-database" style={{fontSize:14,flexShrink:0}}/>
-                  <strong>Datos analizados:</strong>
-                  {[{l:'Equipos',v:resumen?.equipos},{l:'Mantenimientos',v:resumen?.mantenimientos},{l:'Repuestos',v:resumen?.repuestos},{l:'Preventivos',v:resumen?.preventivos},{l:'Correctivos',v:resumen?.correctivos}].map(s=>(
+                  <strong>Datos analizados en tiempo real:</strong>
+                  {resumen&&[{l:'Equipos',v:resumen.equipos},{l:'Mant.',v:resumen.mantenimientos},{l:'Repuestos',v:resumen.repuestos},{l:'Preventivos',v:resumen.preventivos},{l:'Correctivos',v:resumen.correctivos},{l:'Alto riesgo',v:resumen.altoRiesgo}].map(s=>(
                     <span key={s.l}><strong>{s.v?.toLocaleString('es-CO')}</strong> {s.l}</span>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* DETALLE */}
             {tab==='detalle'&&(
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 {criterios.map((c,i)=>{
@@ -472,40 +911,65 @@ export default function AuditoriaPage() {
                   const exp=expandidos[i]
                   return (
                     <div key={i} style={{background:'#fff',borderRadius:10,border:`0.5px solid ${c.resultado==='no_cumple'?'#FECACA':c.resultado==='parcial'?'#FDE68A':'#E4E4E7'}`,overflow:'hidden'}}>
-                      <div onClick={()=>setExpandidos(p=>({...p,[i]:!p[i]}))} style={{padding:'13px 18px',cursor:'pointer',display:'flex',alignItems:'flex-start',gap:12}}>
-                        <div style={{width:32,height:32,borderRadius:8,background:rs.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                          <i className={'ti '+rs.icon} style={{fontSize:16,color:rs.text}}/>
+                      <div onClick={()=>setExpandidos(p=>({...p,[i]:!p[i]}))} style={{padding:'14px 18px',cursor:'pointer',display:'flex',alignItems:'flex-start',gap:12}}>
+                        <div style={{width:34,height:34,borderRadius:8,background:rs.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}>
+                          <i className={'ti '+rs.icon} style={{fontSize:17,color:rs.text}}/>
                         </div>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:4}}>
-                            <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,background:'#F4F4F5',color:'#71717A'}}>{c.estandar}</span>
-                            <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,background:c.impacto==='alto'?'#FEF2F2':'#FFFBEB',color:c.impacto==='alto'?'#DC2626':'#D97706',fontWeight:500}}>Impacto {c.impacto}</span>
-                            <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,background:'#F8F9FA',color:'#A1A1AA'}}>{c.normativa}</span>
+                          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:5}}>
+                            <span style={{fontSize:10,padding:'2px 8px',borderRadius:4,background:'#F4F4F5',color:'#52525B',fontWeight:500}}>{c.estandar}</span>
+                            <span style={{fontSize:10,padding:'2px 8px',borderRadius:4,background:c.impacto==='alto'?'#FEF2F2':'#FFFBEB',color:c.impacto==='alto'?'#DC2626':'#D97706',fontWeight:600}}>Impacto {c.impacto.toUpperCase()}</span>
+                            <span style={{fontSize:10,padding:'2px 8px',borderRadius:4,background:'#EEF2FF',color:'#3B4FE8',fontWeight:500}}>{c.normativa}</span>
                           </div>
-                          <div style={{fontSize:13,fontWeight:500,color:'#18181B',marginBottom:5}}>{c.criterio}</div>
+                          <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:6}}>{c.criterio}</div>
                           <div style={{display:'flex',alignItems:'center',gap:10}}>
-                            <div style={{flex:1,height:5,background:'#F4F4F5',borderRadius:3,maxWidth:200}}>
-                              <div style={{height:5,borderRadius:3,width:`${c.puntaje}%`,background:rs.text}}/>
+                            <div style={{flex:1,height:6,background:'#F4F4F5',borderRadius:3,maxWidth:200}}>
+                              <div style={{height:6,borderRadius:3,width:`${c.puntaje}%`,background:rs.text}}/>
                             </div>
-                            <span style={{fontSize:12,fontWeight:600,color:rs.text}}>{c.puntaje}%</span>
-                            <span style={{fontSize:11,padding:'2px 8px',borderRadius:20,background:rs.bg,color:rs.text,border:`0.5px solid ${rs.border}`,fontWeight:500}}>{rs.label}</span>
+                            <span style={{fontSize:12,fontWeight:700,color:rs.text}}>{c.puntaje}% / meta {c.meta}%</span>
+                            <span style={{fontSize:11,padding:'3px 10px',borderRadius:20,background:rs.bg,color:rs.text,border:`0.5px solid ${rs.border}`,fontWeight:600}}>{rs.label}</span>
                           </div>
                         </div>
-                        <i className={'ti '+(exp?'ti-chevron-up':'ti-chevron-down')} style={{fontSize:13,color:'#A1A1AA',flexShrink:0}}/>
+                        <i className={'ti '+(exp?'ti-chevron-up':'ti-chevron-down')} style={{fontSize:14,color:'#A1A1AA',flexShrink:0,marginTop:8}}/>
                       </div>
+
                       {exp&&(
-                        <div style={{borderTop:'0.5px solid #F4F4F5',padding:'13px 18px',background:'#FAFAFA',display:'flex',flexDirection:'column',gap:8}}>
-                          <div style={{padding:'9px 13px',borderRadius:7,background:rs.bg,border:`0.5px solid ${rs.border}`}}>
-                            <div style={{fontSize:11,fontWeight:500,color:rs.text,marginBottom:3}}>📋 Hallazgo</div>
-                            <div style={{fontSize:12,color:'#52525B',lineHeight:1.6}}>{c.hallazgo}</div>
+                        <div style={{borderTop:'0.5px solid #F4F4F5',padding:'16px 18px',background:'#FAFAFA',display:'flex',flexDirection:'column',gap:10}}>
+                          {/* Artículo */}
+                          <div style={{padding:'10px 14px',borderRadius:8,background:'#EEF2FF',border:'0.5px solid #C7D2FE'}}>
+                            <div style={{fontSize:11,fontWeight:600,color:'#3B4FE8',marginBottom:4}}>📖 Normativa aplicable</div>
+                            <div style={{fontSize:12,color:'#3F3F46',lineHeight:1.6,fontStyle:'italic'}}>{c.articulo}</div>
                           </div>
-                          {c.mejora&&(
-                            <div style={{padding:'9px 13px',borderRadius:7,background:'#EEF2FF',border:'0.5px solid #C7D2FE'}}>
-                              <div style={{fontSize:11,fontWeight:500,color:'#3B4FE8',marginBottom:3}}>💡 Acción de mejora</div>
-                              <div style={{fontSize:12,color:'#3F3F46',lineHeight:1.6}}>{c.mejora}</div>
+                          {/* Hallazgo */}
+                          <div style={{padding:'10px 14px',borderRadius:8,background:rs.bg,border:`0.5px solid ${rs.border}`}}>
+                            <div style={{fontSize:11,fontWeight:600,color:rs.text,marginBottom:4}}>📋 Hallazgo del análisis</div>
+                            <div className="hallazgo-text" style={{fontSize:12,color:'#52525B'}}>{c.hallazgo}</div>
+                          </div>
+                          {/* Mejora */}
+                          {c.mejora&&typeof c.mejora==='object'&&(
+                            <div style={{padding:'10px 14px',borderRadius:8,background:'#F0FDF4',border:'0.5px solid #BBF7D0'}}>
+                              <div style={{fontSize:11,fontWeight:600,color:'#16A34A',marginBottom:8}}>✅ Acción de mejora recomendada</div>
+                              <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:6}}>{c.mejora.accion}</div>
+                              <div className="hallazgo-text" style={{fontSize:12,color:'#52525B',marginBottom:8}}>{c.mejora.como}</div>
+                              <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
+                                {[
+                                  {l:'👤 Responsable',v:c.mejora.responsable,c:'#3B4FE8',bg:'#EEF2FF'},
+                                  {l:'⏱ Plazo',v:c.mejora.plazo,c:c.impacto==='alto'?'#DC2626':'#D97706',bg:c.impacto==='alto'?'#FEF2F2':'#FFFBEB'},
+                                  {l:'⚠ Riesgo si no cumple',v:c.mejora.riesgo_incumplimiento,c:'#DC2626',bg:'#FEF2F2'},
+                                ].map(m=>(
+                                  <div key={m.l} style={{padding:'6px 10px',borderRadius:6,background:m.bg,border:`0.5px solid ${m.c}30`,flex:'1 1 auto'}}>
+                                    <div style={{fontSize:10,color:'#A1A1AA',marginBottom:2}}>{m.l}</div>
+                                    <div style={{fontSize:11,fontWeight:500,color:m.c}}>{m.v}</div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
-                          <div style={{fontSize:11,color:'#A1A1AA'}}>Meta: {c.meta}% · Actual: {c.puntaje}% · Brecha: {Math.max(c.meta-c.puntaje,0)}%</div>
+                          <div style={{fontSize:11,color:'#A1A1AA',display:'flex',gap:16}}>
+                            <span>Meta: <strong style={{color:'#18181B'}}>{c.meta}%</strong></span>
+                            <span>Actual: <strong style={{color:rs.text}}>{c.puntaje}%</strong></span>
+                            <span>Brecha: <strong style={{color:'#DC2626'}}>{Math.max(c.meta-c.puntaje,0)}%</strong></span>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -514,8 +978,9 @@ export default function AuditoriaPage() {
               </div>
             )}
 
+            {/* PLAN DE MEJORA */}
             {tab==='plan'&&(
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
                 {noConf.length===0?(
                   <div style={{textAlign:'center',padding:'48px',background:'#F0FDF4',borderRadius:12,border:'0.5px solid #BBF7D0'}}>
                     <i className="ti ti-award" style={{fontSize:40,color:'#16A34A',display:'block',marginBottom:10}}/>
@@ -524,41 +989,64 @@ export default function AuditoriaPage() {
                   </div>
                 ):(
                   <>
-                    <div style={{padding:'10px 14px',borderRadius:8,background:'#EEF2FF',border:'0.5px solid #C7D2FE',fontSize:13,color:'#3B4FE8',display:'flex',gap:8}}>
-                      <i className="ti ti-info-circle" style={{fontSize:15,flexShrink:0}}/>{noConf.length} hallazgos requieren acción. Ordenados por impacto.
+                    <div style={{padding:'12px 16px',borderRadius:8,background:'#FEF2F2',border:'0.5px solid #FECACA',fontSize:13,color:'#DC2626',display:'flex',gap:8,alignItems:'center'}}>
+                      <i className="ti ti-alert-triangle" style={{fontSize:15,flexShrink:0}}/><strong>{noCumple} no conformidades</strong> y <strong>{parcial} ítems parciales</strong> requieren acción. Total: {noConf.length} hallazgos.
                     </div>
-                    {noConf.sort((a,b)=>({no_cumple:0,parcial:1}[a.resultado]||1)-({no_cumple:0,parcial:1}[b.resultado]||1)).map((c,i)=>{
+                    {noConf
+                      .sort((a,b)=>{const o:any={no_cumple:0,parcial:1}; return (o[a.resultado]||1)-(o[b.resultado]||1)})
+                      .map((c,i)=>{
                       const rs=RS[c.resultado]
-                      const plazoColor=c.impacto==='alto'?'#DC2626':'#D97706'
+                      const m=c.mejora
                       return (
-                        <div key={i} style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',overflow:'hidden'}}>
-                          <div style={{padding:'12px 18px',borderBottom:'0.5px solid #F4F4F5',display:'flex',gap:10,alignItems:'center'}}>
-                            <div style={{width:24,height:24,borderRadius:'50%',background:'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#3B4FE8',flexShrink:0}}>{i+1}</div>
+                        <div key={i} style={{background:'#fff',borderRadius:12,border:'0.5px solid #E4E4E7',overflow:'hidden'}}>
+                          {/* Header */}
+                          <div style={{padding:'14px 20px',borderBottom:'0.5px solid #F4F4F5',background:'#FAFAFA',display:'flex',gap:12,alignItems:'flex-start'}}>
+                            <div style={{width:28,height:28,borderRadius:'50%',background:'#EEF2FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'#3B4FE8',flexShrink:0,marginTop:2}}>{i+1}</div>
                             <div style={{flex:1}}>
-                              <div style={{fontSize:13,fontWeight:500,color:'#18181B',marginBottom:3}}>{c.criterio}</div>
-                              <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                                <span style={{fontSize:10,padding:'2px 7px',borderRadius:20,background:rs.bg,color:rs.text,border:`0.5px solid ${rs.border}`,fontWeight:500}}>{rs.label}</span>
-                                <span style={{fontSize:10,padding:'2px 7px',borderRadius:20,background:'#F4F4F5',color:'#71717A'}}>{c.estandar}</span>
-                                <span style={{fontSize:10,padding:'2px 7px',borderRadius:20,background:'#F4F4F5',color:'#71717A'}}>{c.normativa}</span>
+                              <div style={{fontSize:14,fontWeight:600,color:'#18181B',marginBottom:4}}>{c.criterio}</div>
+                              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                                <span style={{fontSize:11,padding:'2px 8px',borderRadius:20,background:rs.bg,color:rs.text,border:`0.5px solid ${rs.border}`,fontWeight:600}}>{rs.label}</span>
+                                <span style={{fontSize:11,padding:'2px 8px',borderRadius:20,background:'#F4F4F5',color:'#52525B'}}>{c.estandar}</span>
+                                <span style={{fontSize:11,padding:'2px 8px',borderRadius:20,background:'#EEF2FF',color:'#3B4FE8',fontWeight:500}}>{c.normativa}</span>
                               </div>
                             </div>
-                            <div style={{textAlign:'right',flexShrink:0}}>
-                              <div style={{fontSize:10,color:'#A1A1AA'}}>Plazo</div>
-                              <div style={{fontSize:11,fontWeight:700,color:plazoColor}}>{c.impacto==='alto'?'≤ 30 días':'≤ 90 días'}</div>
-                            </div>
+                            {m&&<div style={{textAlign:'right',flexShrink:0}}>
+                              <div style={{fontSize:10,color:'#A1A1AA',marginBottom:2}}>Plazo</div>
+                              <div style={{fontSize:12,fontWeight:700,color:c.impacto==='alto'?'#DC2626':'#D97706'}}>{m.plazo}</div>
+                            </div>}
                           </div>
-                          <div style={{padding:'12px 18px',display:'flex',flexDirection:'column',gap:7}}>
-                            <div style={{padding:'8px 12px',borderRadius:7,background:'#FEF2F2',border:'0.5px solid #FECACA'}}>
-                              <div style={{fontSize:11,fontWeight:500,color:'#DC2626',marginBottom:2}}>Hallazgo</div>
-                              <div style={{fontSize:12,color:'#52525B',lineHeight:1.5}}>{c.hallazgo}</div>
+                          <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:10}}>
+                            {/* Artículo */}
+                            <div style={{padding:'10px 14px',borderRadius:8,background:'#EEF2FF',border:'0.5px solid #C7D2FE'}}>
+                              <div style={{fontSize:11,fontWeight:600,color:'#3B4FE8',marginBottom:3}}>📖 Artículo incumplido</div>
+                              <div style={{fontSize:12,color:'#3F3F46',lineHeight:1.6,fontStyle:'italic'}}>{c.articulo}</div>
                             </div>
-                            <div style={{padding:'8px 12px',borderRadius:7,background:'#F0FDF4',border:'0.5px solid #BBF7D0'}}>
-                              <div style={{fontSize:11,fontWeight:500,color:'#16A34A',marginBottom:2}}>Acción de mejora</div>
-                              <div style={{fontSize:12,color:'#52525B',lineHeight:1.5}}>{c.mejora}</div>
+                            {/* Hallazgo */}
+                            <div style={{padding:'10px 14px',borderRadius:8,background:'#FEF2F2',border:'0.5px solid #FECACA'}}>
+                              <div style={{fontSize:11,fontWeight:600,color:'#DC2626',marginBottom:3}}>📋 Hallazgo específico</div>
+                              <div className="hallazgo-text" style={{fontSize:12,color:'#52525B'}}>{c.hallazgo}</div>
                             </div>
-                            <div style={{fontSize:11,color:'#A1A1AA'}}>
-                              Puntaje actual: <strong style={{color:'#18181B'}}>{c.puntaje}%</strong> · Meta: <strong style={{color:'#18181B'}}>{c.meta}%</strong> · Brecha: <strong style={{color:plazoColor}}>{Math.max(c.meta-c.puntaje,0)}%</strong>
-                            </div>
+                            {/* Acción */}
+                            {m&&<div style={{padding:'12px 14px',borderRadius:8,background:'#F0FDF4',border:'0.5px solid #BBF7D0'}}>
+                              <div style={{fontSize:11,fontWeight:600,color:'#16A34A',marginBottom:6}}>✅ Acción de mejora — Paso a paso</div>
+                              <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:8}}>{m.accion}</div>
+                              <div className="hallazgo-text" style={{fontSize:12,color:'#52525B',marginBottom:10}}>{m.como}</div>
+                              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                                {[
+                                  {l:'👤 Responsable',v:m.responsable,c:'#3B4FE8',bg:'#EEF2FF'},
+                                  {l:'⏱ Plazo',v:m.plazo,c:c.impacto==='alto'?'#DC2626':'#D97706',bg:c.impacto==='alto'?'#FEF2F2':'#FFFBEB'},
+                                  {l:'⚠ Riesgo si no cumple',v:m.riesgo_incumplimiento,c:'#DC2626',bg:'#FEF2F2'},
+                                ].map(x=>(
+                                  <div key={x.l} style={{padding:'8px 10px',borderRadius:6,background:x.bg,border:`0.5px solid ${x.c}30`}}>
+                                    <div style={{fontSize:10,color:'#A1A1AA',marginBottom:3}}>{x.l}</div>
+                                    <div style={{fontSize:11,fontWeight:500,color:x.c}}>{x.v}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div style={{marginTop:8,padding:'6px 10px',borderRadius:6,background:'#EEF2FF',border:'0.5px solid #C7D2FE'}}>
+                                <span style={{fontSize:11,color:'#3B4FE8'}}>📋 Normativa que se cumple al implementar: <strong>{m.normativa_cumplimiento}</strong></span>
+                              </div>
+                            </div>}
                           </div>
                         </div>
                       )
