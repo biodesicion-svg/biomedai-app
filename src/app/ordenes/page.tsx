@@ -54,8 +54,8 @@ export default function OrdenesPage() {
   }
 
   function abrirOrden(o: any) {
-    sessionStorage.setItem(, JSON.stringify(o))
-    router.push()
+    sessionStorage.setItem(`orden-${o.id}`, JSON.stringify(o))
+    router.push(`/ordenes/${o.id}`)
   }
 
   function mover(id:string, col:string) {
