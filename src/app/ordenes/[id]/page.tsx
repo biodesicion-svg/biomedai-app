@@ -38,6 +38,10 @@ export default function OrdenDetallePage() {
   const [firmaSupervisor, setFirmaSupervisor] = useState('')
   const [tiempoInicio, setTiempoInicio] = useState<Date | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const canvasSuperRef = useRef<HTMLCanvasElement>(null)
+  const [dibujando, setDibujando] = useState(false)
+  const [dibujandoSuper, setDibujandoSuper] = useState(false)
 
   useEffect(() => {
     const guardada = sessionStorage.getItem(`orden-${params.id}`)
@@ -541,22 +545,54 @@ export default function OrdenDetallePage() {
                   <div className="w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{background:'#2dd4bf20', color:'#2dd4bf'}}>1</div>
                   Firma del técnico ejecutor
                 </div>
-                <input type="text" value={firma}
-                  onChange={e=>setFirma(e.target.value)}
-                  placeholder={`Escribe tu nombre completo: ${orden.tecnico}`}
-                  className="w-full px-4 py-3.5 rounded-xl text-sm focus:outline-none"
-                  style={{
-                    background:'#111827',
-                    border: firma?'1px solid #0d948860':'1px solid #1e2d3d',
-                    color:'#e2e8f0',
-                    fontStyle: firma?'italic':'normal'
-                  }}
-                />
-                {firma && (
-                  <div className="mt-2 px-3 py-2 rounded-lg text-xs" style={{background:'#0d948810', color:'#2dd4bf'}}>
-                    ✓ Firmado por: {firma}
-                  </div>
-                )}
+                <div className="rounded-xl overflow-hidden" style={{border:`1px solid ${firma?'#0d948860':'#1e2d3d'}`, background:'#111827'}}>
+                  <canvas ref={canvasRef} width={480} height={120}
+                    style={{width:'100%', height:120, cursor:'crosshair', display:'block'}}
+                    onMouseDown={e=>{
+                      setDibujando(true)
+                      const r=canvasRef.current!.getBoundingClientRect()
+                      const ctx=canvasRef.current!.getContext('2d')!
+                      ctx.beginPath(); ctx.moveTo(e.clientX-r.left, e.clientY-r.top)
+                    }}
+                    onMouseMove={e=>{
+                      if(!dibujando) return
+                      const r=canvasRef.current!.getBoundingClientRect()
+                      const ctx=canvasRef.current!.getContext('2d')!
+                      ctx.strokeStyle='#2dd4bf'; ctx.lineWidth=2; ctx.lineCap='round'
+                      ctx.lineTo(e.clientX-r.left, e.clientY-r.top); ctx.stroke()
+                      setFirma(canvasRef.current!.toDataURL())
+                    }}
+                    onMouseUp={()=>setDibujando(false)}
+                    onMouseLeave={()=>setDibujando(false)}
+                    onTouchStart={e=>{
+                      e.preventDefault(); setDibujando(true)
+                      const r=canvasRef.current!.getBoundingClientRect()
+                      const t=e.touches[0]
+                      const ctx=canvasRef.current!.getContext('2d')!
+                      ctx.beginPath(); ctx.moveTo(t.clientX-r.left, t.clientY-r.top)
+                    }}
+                    onTouchMove={e=>{
+                      e.preventDefault(); if(!dibujando) return
+                      const r=canvasRef.current!.getBoundingClientRect()
+                      const t=e.touches[0]
+                      const ctx=canvasRef.current!.getContext('2d')!
+                      ctx.strokeStyle='#2dd4bf'; ctx.lineWidth=2; ctx.lineCap='round'
+                      ctx.lineTo(t.clientX-r.left, t.clientY-r.top); ctx.stroke()
+                      setFirma(canvasRef.current!.toDataURL())
+                    }}
+                    onTouchEnd={()=>setDibujando(false)}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  {firma
+                    ? <span className="text-xs" style={{color:'#2dd4bf'}}>✓ Firma registrada</span>
+                    : <span className="text-xs" style={{color:'#3d5166'}}>Dibuja tu firma con el mouse o dedo</span>
+                  }
+                  <button onClick={()=>{ const ctx=canvasRef.current!.getContext('2d')!; ctx.clearRect(0,0,480,120); setFirma('') }}
+                    className="text-xs px-3 py-1 rounded-lg" style={{background:'#1e2d3d', color:'#7a9bb5', border:'1px solid #253447'}}>
+                    Limpiar
+                  </button>
+                </div>
               </div>
 
               {/* Firma supervisor (opcional) */}
@@ -565,17 +601,54 @@ export default function OrdenDetallePage() {
                   <div className="w-4 h-4 rounded-full flex items-center justify-center text-xs" style={{background:'#818cf820', color:'#818cf8'}}>2</div>
                   Visto bueno del supervisor <span style={{color:'#3d5166'}}>(opcional)</span>
                 </div>
-                <input type="text" value={firmaSupervisor}
-                  onChange={e=>setFirmaSupervisor(e.target.value)}
-                  placeholder="Nombre del supervisor o jefe de área..."
-                  className="w-full px-4 py-3.5 rounded-xl text-sm focus:outline-none"
-                  style={{
-                    background:'#111827',
-                    border: firmaSupervisor?'1px solid #818cf860':'1px solid #1e2d3d',
-                    color:'#e2e8f0',
-                    fontStyle: firmaSupervisor?'italic':'normal'
-                  }}
-                />
+                <div className="rounded-xl overflow-hidden" style={{border:`1px solid ${firmaSupervisor?'#818cf860':'#1e2d3d'}`, background:'#111827'}}>
+                  <canvas ref={canvasSuperRef} width={480} height={100}
+                    style={{width:'100%', height:100, cursor:'crosshair', display:'block'}}
+                    onMouseDown={e=>{
+                      setDibujandoSuper(true)
+                      const r=canvasSuperRef.current!.getBoundingClientRect()
+                      const ctx=canvasSuperRef.current!.getContext('2d')!
+                      ctx.beginPath(); ctx.moveTo(e.clientX-r.left, e.clientY-r.top)
+                    }}
+                    onMouseMove={e=>{
+                      if(!dibujandoSuper) return
+                      const r=canvasSuperRef.current!.getBoundingClientRect()
+                      const ctx=canvasSuperRef.current!.getContext('2d')!
+                      ctx.strokeStyle='#818cf8'; ctx.lineWidth=2; ctx.lineCap='round'
+                      ctx.lineTo(e.clientX-r.left, e.clientY-r.top); ctx.stroke()
+                      setFirmaSupervisor(canvasSuperRef.current!.toDataURL())
+                    }}
+                    onMouseUp={()=>setDibujandoSuper(false)}
+                    onMouseLeave={()=>setDibujandoSuper(false)}
+                    onTouchStart={e=>{
+                      e.preventDefault(); setDibujandoSuper(true)
+                      const r=canvasSuperRef.current!.getBoundingClientRect()
+                      const t=e.touches[0]
+                      const ctx=canvasSuperRef.current!.getContext('2d')!
+                      ctx.beginPath(); ctx.moveTo(t.clientX-r.left, t.clientY-r.top)
+                    }}
+                    onTouchMove={e=>{
+                      e.preventDefault(); if(!dibujandoSuper) return
+                      const r=canvasSuperRef.current!.getBoundingClientRect()
+                      const t=e.touches[0]
+                      const ctx=canvasSuperRef.current!.getContext('2d')!
+                      ctx.strokeStyle='#818cf8'; ctx.lineWidth=2; ctx.lineCap='round'
+                      ctx.lineTo(t.clientX-r.left, t.clientY-r.top); ctx.stroke()
+                      setFirmaSupervisor(canvasSuperRef.current!.toDataURL())
+                    }}
+                    onTouchEnd={()=>setDibujandoSuper(false)}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  {firmaSupervisor
+                    ? <span className="text-xs" style={{color:'#818cf8'}}>✓ Firma de supervisor registrada</span>
+                    : <span className="text-xs" style={{color:'#3d5166'}}>Opcional — firma del supervisor</span>
+                  }
+                  <button onClick={()=>{ const ctx=canvasSuperRef.current!.getContext('2d')!; ctx.clearRect(0,0,480,100); setFirmaSupervisor('') }}
+                    className="text-xs px-3 py-1 rounded-lg" style={{background:'#1e2d3d', color:'#7a9bb5', border:'1px solid #253447'}}>
+                    Limpiar
+                  </button>
+                </div>
               </div>
 
               <button onClick={finalizar} disabled={!firma}

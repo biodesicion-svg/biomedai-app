@@ -1,4 +1,5 @@
 'use client'
+import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 const MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -24,6 +25,7 @@ const COLS = [
 ]
 
 export default function OrdenesPage() {
+  const router = useRouter()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [mesSel, setMesSel] = useState(new Date().getMonth()+1)
@@ -49,6 +51,11 @@ export default function OrdenesPage() {
   function cambiarMes(mes:number) {
     setMesSel(mes)
     if(data) setOrdenes(genOrdenes(data,mes))
+  }
+
+  function abrirOrden(o: any) {
+    sessionStorage.setItem(, JSON.stringify(o))
+    router.push()
   }
 
   function mover(id:string, col:string) {
@@ -138,6 +145,7 @@ export default function OrdenesPage() {
                       const tCol=tecColor[tIdx>=0?tIdx:0]
                       return (
                         <div key={o.id} style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',padding:'12px',marginBottom:8,cursor:'pointer',transition:'all 0.15s'}}
+                          onClick={(e)=>{ if((e.target as HTMLElement).tagName!=='BUTTON') abrirOrden(o) }}
                           onMouseEnter={e=>e.currentTarget.style.borderColor='#3B4FE8'}
                           onMouseLeave={e=>e.currentTarget.style.borderColor='#E4E4E7'}>
                           <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
