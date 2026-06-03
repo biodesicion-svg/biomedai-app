@@ -16,7 +16,7 @@ const NAV = [
     icon: 'ti-device-heart-monitor',
     children: [
       { label: 'Inventario',     icon: 'ti-clipboard-list',   href: '/inventario',   desc: 'Equipos biomedicos' },
-      { label: 'Hoja de vida',   icon: 'ti-file-description', href: '/inventario',   desc: 'Por equipo' },
+      
       { label: 'Documentacion',  icon: 'ti-files',            href: '/documentos',   desc: 'PDFs por equipo' },
     ],
   },
