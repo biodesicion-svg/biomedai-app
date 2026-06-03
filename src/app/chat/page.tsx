@@ -133,7 +133,7 @@ export default function ChatPage() {
 
       <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'14px 28px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div>
-          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI / Asistente IA</div>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>SYNAP / Asistente IA</div>
           <h1 style={{fontSize:18,fontWeight:600,color:'#18181B',margin:0}}>Asistente biomédico</h1>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:6,background:'#F0FDF4',padding:'6px 12px',borderRadius:6,border:'0.5px solid #BBF7D0'}}>

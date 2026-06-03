@@ -63,7 +63,7 @@ export default function OrdenesPage() {
       {/* Sidebar */}
       <div style={{width:200,flexShrink:0,background:'#fff',borderRight:'0.5px solid #E4E4E7',display:'flex',flexDirection:'column'}}>
         <div style={{padding:'16px',borderBottom:'0.5px solid #E4E4E7'}}>
-          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI</div>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>SYNAP</div>
           <div style={{fontSize:14,fontWeight:600,color:'#18181B'}}>Órdenes de trabajo</div>
         </div>
         <div style={{padding:'10px',flex:1,overflowY:'auto'}}>

@@ -1,4 +1,4 @@
-# BioMed AI — Sistema de Gestión Biomédica
+# SYNAP — Sistema de Gestión Biomédica
 
 > SaaS de gestión de equipos médicos con inteligencia artificial para IPS colombianas.
 
@@ -11,7 +11,7 @@
 
 ## 📋 Descripción
 
-BioMed AI es una plataforma SaaS multi-tenant para la gestión integral de tecnología biomédica en instituciones de salud colombianas. Cumple con la normativa de la **Resolución 4816/2008**, **Resolución 3100/2019** e **INVIMA**.
+SYNAP es una plataforma SaaS multi-tenant para la gestión integral de tecnología biomédica en instituciones de salud colombianas. Cumple con la normativa de la **Resolución 4816/2008**, **Resolución 3100/2019** e **INVIMA**.
 
 ---
 
@@ -132,7 +132,7 @@ npm run dev
 
 ## 📞 Contacto
 
-**BioMed AI** — admin@biomedai.co  
+**SYNAP** — admin@biomedai.co  
 Desarrollado para el ecosistema de salud colombiano 🇨🇴
 
 ---

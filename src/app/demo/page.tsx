@@ -46,7 +46,7 @@ export default function DemoPage() {
             <i className="ti ti-activity" style={{ color:'#fff', fontSize:17 }}/>
           </div>
           <div>
-            <div style={{ fontSize:15, fontWeight:700, color:'#18181B' }}>BioMed AI</div>
+            <div style={{ fontSize:15, fontWeight:700, color:'#18181B' }}>SYNAP</div>
             <div style={{ fontSize:10, color:'#A1A1AA' }}>Demos del sistema</div>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function DemoPage() {
             <i className="ti ti-sparkles" style={{ fontSize:13 }}/> Demos interactivos
           </div>
           <h1 style={{ fontSize:32, fontWeight:700, color:'#18181B', margin:'0 0 12px' }}>
-            Explora BioMed AI sin crear cuenta
+            Explora SYNAP sin crear cuenta
           </h1>
           <p style={{ fontSize:15, color:'#71717A', maxWidth:520, margin:'0 auto' }}>
             Prueba el sistema con datos reales de instituciones de salud colombianas. Sin configuración, sin tarjeta de crédito.
@@ -135,12 +135,12 @@ export default function DemoPage() {
         {/* CTA */}
         <div style={{ textAlign:'center', padding:'32px', borderRadius:12, background:'#3B4FE8', color:'#fff' }}>
           <div style={{ fontSize:20, fontWeight:700, marginBottom:8 }}>¿Listo para tu institución?</div>
-          <div style={{ fontSize:13, opacity:0.8, marginBottom:20 }}>Contacta al equipo de BioMed AI para activar tu licencia</div>
+          <div style={{ fontSize:13, opacity:0.8, marginBottom:20 }}>Contacta al equipo de SYNAP para activar tu licencia</div>
           <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
             <Link href="/admin" style={{ padding:'10px 20px', borderRadius:8, background:'#fff', color:'#3B4FE8', textDecoration:'none', fontSize:13, fontWeight:600 }}>
               Panel de administración
             </Link>
-            <a href="mailto:admin@biomedai.co" style={{ padding:'10px 20px', borderRadius:8, background:'rgba(255,255,255,0.15)', color:'#fff', textDecoration:'none', fontSize:13, fontWeight:500, border:'0.5px solid rgba(255,255,255,0.3)' }}>
+            <a href="mailto:admin@synap.co" style={{ padding:'10px 20px', borderRadius:8, background:'rgba(255,255,255,0.15)', color:'#fff', textDecoration:'none', fontSize:13, fontWeight:500, border:'0.5px solid rgba(255,255,255,0.3)' }}>
               Contactar ventas
             </a>
           </div>

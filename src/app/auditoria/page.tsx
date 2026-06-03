@@ -94,7 +94,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ ${sinSerie.length} de ${eq.length} equipos (${100-pctSerie}%) NO tienen número de serie registrado.\n\nEquipos sin serie: ${sinSerie.slice(0,5).map(e=>e.nombre).join(', ')}${sinSerie.length>5?` y ${sinSerie.length-5} más`:''}.\n\nEsto incumple directamente el Art. 5 numeral 1 de la Res. 4816/2008 y puede generar observación tipo "No conformidad mayor" en visita de habilitación.`,
         mejora: sinSerie.length > 0 ? {
           accion: 'Completar número de serie en los equipos faltantes',
-          como: `1. Ir al módulo de Inventario en BioMed AI\n2. Filtrar por equipos sin serie\n3. Verificar la placa física del equipo o el manual del fabricante\n4. Registrar el número de serie en la hoja de vida\n5. Si el equipo no tiene serie (equipos artesanales), registrar "S/N" y documentar el motivo`,
+          como: `1. Ir al módulo de Inventario en SYNAP\n2. Filtrar por equipos sin serie\n3. Verificar la placa física del equipo o el manual del fabricante\n4. Registrar el número de serie en la hoja de vida\n5. Si el equipo no tiene serie (equipos artesanales), registrar "S/N" y documentar el motivo`,
           responsable: 'Ingeniero Biomédico',
           plazo: '30 días antes de cualquier visita de habilitación',
           normativa_cumplimiento: 'Res. 4816/2008 Art. 5 numeral 1',
@@ -136,7 +136,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ ${sinClaseInvima.length} equipos (${100-pctClase}%) sin clasificación INVIMA.\n\nLa clasificación es OBLIGATORIA para determinar la frecuencia de mantenimiento preventivo (equipos clase IIb deben tener mínimo 2 mantenimientos/año; clase III: según recomendación del fabricante).\n\nEquipos sin clasificar: ${sinClaseInvima.slice(0,5).map((e:any)=>e.nombre).join(', ')}${sinClaseInvima.length>5?` y ${sinClaseInvima.length-5} más`:''}`,
         mejora: sinClaseInvima.length > 0 ? {
           accion: 'Clasificar los equipos sin clase INVIMA',
-          como: `1. Ingresar a web.invima.gov.co → Dispositivos Médicos → Consulta de registros sanitarios\n2. Buscar por nombre del equipo o número de registro\n3. La clase aparece en el certificado de registro sanitario\n4. Equipos importados: buscar en el país de origen (FDA classification para EE.UU.)\n5. Registrar en BioMed AI en el campo "Clase INVIMA" de cada equipo`,
+          como: `1. Ingresar a web.invima.gov.co → Dispositivos Médicos → Consulta de registros sanitarios\n2. Buscar por nombre del equipo o número de registro\n3. La clase aparece en el certificado de registro sanitario\n4. Equipos importados: buscar en el país de origen (FDA classification para EE.UU.)\n5. Registrar en SYNAP en el campo "Clase INVIMA" de cada equipo`,
           responsable: 'Ingeniero Biomédico',
           plazo: '30 días',
           normativa_cumplimiento: 'Dec. 4725/2005 Art. 26 · Res. 4816/2008 Art. 5',
@@ -178,7 +178,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ Cumplimiento del ${pctCumpl}% — Por debajo del 80% exigido por la Res. 4816/2008 Art. 7.\n\n• Total mantenimientos programados: ${mant.length}\n• Completados: ${completados.length} (${pctCumpl}%)\n• Sin ejecutar: ${mant.length - completados.length}\n• Sin fecha de ejecución real: ${sinFechaReal.length}\n• Cronograma: cubre solo ${mesesCub} de 12 meses\n\nUn incumplimiento menor al 80% representa una NO CONFORMIDAD MAYOR en visita de habilitación y puede resultar en plan de mejora obligatorio con plazo de 3 meses.`,
         mejora: pctCumpl < 80 ? {
           accion: 'Aumentar cumplimiento del plan preventivo al 80% mínimo',
-          como: `1. Identificar los ${mant.length - completados.length} mantenimientos no ejecutados\n2. Programar ejecución inmediata de los atrasados, priorizando equipos clase IIb y III\n3. Para cada mantenimiento completado sin fecha real: buscar en archivos físicos y registrar\n4. Distribuir el cronograma en los ${12 - mesesCub} meses sin cobertura\n5. Asignar responsable por servicio con meta mensual de cumplimiento\n6. Implementar alerta automática en BioMed AI para mantenimientos próximos a vencer`,
+          como: `1. Identificar los ${mant.length - completados.length} mantenimientos no ejecutados\n2. Programar ejecución inmediata de los atrasados, priorizando equipos clase IIb y III\n3. Para cada mantenimiento completado sin fecha real: buscar en archivos físicos y registrar\n4. Distribuir el cronograma en los ${12 - mesesCub} meses sin cobertura\n5. Asignar responsable por servicio con meta mensual de cumplimiento\n6. Implementar alerta automática en SYNAP para mantenimientos próximos a vencer`,
           responsable: 'Coordinador de Ingeniería Biomédica',
           plazo: '60 días — antes de cualquier visita de habilitación',
           normativa_cumplimiento: 'Res. 4816/2008 Art. 7',
@@ -199,7 +199,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ ${sinMant.length} equipos (${100-pctHV}%) NO tienen ningún registro de mantenimiento en su hoja de vida.\n\nEquipos sin historial: ${sinMant.slice(0,5).map((e:any)=>e.nombre).join(', ')}${sinMant.length>5?` y ${sinMant.length-5} más`:''}.\n\nSin hoja de vida, el inspector no puede verificar que el equipo ha recibido mantenimiento. Esto genera NO CONFORMIDAD en el estándar 6 de la Res. 3100/2019.`,
         mejora: sinMant.length > 0 ? {
           accion: 'Crear hoja de vida para todos los equipos sin historial',
-          como: `1. En BioMed AI: ir al equipo sin historial → sección "Historial"\n2. Registrar mínimo la recepción técnica inicial del equipo (fecha en que ingresó al servicio)\n3. Si existe historial en papel: digitalizar los últimos 2 años de mantenimientos\n4. Para equipos nuevos: registrar la instalación, pruebas de aceptación y condiciones de garantía\n5. Priorizar los ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos de alto riesgo sin historial`,
+          como: `1. En SYNAP: ir al equipo sin historial → sección "Historial"\n2. Registrar mínimo la recepción técnica inicial del equipo (fecha en que ingresó al servicio)\n3. Si existe historial en papel: digitalizar los últimos 2 años de mantenimientos\n4. Para equipos nuevos: registrar la instalación, pruebas de aceptación y condiciones de garantía\n5. Priorizar los ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos de alto riesgo sin historial`,
           responsable: 'Ingeniero Biomédico / Técnico Biomédico',
           plazo: '30 días',
           normativa_cumplimiento: 'Res. 4816/2008 Art. 6 · Res. 3100/2019 Estándar 6',
@@ -220,7 +220,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ ${sinDesc.length} de ${mant.length} mantenimientos (${100-pctDoc}%) sin descripción de actividades.\n\n• Sin descripción: ${sinDesc.length} registros\n• Sin duración registrada: ${sinDuracion.length} registros\n• Sin costo registrado: ${sinCosto.length} registros\n• Con hallazgos documentados: ${conHallazgos.length}\n\nLos inspectores de habilitación solicitan órdenes de trabajo firmadas. Un registro sin descripción no es válido como evidencia.`,
         mejora: pctDoc < 80 ? {
           accion: 'Completar descripción en todos los registros de mantenimiento',
-          como: `1. En BioMed AI: filtrar mantenimientos sin descripción\n2. Para registros históricos: recuperar de formatos físicos y digitalizar\n3. Para nuevos: exigir descripción mínima de 3 actividades en cada OT:\n   - Actividades realizadas (ej: "Limpieza de filtros, verificación de alarmas, prueba funcional")\n   - Resultado: "Equipo en funcionamiento correcto" o hallazgo encontrado\n   - Nombre del técnico responsable\n4. Crear plantilla estándar de OT en el módulo de órdenes de BioMed AI`,
+          como: `1. En SYNAP: filtrar mantenimientos sin descripción\n2. Para registros históricos: recuperar de formatos físicos y digitalizar\n3. Para nuevos: exigir descripción mínima de 3 actividades en cada OT:\n   - Actividades realizadas (ej: "Limpieza de filtros, verificación de alarmas, prueba funcional")\n   - Resultado: "Equipo en funcionamiento correcto" o hallazgo encontrado\n   - Nombre del técnico responsable\n4. Crear plantilla estándar de OT en el módulo de órdenes de SYNAP`,
           responsable: 'Técnico Biomédico (ejecución) · Ingeniero Biomédico (supervisión)',
           plazo: '30 días para registros históricos · Inmediato para nuevos registros',
           normativa_cumplimiento: 'Res. 4816/2008 Art. 8',
@@ -241,7 +241,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ Problemas de stock detectados:\n\n• Repuestos AGOTADOS (stock = 0): ${sinStock.length}\n  ${sinStock.slice(0,4).map((r:any)=>`- ${r.nombre}: 0 unidades (mínimo: ${r.stock_minimo})`).join('\n  ')}\n\n• Repuestos con STOCK BAJO: ${stockBajo.length}\n  ${stockBajo.slice(0,4).map((r:any)=>`- ${r.nombre}: ${r.stock_actual} uds (mínimo: ${r.stock_minimo})`).join('\n  ')}\n\nUn equipo sin repuesto disponible puede quedar fuera de servicio en caso de falla, lo cual impacta directamente la disponibilidad y puede generar observación en habilitación.`,
         mejora: (sinStock.length > 0 || stockBajo.length > 0) ? {
           accion: 'Reponer stock de repuestos críticos',
-          como: `1. Generar orden de compra para los ${sinStock.length} repuestos agotados con prioridad inmediata\n2. Generar orden de compra para los ${stockBajo.length} repuestos con stock bajo\n3. Establecer punto de reorden en BioMed AI (stock mínimo + tiempo de entrega del proveedor)\n4. Priorizar repuestos para equipos de soporte vital (ventiladores, monitores, desfibriladores)\n5. Negociar con proveedores un acuerdo de suministro inmediato para repuestos críticos`,
+          como: `1. Generar orden de compra para los ${sinStock.length} repuestos agotados con prioridad inmediata\n2. Generar orden de compra para los ${stockBajo.length} repuestos con stock bajo\n3. Establecer punto de reorden en SYNAP (stock mínimo + tiempo de entrega del proveedor)\n4. Priorizar repuestos para equipos de soporte vital (ventiladores, monitores, desfibriladores)\n5. Negociar con proveedores un acuerdo de suministro inmediato para repuestos críticos`,
           responsable: 'Ingeniero Biomédico + Almacén + Compras',
           plazo: 'Inmediato para agotados · 15 días para stock bajo',
           normativa_cumplimiento: 'Res. 4816/2008 Art. 11 · Res. 3100/2019 dotación',
@@ -286,7 +286,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ ${sinClaseInvima.length} equipos sin clasificación INVIMA:\n\nEquipos sin clasificar: ${sinClaseInvima.slice(0,5).map((e:any)=>e.nombre).join(', ')}${sinClaseInvima.length>5?` y ${sinClaseInvima.length-5} más`:''}.\n\nSin esta clasificación no es posible definir la frecuencia correcta de mantenimiento preventivo, lo que incumple el Art. 7 de la Res. 4816/2008.`,
         mejora: sinClaseInvima.length > 0 ? {
           accion: 'Clasificar equipos según normativa INVIMA',
-          como: `1. Portal INVIMA: https://www.invima.gov.co → Dispositivos Médicos → Consulta de registros\n2. Buscar por nombre del dispositivo o número de registro\n3. La clase aparece en el certificado de registro sanitario del fabricante\n4. Guía rápida de clasificación:\n   • Clase I: equipos no invasivos sin riesgo (camillas, básculas, nebulizadores simples)\n   • Clase IIa: riesgo moderado (monitores, bombas de infusión de bajo riesgo)\n   • Clase IIb: riesgo alto (ventiladores, desfibriladores, monitores de UCI)\n   • Clase III: riesgo máximo (implantes activos, equipos de soporte vital)\n5. Registrar en BioMed AI con número de registro INVIMA si está disponible`,
+          como: `1. Portal INVIMA: https://www.invima.gov.co → Dispositivos Médicos → Consulta de registros\n2. Buscar por nombre del dispositivo o número de registro\n3. La clase aparece en el certificado de registro sanitario del fabricante\n4. Guía rápida de clasificación:\n   • Clase I: equipos no invasivos sin riesgo (camillas, básculas, nebulizadores simples)\n   • Clase IIa: riesgo moderado (monitores, bombas de infusión de bajo riesgo)\n   • Clase IIb: riesgo alto (ventiladores, desfibriladores, monitores de UCI)\n   • Clase III: riesgo máximo (implantes activos, equipos de soporte vital)\n5. Registrar en SYNAP con número de registro INVIMA si está disponible`,
           responsable: 'Ingeniero Biomédico',
           plazo: '30 días',
           normativa_cumplimiento: 'Dec. 4725/2005 Art. 26',
@@ -328,7 +328,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ Cronograma cubre solo ${mesesCub} de 12 meses (${pctCron}%).\n\n• Preventivos programados: ${preventivos.length}\n• Correctivos registrados: ${correctivos.length}\n• Calibraciones: ${calibraciones.length}\n• Sin fecha de ejecución real: ${sinFechaReal.length}\n\nLa Res. 4816/2008 Art. 7 exige cobertura en todos los meses. Un cronograma concentrado en pocos meses puede generar observación de incumplimiento.`,
         mejora: pctCron < 80 ? {
           accion: 'Distribuir el cronograma en todos los meses del año',
-          como: `1. Usar el módulo de Mantenimiento en BioMed AI → "Cronograma automático"\n2. El sistema distribuye equipos según su frecuencia (semestral, anual, trimestral)\n3. Criterios de distribución:\n   • Equipos clase IIb: mínimo 2 veces/año (enero y julio)\n   • Equipos clase IIa: 1 vez/año distribuido uniformemente\n   • Equipos de calibración: según especificación del fabricante\n4. Balancear carga de trabajo: máximo 40 equipos/técnico/mes (8 horas/día × 22 días)\n5. Imprimir cronograma firmado por el director médico para archivo`,
+          como: `1. Usar el módulo de Mantenimiento en SYNAP → "Cronograma automático"\n2. El sistema distribuye equipos según su frecuencia (semestral, anual, trimestral)\n3. Criterios de distribución:\n   • Equipos clase IIb: mínimo 2 veces/año (enero y julio)\n   • Equipos clase IIa: 1 vez/año distribuido uniformemente\n   • Equipos de calibración: según especificación del fabricante\n4. Balancear carga de trabajo: máximo 40 equipos/técnico/mes (8 horas/día × 22 días)\n5. Imprimir cronograma firmado por el director médico para archivo`,
           responsable: 'Ingeniero Biomédico',
           plazo: '15 días',
           normativa_cumplimiento: 'Res. 4816/2008 Art. 7',
@@ -370,7 +370,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `⚠ ${calibraciones.length} calibraciones registradas. Se requieren para ${altoRiesgo.length} equipos de alto riesgo.\n\nEquipos de medición sin calibración registrada: verificar manualmente.`,
         mejora: {
           accion: 'Implementar programa de calibración periódica',
-          como: `1. Identificar todos los equipos que requieren calibración (monitores, desfibriladores, bombas, ventiladores)\n2. Contratar laboratorio de calibración ACREDITADO POR ONAC (onac.org.co → directorio de laboratorios acreditados)\n3. Solicitar certificado de calibración con:\n   • Trazabilidad al INM (Instituto Nacional de Metrología)\n   • Incertidumbre de medición\n   • Resultados antes y después del ajuste\n4. Registrar calibraciones en BioMed AI como tipo "calibracion"\n5. Programar próxima calibración según frecuencia recomendada por fabricante (generalmente anual)`,
+          como: `1. Identificar todos los equipos que requieren calibración (monitores, desfibriladores, bombas, ventiladores)\n2. Contratar laboratorio de calibración ACREDITADO POR ONAC (onac.org.co → directorio de laboratorios acreditados)\n3. Solicitar certificado de calibración con:\n   • Trazabilidad al INM (Instituto Nacional de Metrología)\n   • Incertidumbre de medición\n   • Resultados antes y después del ajuste\n4. Registrar calibraciones en SYNAP como tipo "calibracion"\n5. Programar próxima calibración según frecuencia recomendada por fabricante (generalmente anual)`,
           responsable: 'Ingeniero Biomédico',
           plazo: '30 días para programar · 60 días para ejecutar',
           normativa_cumplimiento: 'Res. 4816/2008 Art. 10 · NTC ISO/IEC 17025',
@@ -391,7 +391,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
           : `✗ Documentación incompleta:\n• Sin descripción: ${sinDesc.length} registros (${100-pctDoc}%)\n• Sin costo en COP: ${sinCosto.length} registros\n• Sin duración: ${sinDuracion.length} registros\n• Con hallazgos: ${conHallazgos.length} (${pct(conHallazgos.length, mant.length)}%)\n\nLos inspectores solicitan muestras aleatorias de órdenes de trabajo. Un registro sin descripción no es válido como evidencia de mantenimiento realizado.`,
         mejora: pctDoc < 80 ? {
           accion: 'Completar la documentación de órdenes de trabajo',
-          como: `1. Crear plantilla estándar de OT con campos obligatorios:\n   • Descripción de actividades (mínimo 3 actividades específicas)\n   • Materiales y repuestos usados\n   • Duración en horas\n   • Resultado: "equipo operativo" o descripción del hallazgo\n   • Nombre del técnico\n2. Para registros históricos sin descripción: recuperar de formatos físicos\n3. Implementar regla en BioMed AI: no se puede cerrar una OT sin descripción\n4. Capacitar a los técnicos en documentación correcta de OT`,
+          como: `1. Crear plantilla estándar de OT con campos obligatorios:\n   • Descripción de actividades (mínimo 3 actividades específicas)\n   • Materiales y repuestos usados\n   • Duración en horas\n   • Resultado: "equipo operativo" o descripción del hallazgo\n   • Nombre del técnico\n2. Para registros históricos sin descripción: recuperar de formatos físicos\n3. Implementar regla en SYNAP: no se puede cerrar una OT sin descripción\n4. Capacitar a los técnicos en documentación correcta de OT`,
           responsable: 'Técnicos Biomédicos + Ingeniero Biomédico',
           plazo: '15 días para nuevas OT · 45 días para historial',
           normativa_cumplimiento: 'Res. 4816/2008 Art. 8',
@@ -451,7 +451,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
         hallazgo: `✗ No hay registro de seguimiento de alertas sanitarias en el sistema.\n\nActualmente el INVIMA tiene alertas activas para varias marcas de dispositivos médicos. Sin un sistema de seguimiento, la institución no puede saber si alguno de sus ${eq.length} equipos está afectado por:\n• Retiro del mercado\n• Alerta de seguridad\n• Modificación de instrucciones de uso\n• Actualización de software de seguridad`,
         mejora: {
           accion: 'Implementar sistema de seguimiento de alertas INVIMA',
-          como: `1. Suscribirse a las alertas del INVIMA: https://www.invima.gov.co → alertas sanitarias\n2. Designar responsable de revisar alertas semanalmente\n3. Cuando llegue una alerta:\n   a) Verificar si algún equipo del inventario coincide (marca, modelo, serie)\n   b) Si hay coincidencia: aislar el equipo y contactar al proveedor\n   c) Registrar en BioMed AI el estado del equipo como "alerta sanitaria activa"\n4. Documentar el seguimiento de cada alerta como evidencia para auditoría\n5. Informar al comité de calidad sobre alertas activas`,
+          como: `1. Suscribirse a las alertas del INVIMA: https://www.invima.gov.co → alertas sanitarias\n2. Designar responsable de revisar alertas semanalmente\n3. Cuando llegue una alerta:\n   a) Verificar si algún equipo del inventario coincide (marca, modelo, serie)\n   b) Si hay coincidencia: aislar el equipo y contactar al proveedor\n   c) Registrar en SYNAP el estado del equipo como "alerta sanitaria activa"\n4. Documentar el seguimiento de cada alerta como evidencia para auditoría\n5. Informar al comité de calidad sobre alertas activas`,
           responsable: 'Responsable de Tecnovigilancia',
           plazo: '15 días',
           normativa_cumplimiento: 'Res. 4816/2008 · Circulares INVIMA',
@@ -473,7 +473,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
         hallazgo: `• Equipos de alto riesgo identificados: ${altoRiesgo.length}\n• Con mantenimiento registrado: ${altoRiesgo.filter((e:any)=>eqConMant.has(e.id)).length} (${pctAltoMant}%)\n• Sin ninguna intervención: ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length}\n• Operativos: ${operativos.length}/${eq.length} (${pctDisp}%)\n\n${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length > 0 ? `✗ ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos de ALTO RIESGO sin ninguna intervención registrada — riesgo directo para la seguridad del paciente.` : '✓ Todos los equipos de alto riesgo tienen mantenimiento registrado.'}`,
         mejora: altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length > 0 ? {
           accion: 'Intervenir los equipos de alto riesgo sin mantenimiento',
-          como: `1. Prioridad INMEDIATA: realizar inspección visual de los ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos de alto riesgo sin historial\n2. Verificar funcionamiento con pruebas básicas\n3. Programar mantenimiento preventivo completo\n4. Si el equipo no está en condiciones: retirar del servicio hasta reparación\n5. Documentar en BioMed AI como mantenimiento correctivo de emergencia\n6. Notificar al director médico y jefe de servicio`,
+          como: `1. Prioridad INMEDIATA: realizar inspección visual de los ${altoRiesgo.filter((e:any)=>!eqConMant.has(e.id)).length} equipos de alto riesgo sin historial\n2. Verificar funcionamiento con pruebas básicas\n3. Programar mantenimiento preventivo completo\n4. Si el equipo no está en condiciones: retirar del servicio hasta reparación\n5. Documentar en SYNAP como mantenimiento correctivo de emergencia\n6. Notificar al director médico y jefe de servicio`,
           responsable: 'Ingeniero Biomédico — URGENTE',
           plazo: 'Inmediato',
           normativa_cumplimiento: 'Decreto 1011/2006 · Res. 1446/2006',
@@ -489,10 +489,10 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
         puntaje: mant.length > 0 ? 55 : 0,
         meta: 80,
         impacto: 'alto',
-        hallazgo: `• Disponibilidad actual: ${pctDisp}% (meta recomendada OPS: ≥ 90%)\n• Ratio preventivo/correctivo: ${correctivos.length > 0 ? (preventivos.length/correctivos.length).toFixed(2) : 'N/D'} (meta: ≥ 0.80)\n• Cumplimiento preventivo: ${pctCumpl}% (meta mínima: 80%)\n\nBioMed AI calcula estos KPIs automáticamente pero no hay evidencia de:\n• Metas formales aprobadas por dirección\n• Reportes periódicos al comité de calidad\n• Acciones correctivas ante desviaciones`,
+        hallazgo: `• Disponibilidad actual: ${pctDisp}% (meta recomendada OPS: ≥ 90%)\n• Ratio preventivo/correctivo: ${correctivos.length > 0 ? (preventivos.length/correctivos.length).toFixed(2) : 'N/D'} (meta: ≥ 0.80)\n• Cumplimiento preventivo: ${pctCumpl}% (meta mínima: 80%)\n\nSYNAP calcula estos KPIs automáticamente pero no hay evidencia de:\n• Metas formales aprobadas por dirección\n• Reportes periódicos al comité de calidad\n• Acciones correctivas ante desviaciones`,
         mejora: {
           accion: 'Formalizar reporte mensual de KPIs biomédicos a dirección',
-          como: `1. Usar el módulo de KPIs de BioMed AI para generar informe mensual\n2. Definir metas institucionales (propuesta):\n   • Disponibilidad ≥ 90%\n   • Cumplimiento preventivo ≥ 80%\n   • MTTR ≤ 24 horas para equipos críticos\n   • Ratio prev/corr ≥ 0.80\n3. Presentar en comité de calidad mensual con:\n   • Indicadores del mes vs meta\n   • Tendencia últimos 3 meses\n   • Alertas y planes de acción\n4. Documentar en acta de comité (evidencia para PAMEC)\n5. Registrar en el sistema de información de calidad institucional`,
+          como: `1. Usar el módulo de KPIs de SYNAP para generar informe mensual\n2. Definir metas institucionales (propuesta):\n   • Disponibilidad ≥ 90%\n   • Cumplimiento preventivo ≥ 80%\n   • MTTR ≤ 24 horas para equipos críticos\n   • Ratio prev/corr ≥ 0.80\n3. Presentar en comité de calidad mensual con:\n   • Indicadores del mes vs meta\n   • Tendencia últimos 3 meses\n   • Alertas y planes de acción\n4. Documentar en acta de comité (evidencia para PAMEC)\n5. Registrar en el sistema de información de calidad institucional`,
           responsable: 'Ingeniero Biomédico',
           plazo: '30 días',
           normativa_cumplimiento: 'Res. 256/2016 MSPS',
@@ -555,7 +555,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
         hallazgo: `Estado del inventario para inspección:\n• Equipos registrados: ${eq.length}\n• Con datos completos: ${conSerie} (${pctSerie}%)\n• Con número de serie: ${conSerie}/${eq.length}\n• Con clase INVIMA: ${conClase}/${eq.length}\n\n${pctSerie < 80 ? `✗ El ${100-pctSerie}% del inventario tiene datos incompletos. Los inspectores pueden marcar esto como observación.` : `✓ Inventario en condiciones aceptables para inspección.`}`,
         mejora: pctSerie < 80 ? {
           accion: 'Completar el inventario antes de la visita',
-          como: `1. Priorizar la completitud del inventario ANTES de cualquier visita de la Secretaría\n2. Los inspectores solicitan inventario impreso firmado por el representante legal\n3. Imprimir reporte de inventario desde BioMed AI con todos los campos\n4. Complementar con hoja de vida de equipos críticos (ventiladores, monitores, desfibriladores)\n5. Tener disponible en formato físico Y digital`,
+          como: `1. Priorizar la completitud del inventario ANTES de cualquier visita de la Secretaría\n2. Los inspectores solicitan inventario impreso firmado por el representante legal\n3. Imprimir reporte de inventario desde SYNAP con todos los campos\n4. Complementar con hoja de vida de equipos críticos (ventiladores, monitores, desfibriladores)\n5. Tener disponible en formato físico Y digital`,
           responsable: 'Ingeniero Biomédico',
           plazo: '15 días antes de cualquier visita programada',
           normativa_cumplimiento: 'Res. 4816/2008 · Res. 3100/2019',
@@ -662,7 +662,7 @@ function calcularCriterios(tipo: string, eq: any[], mant: any[], rep: any[]) {
         hallazgo: `• Calibraciones registradas: ${calibraciones.length}\n• Equipos de alto riesgo que requieren calibración: ${altoRiesgo.length}\n\nISO 17025 aplica principalmente cuando la IPS:\n1. Tiene su propio laboratorio de calibración interno\n2. Contrata laboratorios externos de calibración\n\nEn el segundo caso, la IPS debe exigir que el laboratorio contratado esté acreditado por ONAC con alcance de calibración para los equipos biomédicos correspondientes.`,
         mejora: {
           accion: 'Implementar control de calibraciones con trazabilidad ONAC',
-          como: `1. Identificar todos los equipos de medición que requieren calibración:\n   • Monitores de signos vitales (presión, SpO2, temperatura)\n   • Desfibriladores (energía de descarga)\n   • Bombas de infusión (flujo y volumen)\n   • Ventiladores (volumen, presión, flujo)\n   • Glucómetros\n2. Para cada equipo: verificar si el fabricante especifica calibración periódica\n3. Buscar laboratorio ONAC acreditado: https://onac.org.co → directorio de acreditados\n4. Exigir en el contrato de calibración: certificado con trazabilidad al INM e incertidumbre de medición\n5. Registrar en BioMed AI con número de certificado y fecha de vencimiento`,
+          como: `1. Identificar todos los equipos de medición que requieren calibración:\n   • Monitores de signos vitales (presión, SpO2, temperatura)\n   • Desfibriladores (energía de descarga)\n   • Bombas de infusión (flujo y volumen)\n   • Ventiladores (volumen, presión, flujo)\n   • Glucómetros\n2. Para cada equipo: verificar si el fabricante especifica calibración periódica\n3. Buscar laboratorio ONAC acreditado: https://onac.org.co → directorio de acreditados\n4. Exigir en el contrato de calibración: certificado con trazabilidad al INM e incertidumbre de medición\n5. Registrar en SYNAP con número de certificado y fecha de vencimiento`,
           responsable: 'Ingeniero Biomédico',
           plazo: '45 días',
           normativa_cumplimiento: 'ISO/IEC 17025:2017 Cláusula 6.5 · NTC ISO/IEC 17025',
@@ -766,7 +766,7 @@ export default function AuditoriaPage() {
 
       <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'14px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}} className="no-print">
         <div>
-          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI / Calidad / Auditoría</div>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>SYNAP / Calidad / Auditoría</div>
           <h1 style={{fontSize:18,fontWeight:600,color:'#18181B',margin:0}}>
             {fase==='seleccion'?'Seleccionar tipo de auditoría':fase==='ejecutando'?'Analizando datos reales...':audSel?.nombre}
           </h1>

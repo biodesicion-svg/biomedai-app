@@ -625,7 +625,7 @@ export default function OrdenDetallePage() {
               <div style={{borderBottom:'3px solid #0d9488', paddingBottom:'20px', marginBottom:'24px'}}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
                   <div>
-                    <div style={{fontSize:'22px', fontWeight:'900', color:'#0d9488', marginBottom:'4px'}}>BioMed AI</div>
+                    <div style={{fontSize:'22px', fontWeight:'900', color:'#0d9488', marginBottom:'4px'}}>SYNAP</div>
                     <div style={{fontSize:'14px', fontWeight:'700', color:'#1a2332'}}>Reporte de Orden de Trabajo</div>
                     <div style={{fontSize:'11px', color:'#64748b'}}>Sistema de Gestión Biomédica · Res. 4816/2008</div>
                   </div>
@@ -755,7 +755,7 @@ export default function OrdenDetallePage() {
               </div>
 
               <div style={{marginTop:'24px', paddingTop:'12px', borderTop:'1px solid #e2e8f0', textAlign:'center', fontSize:'9px', color:'#94a3b8'}}>
-                Documento generado por BioMed AI · Sistema de Gestión Biomédica · {fechaHoy} · Res. 4816/2008 MSPS Colombia
+                Documento generado por SYNAP · Sistema de Gestión Biomédica · {fechaHoy} · Res. 4816/2008 MSPS Colombia
               </div>
             </div>
 

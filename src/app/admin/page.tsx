@@ -146,7 +146,7 @@ export default function AdminPage() {
             <i className="ti ti-shield-check" style={{color:'#fff',fontSize:16}}/>
           </div>
           <div>
-            <div style={{fontSize:14,fontWeight:600,color:'#18181B'}}>BioMed AI — Panel Super Admin</div>
+            <div style={{fontSize:14,fontWeight:600,color:'#18181B'}}>SYNAP — Panel Super Admin</div>
             <div style={{fontSize:10,color:'#A1A1AA'}}>Control de empresas, usuarios y licencias</div>
           </div>
         </div>

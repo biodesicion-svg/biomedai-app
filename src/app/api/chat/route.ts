@@ -359,7 +359,7 @@ export async function POST(req: Request) {
     hv += `- **Próximo preventivo:** ${proxFecha.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}\n`
     if (calibraciones.length === 0) hv += `- ⚠️ **Sin calibraciones registradas** — programar con laboratorio ONAC\n`
     if (pctVida !== null && pctVida >= 70) hv += `- 🔴 **Iniciar proceso de reposición tecnológica** (${pctVida}% de vida útil consumida)\n`
-    hv += `\n---\n*Hoja de vida generada por BioMed AI — ${new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}*`
+    hv += `\n---\n*Hoja de vida generada por SYNAP — ${new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}*`
 
     return NextResponse.json({ tipo: 'hoja_vida', respuesta: hv, equipo: eq.nombre })
   }

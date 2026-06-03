@@ -32,7 +32,7 @@ export default function MantenimientoPage() {
       {/* Sidebar meses */}
       <div style={{width:220,flexShrink:0,background:'#fff',borderRight:'0.5px solid #E4E4E7',display:'flex',flexDirection:'column',overflow:'hidden'}}>
         <div style={{padding:'16px',borderBottom:'0.5px solid #E4E4E7'}}>
-          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI / Mantenimiento</div>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>SYNAP / Mantenimiento</div>
           <div style={{fontSize:14,fontWeight:600,color:'#18181B'}}>2025</div>
         </div>
 

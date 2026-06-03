@@ -41,7 +41,7 @@ export default function InventarioPage() {
     <div style={{display:'flex',flexDirection:'column',minHeight:'100vh'}}>
       <div style={{background:'#fff',borderBottom:'0.5px solid #E2E8F0',padding:'16px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
-          <div style={{fontSize:11,color:'#94A3B8',marginBottom:2}}>BioMed AI / Inventario</div>
+          <div style={{fontSize:11,color:'#94A3B8',marginBottom:2}}>SYNAP / Inventario</div>
           <h1 style={{fontSize:18,fontWeight:600,color:'#0F172A',margin:0}}>Inventario de equipos biomédicos</h1>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>

@@ -98,7 +98,7 @@ export default function RepuestosPage() {
     <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#fff'}}>
       <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'16px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
-          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI / Repuestos</div>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>SYNAP / Repuestos</div>
           <h1 style={{fontSize:18,fontWeight:600,color:'#18181B',margin:0}}>Gestión de repuestos</h1>
         </div>
         <button onClick={()=>setModal('crear')} style={{display:'flex',alignItems:'center',gap:6,background:'#3B4FE8',color:'#fff',border:'none',borderRadius:8,padding:'8px 16px',fontSize:13,fontWeight:500,cursor:'pointer'}}>

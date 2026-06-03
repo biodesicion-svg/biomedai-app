@@ -2,8 +2,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-const SUPER_ADMIN_EMAIL    = 'admin@biomedai.co'
-const SUPER_ADMIN_PASSWORD = 'BioMedAI2025$'
+const SUPER_ADMIN_EMAIL    = 'admin@synap.co'
+const SUPER_ADMIN_PASSWORD = 'SYNAP2025$'
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -66,7 +66,7 @@ export default function AdminLoginPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="admin@biomedai.co"
+                placeholder="admin@synap.co"
                 required
                 style={{ width: '100%', paddingLeft: 36, height: 40, borderRadius: 8, border: '0.5px solid #E4E4E7', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
                 onFocus={e => e.target.style.borderColor = '#7C3AED'}
@@ -132,7 +132,7 @@ export default function AdminLoginPage() {
         </a>
 
         <div style={{ textAlign: 'center', marginTop: 24, fontSize: 11, color: '#D4D4D8' }}>
-          BioMed AI · Acceso restringido · Solo personal autorizado
+          SYNAP · Acceso restringido · Solo personal autorizado
         </div>
       </div>
 

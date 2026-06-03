@@ -89,7 +89,7 @@ export default function Sidebar() {
               <i className="ti ti-activity" style={{ color: '#fff', fontSize: 19 }}/>
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#18181B', lineHeight: 1.2 }}>BioMed AI</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#18181B', lineHeight: 1.2 }}>SYNAP</div>
               <div style={{ fontSize: 10, color: '#A1A1AA' }}>v0.1.0</div>
             </div>
           </div>

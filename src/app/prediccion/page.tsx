@@ -102,7 +102,7 @@ export default function PrediccionPage() {
     <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#fff'}}>
       <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'16px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
-          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>BioMed AI / Predicción</div>
+          <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>SYNAP / Predicción</div>
           <h1 style={{fontSize:18,fontWeight:600,color:'#18181B',margin:0}}>Análisis predictivo de fallas</h1>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:6,background:'#EEF2FF',padding:'6px 12px',borderRadius:6,border:'0.5px solid #C7D2FE'}}>
