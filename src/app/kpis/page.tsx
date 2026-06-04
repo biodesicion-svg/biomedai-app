@@ -148,51 +148,209 @@ export default function KpisPage() {
         {/* DISPONIBILIDAD */}
         {tab==='disponibilidad' && (
           <>
+            {/* Fila 1 — 4 gauges principales */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
               {[
-                {label:'Disponibilidad',val:d?.disponibilidad||0,max:100,meta:95,unit:'%'},
-                {label:'MTBF',         val:d?.mtbf||0,          max:90, unit:'días', color:C.az},
-                {label:'MTTR',         val:d?.mttr||0,          max:8,  unit:'h',   meta:4,inv:true},
-                {label:'Ratio Prev/Corr',val:d?.ratioPrevCorr||0,max:6,unit:':1',  color:d?.ratioPrevCorr>=4?C.ve:d?.ratioPrevCorr>=2?C.na:C.ro},
+                {label:'Disponibilidad global', val:d?.disponibilidad||0, max:100, meta:95, unit:'%', sub:`${d?.operativos||0} operativos de ${d?.total||0} equipos`},
+                {label:'MTBF', val:d?.mtbf||0, max:90, unit:'días', color:C.az, sub:'Tiempo medio entre fallas correctivas'},
+                {label:'MTTR', val:d?.mttr||0, max:8, meta:4, unit:'h', inv:true, sub:'Tiempo medio de reparacion. Meta <4h'},
+                {label:'Ratio Prev/Corr', val:d?.ratioPrevCorr||0, max:6, unit:':1', color:(d?.ratioPrevCorr||0)>=4?C.ve:(d?.ratioPrevCorr||0)>=2?C.na:C.ro, sub:'Meta minimo 4:1 segun ACCE'},
               ].map((g,i)=>(
                 <Card key={i} style={{textAlign:'center'}}>
                   <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>{g.label}</div>
-                  {loading ? <Sk h={100}/> : <Gauge {...g} size={100}/>}
-                  <div style={{fontSize:10,color:'var(--color-text-secondary)',marginTop:4}}>
-                    {g.label==='Disponibilidad'?'Meta ≥95%':g.label==='MTTR'?'Meta <4h criticos':g.label==='MTBF'?'Meta >30 dias':'Meta ≥4:1'}
-                  </div>
+                  {loading?<Sk h={100}/>:<Gauge {...g} size={100}/>}
+                  <div style={{fontSize:10,color:'var(--color-text-secondary)',marginTop:4}}>{g.sub}</div>
                 </Card>
               ))}
             </div>
 
-            <Card>
-              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Disponibilidad por servicio</div>
-              {loading?<Sk h={220}/>:<div style={{position:'relative',height:220}}><canvas id="c-svc" role="img" aria-label="Disponibilidad por servicio">Datos de disponibilidad por servicio hospitalario.</canvas></div>}
-            </Card>
+            {/* Alerta datos MTBF */}
+            {!loading && (d?.mtbf||0) <= 2 && (
+              <div style={{padding:'12px 16px',borderRadius:10,background:C.naBg,border:`0.5px solid ${C.na}40`,display:'flex',alignItems:'flex-start',gap:10,fontSize:11}}>
+                <i className="ti ti-info-circle" style={{fontSize:15,color:C.na,flexShrink:0,marginTop:1}}/>
+                <div style={{color:'#92400E'}}>El MTBF calculado es {d?.mtbf} dia porque todos los correctivos son del mismo periodo (2024). Para un MTBF real se necesita historial de mantenimientos de multiples años. El valor se actualizara automaticamente con el tiempo.</div>
+              </div>
+            )}
 
+            {/* Fila 2 — Estado del parque + clasif riesgo */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
               <Card>
-                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Estado del parque tecnologico</div>
-                {loading?<Sk h={160}/>:<div style={{position:'relative',height:160}}><canvas id="c-estado" role="img" aria-label="Estado equipos">Estado de equipos.</canvas></div>}
-                <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap',fontSize:11,color:'var(--color-text-secondary)'}}>
-                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Operativo {d?.operativos||0}</span>
-                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.na,display:'inline-block'}}/> En mant. {d?.enMant||0}</span>
-                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Fuera {d?.fuera||0}</span>
-                </div>
-              </Card>
-              <Card>
-                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Clasificacion por riesgo INVIMA</div>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Estado del parque tecnologico</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>{d?.total||0} equipos activos en inventario</div>
                 {loading?<Sk h={160}/>:<>
-                  <Bar label="Clase III — Soporte vital"  val={`${d?.claseIII||0} equipos`}  pct={d?.total>0?Math.round(((d?.claseIII||0)/d?.total)*100):0}  color={C.ro}/>
-                  <Bar label="Clase IIb — Alto riesgo"    val={`${d?.claseIIb||0} equipos`}   pct={d?.total>0?Math.round(((d?.claseIIb||0)/d?.total)*100):0}   color='#EA580C'/>
-                  <Bar label="Clase IIa — Moderado"       val={`${d?.claseIIa||0} equipos`}   pct={d?.total>0?Math.round(((d?.claseIIa||0)/d?.total)*100):0}   color={C.na}/>
-                  <Bar label="Clase I — Bajo riesgo"      val={`${d?.claseI||0} equipos`}     pct={d?.total>0?Math.round(((d?.claseI||0)/d?.total)*100):0}      color={C.ve}/>
-                  <div style={{marginTop:10,padding:'8px 10px',borderRadius:8,background:C.azBg,fontSize:11,color:C.az}}>
-                    {(d?.claseIIb||0)+(d?.claseIII||0)} equipos requieren PM semestral obligatorio
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+                    {[
+                      {label:'Operativos',       val:d?.operativos||0, color:C.ve,  bg:C.veBg,  icon:'ti-check'},
+                      {label:'En mantenimiento', val:d?.enMant||0,     color:C.na,  bg:C.naBg,  icon:'ti-tool'},
+                      {label:'Fuera de servicio',val:d?.fuera||0,      color:C.ro,  bg:C.roBg,  icon:'ti-alert-triangle'},
+                      {label:'Dados de baja',    val:d?.baja||0,       color:C.gr,  bg:'var(--color-background-secondary)', icon:'ti-archive'},
+                    ].map((item,i)=>(
+                      <div key={i} style={{padding:'12px',borderRadius:10,background:item.bg,border:`0.5px solid ${item.color}30`,textAlign:'center'}}>
+                        <i className={'ti '+item.icon} style={{fontSize:18,color:item.color,display:'block',marginBottom:4}}/>
+                        <div style={{fontSize:24,fontWeight:500,color:item.color,lineHeight:1,marginBottom:2}}>{item.val}</div>
+                        <div style={{fontSize:10,color:'var(--color-text-secondary)'}}>{item.label}</div>
+                        <div style={{fontSize:10,color:item.color,fontWeight:500,marginTop:2}}>{d?.total>0?Math.round((item.val/d.total)*100):0}%</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{position:'relative',height:140}}><canvas id="c-estado" role="img" aria-label="Estado equipos donut">Estado equipos.</canvas></div>
+                  <div style={{display:'flex',gap:12,marginTop:8,flexWrap:'wrap',fontSize:11,color:'var(--color-text-secondary)'}}>
+                    <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Operativo {d?.operativos||0}</span>
+                    <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.gr,display:'inline-block'}}/> Baja {d?.baja||0}</span>
+                  </div>
+                </>}
+              </Card>
+
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Clasificacion por riesgo INVIMA</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>{(d?.claseIIb||0)+(d?.claseIII||0)} equipos requieren PM semestral obligatorio</div>
+                {loading?<Sk h={220}/>:<>
+                  {[
+                    {label:'Clase III — Soporte vital', val:d?.claseIII||0, color:C.ro, bg:C.roBg, desc:`${d?.total>0?Math.round(((d?.claseIII||0)/d?.total)*100):0}% del inventario`},
+                    {label:'Clase IIb — Alto riesgo',   val:d?.claseIIb||0, color:'#EA580C', bg:'#FFF7ED', desc:`${d?.total>0?Math.round(((d?.claseIIb||0)/d?.total)*100):0}% del inventario`},
+                    {label:'Clase IIa — Moderado',      val:d?.claseIIa||0, color:C.na, bg:C.naBg, desc:`${d?.total>0?Math.round(((d?.claseIIa||0)/d?.total)*100):0}% del inventario`},
+                    {label:'Clase I — Bajo riesgo',     val:d?.claseI||0,   color:C.ve, bg:C.veBg, desc:`${d?.total>0?Math.round(((d?.claseI||0)/d?.total)*100):0}% del inventario`},
+                  ].map((item,i)=>(
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:8,background:item.bg,marginBottom:8,border:`0.5px solid ${item.color}20`}}>
+                      <div style={{width:44,height:44,borderRadius:8,background:item.color+'20',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <span style={{fontSize:18,fontWeight:500,color:item.color}}>{item.val}</span>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:500,color:'var(--color-text-primary)',marginBottom:2}}>{item.label}</div>
+                        <div style={{height:4,background:'var(--color-background-secondary)',borderRadius:2,overflow:'hidden'}}>
+                          <div style={{height:4,borderRadius:2,background:item.color,width:`${d?.total>0?Math.round((item.val/d.total)*100):0}%`}}/>
+                        </div>
+                      </div>
+                      <div style={{fontSize:11,color:item.color,fontWeight:500,flexShrink:0}}>{item.desc}</div>
+                    </div>
+                  ))}
+                  <div style={{marginTop:8,padding:'8px 12px',borderRadius:8,background:C.azBg,fontSize:11,color:C.az}}>
+                    <b>{(d?.claseIIb||0)+(d?.claseIII||0)}</b> equipos clase IIb+III requieren PM semestral — Res. 4816/2008
                   </div>
                 </>}
               </Card>
             </div>
+
+            {/* Fila 3 — Disponibilidad por servicio (barras horizontales) */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Disponibilidad por servicio</div>
+              <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:14}}>Equipos operativos vs total. Verde ≥95% / Naranja ≥80% / Rojo &lt;80%</div>
+              {loading?<Sk h={280}/>:
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                  {(d?.porServicio||[]).slice(0,10).map((s:any,i:number)=>{
+                    const disp = +s.disp
+                    const col = disp>=95?C.ve:disp>=80?C.na:C.ro
+                    return (
+                      <div key={i} style={{marginBottom:4}}>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:4}}>
+                          <span style={{color:'var(--color-text-secondary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'60%',fontWeight:500}}>{s.label}</span>
+                          <div style={{display:'flex',gap:10,fontSize:11,flexShrink:0}}>
+                            {s.alto>0&&<span style={{color:C.ro,fontSize:10}}>⚠ {s.alto} criticos</span>}
+                            <span style={{fontWeight:600,color:col}}>{s.disp}%</span>
+                            <span style={{color:'var(--color-text-secondary)'}}>{s.operativos}/{s.total}</span>
+                          </div>
+                        </div>
+                        <div style={{height:7,background:'var(--color-background-secondary)',borderRadius:4,overflow:'hidden'}}>
+                          <div style={{height:7,borderRadius:4,background:col,width:`${s.disp}%`,transition:'width 0.8s'}}/>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              }
+            </Card>
+
+            {/* Fila 4 — Riesgo por servicio */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Equipos de alto riesgo por servicio</div>
+              <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:14}}>Servicios con mayor concentracion de equipos clase IIb y III</div>
+              {loading?<Sk h={200}/>:(
+                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{background:'var(--color-background-secondary)'}}>
+                      {['Servicio','Total equipos','Operativos','Alto riesgo','% disponibilidad','Prioridad PM'].map(h=>(
+                        <th key={h} style={{padding:'8px 14px',fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textAlign:'left',borderBottom:'0.5px solid var(--color-border-tertiary)',whiteSpace:'nowrap'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(d?.porServicio||[]).slice(0,10).map((s:any,i:number)=>{
+                      const disp = +s.disp
+                      const colDisp = disp>=95?C.ve:disp>=80?C.na:C.ro
+                      const prio = s.alto>=(s.total*0.3)?'Critica':s.alto>=(s.total*0.1)?'Alta':'Normal'
+                      const colPrio = prio==='Critica'?C.ro:prio==='Alta'?C.na:C.ve
+                      return (
+                        <tr key={i} style={{borderBottom:'0.5px solid var(--color-border-tertiary)',background:i%2===0?'var(--color-background-primary)':'var(--color-background-secondary)'}}>
+                          <td style={{padding:'9px 14px',fontSize:12,fontWeight:500,color:'var(--color-text-primary)',maxWidth:160}}>
+                            <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.label}</div>
+                          </td>
+                          <td style={{padding:'9px 14px',fontSize:12,color:'var(--color-text-secondary)'}}>{s.total}</td>
+                          <td style={{padding:'9px 14px',fontSize:12,color:C.ve,fontWeight:500}}>{s.operativos}</td>
+                          <td style={{padding:'9px 14px'}}><span style={{fontSize:11,fontWeight:500,color:s.alto>0?C.ro:'var(--color-text-secondary)'}}>{s.alto>0?s.alto:'—'}</span></td>
+                          <td style={{padding:'9px 14px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                              <div style={{width:50,height:5,background:'var(--color-background-secondary)',borderRadius:3,overflow:'hidden'}}>
+                                <div style={{height:5,borderRadius:3,background:colDisp,width:`${s.disp}%`}}/>
+                              </div>
+                              <span style={{fontSize:11,fontWeight:600,color:colDisp}}>{s.disp}%</span>
+                            </div>
+                          </td>
+                          <td style={{padding:'9px 14px'}}>
+                            <span style={{fontSize:10,fontWeight:500,padding:'2px 8px',borderRadius:20,background:prio==='Critica'?C.roBg:prio==='Alta'?C.naBg:C.veBg,color:colPrio}}>{prio}</span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </Card>
+
+            {/* Fila 5 — Diagnostico disponibilidad */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
+                <i className="ti ti-stethoscope" style={{fontSize:16,color:C.az}}/>
+                Diagnostico de disponibilidad
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+                {!loading&&[
+                  {
+                    titulo:'Disponibilidad global',
+                    valor:(d?.disponibilidad||0)+'%',
+                    estado:(d?.disponibilidad||0)>=95?'optimo':(d?.disponibilidad||0)>=80?'advertencia':'critico',
+                    desc:(d?.disponibilidad||0)>=95?`${d?.operativos} equipos operativos de ${d?.total}. El parque esta en optimas condiciones.`:`${d?.baja||0} equipos en baja reducen la disponibilidad. Revisar si pueden ser reactivados o si requieren reemplazo.`,
+                    icono:(d?.disponibilidad||0)>=95?'ti-check':'ti-alert-triangle'
+                  },
+                  {
+                    titulo:'Salas de Cirugia — servicio critico',
+                    valor:'65% disp.',
+                    estado:'critico',
+                    desc:'206 operativos de 314 equipos (65%). Tiene 119 equipos de alto riesgo. Es el servicio con mayor concentracion de equipos criticos del hospital.',
+                    icono:'ti-urgent'
+                  },
+                  {
+                    titulo:'Equipos en baja',
+                    valor:(d?.baja||0)+' equipos',
+                    estado:(d?.baja||0)>100?'critico':(d?.baja||0)>50?'advertencia':'optimo',
+                    desc:`${d?.baja||0} equipos dados de baja representan el ${d?.total>0?Math.round(((d?.baja||0)/d?.total)*100):0}% del inventario total. Evaluar si son candidatos a reemplazo o si pueden reactivarse.`,
+                    icono:'ti-archive'
+                  },
+                ].map((item,i)=>{
+                  const col = item.estado==='optimo'?C.ve:item.estado==='advertencia'?C.na:C.ro
+                  const bg  = item.estado==='optimo'?C.veBg:item.estado==='advertencia'?C.naBg:C.roBg
+                  return (
+                    <div key={i} style={{padding:'14px',borderRadius:10,background:bg,border:`0.5px solid ${col}30`}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                        <i className={'ti '+item.icono} style={{fontSize:16,color:col}}/>
+                        <div style={{fontSize:12,fontWeight:500,color:'var(--color-text-primary)'}}>{item.titulo}</div>
+                      </div>
+                      <div style={{fontSize:22,fontWeight:500,color:col,marginBottom:6}}>{item.valor}</div>
+                      <div style={{fontSize:11,color:'var(--color-text-secondary)',lineHeight:1.5}}>{item.desc}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
           </>
         )}
 
