@@ -79,9 +79,9 @@ export default function EquipoDetallePage(){
   const preventivos=mants.filter(m=>m.tipo==='preventivo')
   const correctivos=mants.filter(m=>m.tipo==='correctivo')
   const calibraciones=mants.filter(m=>m.tipo==='calibracion')
-  const costoTotal=mants.reduce((s,m)=>s++(m.costo_total||0),0)
-  const costoPrev=preventivos.reduce((s,m)=>s++(m.costo_total||0),0)
-  const costoCorr=correctivos.reduce((s,m)=>s++(m.costo_total||0),0)
+  const costoTotal=mants.reduce((s,m)=>s + +(m.costo_total||0),0)
+  const costoPrev=preventivos.reduce((s,m)=>s + +(m.costo_total||0),0)
+  const costoCorr=correctivos.reduce((s,m)=>s + +(m.costo_total||0),0)
   const durs=mants.filter(m=>m.duracion_horas&&+m.duracion_horas>0).map(m=>+m.duracion_horas)
   const mttr=durs.length>0?(durs.reduce((a,b)=>a+b,0)/durs.length).toFixed(1):'N/D'
   const ratioPC=correctivos.length>0?(preventivos.length/correctivos.length).toFixed(1):'N/D'
