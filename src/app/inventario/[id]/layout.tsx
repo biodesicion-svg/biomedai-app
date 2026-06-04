@@ -1,12 +1,11 @@
 import Sidebar from '@/components/layout/Sidebar'
-
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background:'#080e16' }}>
+    <div style={{ display:'flex', minHeight:'100vh', background:'#fff' }}>
       <Sidebar />
-      <div style={{ marginLeft:'256px', flex:1 }}>
+      <main style={{ flex:1, marginLeft:248, minHeight:'100vh', display:'flex', flexDirection:'column', background:'#FAFAFA' }}>
         {children}
-      </div>
+      </main>
     </div>
   )
 }
