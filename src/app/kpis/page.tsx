@@ -242,6 +242,16 @@ export default function KpisPage() {
         {/* VIDA UTIL */}
         {tab==='vida' && (
           <>
+            {/* Alerta de datos faltantes */}
+            <div style={{padding:'14px 18px',borderRadius:12,background:'#FFFBEB',border:'0.5px solid #FDE68A',display:'flex',alignItems:'flex-start',gap:12,marginBottom:2}}>
+              <i className="ti ti-alert-triangle" style={{fontSize:18,color:C.na,flexShrink:0,marginTop:1}}/>
+              <div>
+                <div style={{fontSize:13,fontWeight:500,color:'#92400E',marginBottom:2}}>Año de adquisicion no registrado en {d?.total||0} equipos</div>
+                <div style={{fontSize:11,color:'#A16207'}}>El calculo de vida util requiere el año de adquisicion de cada equipo. Ve a Inventario → editar equipo → completar el campo "Año de adquisicion". Los datos actuales usan vida util estandar OMS por tipo de equipo.</div>
+              </div>
+            </div>
+
+            {/* Resumen por categoria */}
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
               <Card style={{background:C.veBg,border:`0.5px solid ${C.ve}40`,textAlign:'center'}}>
                 <div style={{fontSize:10,fontWeight:500,color:C.ve,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Vida saludable</div>
@@ -251,7 +261,7 @@ export default function KpisPage() {
               <Card style={{background:C.naBg,border:`0.5px solid ${C.na}40`,textAlign:'center'}}>
                 <div style={{fontSize:10,fontWeight:500,color:C.na,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>En advertencia</div>
                 <div style={{fontSize:40,fontWeight:500,color:C.na,lineHeight:1,marginBottom:6}}>{loading?'—':d?.vidaAdvertencia||0}</div>
-                <div style={{fontSize:11,color:'#71717A'}}>Equipos con 60-80% vida consumida — planificar reemplazo</div>
+                <div style={{fontSize:11,color:'#71717A'}}>Equipos con 60-80% vida consumida</div>
               </Card>
               <Card style={{background:C.roBg,border:`0.5px solid ${C.ro}40`,textAlign:'center'}}>
                 <div style={{fontSize:10,fontWeight:500,color:C.ro,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Critico — reemplazar</div>
@@ -260,37 +270,128 @@ export default function KpisPage() {
               </Card>
             </div>
 
+            {/* Donut + Top reemplazar */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
               <Card>
                 <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Distribucion de vida util</div>
-                {loading?<Sk h={180}/>:<div style={{position:'relative',height:180}}><canvas id="c-vida" role="img" aria-label="Distribucion vida util">Distribucion vida util.</canvas></div>}
+                {loading?<Sk h={180}/>:<div style={{position:'relative',height:180}}><canvas id="c-vida" role="img" aria-label="Distribucion vida util equipos">Distribucion vida util.</canvas></div>}
                 <div style={{display:'flex',gap:14,marginTop:10,fontSize:11,color:'var(--color-text-secondary)'}}>
-                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Saludable</span>
-                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.na,display:'inline-block'}}/> Advertencia</span>
-                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Critico</span>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Saludable {loading?'':d?.vidaSaludable||0}</span>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.na,display:'inline-block'}}/> Advertencia {loading?'':d?.vidaAdvertencia||0}</span>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Critico {loading?'':d?.vidaCriticos||0}</span>
                 </div>
               </Card>
               <Card>
-                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Top equipos prioritarios para reemplazo</div>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Equipos prioritarios para reemplazo</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>Basado en vida util estandar OMS por tipo</div>
                 {loading?<Sk h={180}/>:<>
-                  {(d?.topReemplazar||[]).map((eq:any,i:number)=>(
+                  {(d?.topReemplazar||[]).length > 0 ? (d?.topReemplazar||[]).map((eq:any,i:number)=>(
                     <div key={eq.id} style={{marginBottom:10}}>
-                      <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--color-text-secondary)',marginBottom:3}}>
-                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'70%'}}>{eq.nombre}</span>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:3}}>
+                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'70%',color:'var(--color-text-secondary)'}}>{eq.nombre}</span>
                         <span style={{fontWeight:500,color:eq.pctVida>=90?C.ro:C.na,flexShrink:0}}>{eq.pctVida}%</span>
                       </div>
                       <div style={{height:6,background:'var(--color-background-secondary)',borderRadius:3,overflow:'hidden'}}>
                         <div style={{height:6,borderRadius:3,background:eq.pctVida>=90?C.ro:'#EA580C',width:`${eq.pctVida}%`}}/>
                       </div>
                     </div>
-                  ))}
-                  {(!d?.topReemplazar?.length)&&<div style={{textAlign:'center',padding:'20px',color:C.ve,fontSize:13}}>✓ Sin equipos en vida util critica</div>}
+                  )) : (
+                    <div style={{textAlign:'center',padding:'24px',color:C.ve,fontSize:13}}>
+                      <i className="ti ti-check" style={{fontSize:28,display:'block',marginBottom:8}}/>
+                      Sin equipos en vida util critica
+                    </div>
+                  )}
                   <div style={{marginTop:8,padding:'7px 10px',borderRadius:8,background:'var(--color-background-secondary)',fontSize:11,color:'var(--color-text-secondary)'}}>
-                    Basado en anio adquisicion y estandar OMS/IETSI
+                    Ingresa el año de adquisicion en Inventario para mayor precision
                   </div>
                 </>}
               </Card>
             </div>
+
+            {/* Tabla vida util estandar por tipo — con conteo real */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Vida util estandar por tipo de equipo — inventario actual</div>
+              <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:14}}>Fuente: OMS, IETSI/EsSalud, ECRI Institute. Cantidad real de equipos en el inventario SYNAP.</div>
+              {loading?<Sk h={300}/>:(
+                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{background:'var(--color-background-secondary)'}}>
+                      {['Tipo de equipo','Cantidad','Vida util OMS','Clase riesgo','Frec. mant.','Accion recomendada'].map(h=>(
+                        <th key={h} style={{padding:'8px 14px',fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textAlign:'left',borderBottom:'0.5px solid var(--color-border-tertiary)',whiteSpace:'nowrap'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      {tipo:'Monitor De Signos Vitales',   vu:'7-10',clase:'IIb',frec:'Semestral',accion:'PM al dia'},
+                      {tipo:'Glucometro',                  vu:'3-5', clase:'IIa',frec:'Trimestral',accion:'Verificar calibracion'},
+                      {tipo:'Bascula Mecanica',            vu:'10-15',clase:'I',frec:'Anual',accion:'Verificar calibracion'},
+                      {tipo:'Laringoscopio',               vu:'7-10',clase:'IIb',frec:'Semestral',accion:'PM al dia'},
+                      {tipo:'Succionador Portatil',        vu:'7-10',clase:'IIa',frec:'Semestral',accion:'PM al dia'},
+                      {tipo:'Desfibrilador',               vu:'10-12',clase:'IIb',frec:'Semestral',accion:'PM critico'},
+                      {tipo:'Ventilador Mecanico',         vu:'10-15',clase:'IIb',frec:'Semestral',accion:'PM critico'},
+                      {tipo:'Maquina De Anestesia',        vu:'10-15',clase:'III',frec:'Semestral',accion:'PM critico'},
+                      {tipo:'Electrobisturi',              vu:'7-10',clase:'IIb',frec:'Semestral',accion:'PM al dia'},
+                      {tipo:'Incubadora Cerrada',          vu:'10-15',clase:'IIb',frec:'Semestral',accion:'PM critico'},
+                      {tipo:'Bomba De Infusion',           vu:'7-10',clase:'IIb',frec:'Semestral',accion:'PM critico'},
+                      {tipo:'Ecografo',                    vu:'7-10',clase:'IIb',frec:'Anual',accion:'PM al dia'},
+                      {tipo:'Termohigrometro Digital',     vu:'5-7', clase:'I', frec:'Anual',accion:'Calibracion anual'},
+                      {tipo:'Bomba De Nutricion Amika',    vu:'7-10',clase:'IIb',frec:'Semestral',accion:'PM al dia'},
+                      {tipo:'Rayos X Portatil',            vu:'10-15',clase:'III',frec:'Anual',accion:'PM critico'},
+                    ].map((row,i)=>{
+                      const cantidad = d?.porTipoEquipo?.find((t:any)=>t.label===row.tipo)?.value || 0
+                      const colorClase = row.clase==='III'?C.ro:row.clase==='IIb'?'#EA580C':row.clase==='IIa'?C.na:C.ve
+                      const bgClase   = row.clase==='III'?C.roBg:row.clase==='IIb'?'#FFF7ED':row.clase==='IIa'?C.naBg:C.veBg
+                      return (
+                        <tr key={i} style={{borderBottom:'0.5px solid var(--color-border-tertiary)',background:i%2===0?'var(--color-background-primary)':'var(--color-background-secondary)'}}>
+                          <td style={{padding:'9px 14px',fontSize:12,fontWeight:500,color:'var(--color-text-primary)',maxWidth:200}}>
+                            <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{row.tipo}</div>
+                          </td>
+                          <td style={{padding:'9px 14px',fontSize:12,fontWeight:500,color:cantidad>0?C.az:'var(--color-text-secondary)'}}>{cantidad>0?cantidad:'—'}</td>
+                          <td style={{padding:'9px 14px',fontSize:12,color:'var(--color-text-secondary)'}}>{row.vu} años</td>
+                          <td style={{padding:'9px 14px'}}>
+                            <span style={{fontSize:10,fontWeight:500,padding:'2px 8px',borderRadius:20,background:bgClase,color:colorClase}}>{row.clase}</span>
+                          </td>
+                          <td style={{padding:'9px 14px',fontSize:11,color:'var(--color-text-secondary)'}}>{row.frec}</td>
+                          <td style={{padding:'9px 14px'}}>
+                            <span style={{fontSize:10,fontWeight:500,padding:'2px 8px',borderRadius:20,background:row.accion.includes('critico')?C.roBg:row.accion.includes('PM al dia')?C.veBg:C.naBg,color:row.accion.includes('critico')?C.ro:row.accion.includes('PM al dia')?C.ve:C.na}}>{row.accion}</span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+              <div style={{marginTop:14,padding:'10px 14px',borderRadius:8,background:C.azBg,border:`0.5px solid ${C.az}30`,fontSize:11,color:C.az,display:'flex',alignItems:'center',gap:8}}>
+                <i className="ti ti-info-circle" style={{fontSize:14,flexShrink:0}}/>
+                Para ver el porcentaje exacto de vida util consumida por equipo, ingresa el año de adquisicion en el modulo de Inventario. La tabla de vida util se actualizara automaticamente.
+              </div>
+            </Card>
+
+            {/* Como registrar el año */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
+                <i className="ti ti-clipboard-list" style={{fontSize:16,color:C.az}}/>
+                Como activar el calculo de vida util en SYNAP
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+                {[
+                  {n:'1',titulo:'Ir a Inventario',desc:'Menu lateral → Activos → Inventario',icon:'ti-package'},
+                  {n:'2',titulo:'Editar cada equipo',desc:'Click en el equipo → boton Editar',icon:'ti-edit'},
+                  {n:'3',titulo:'Completar año adquisicion',desc:'Campo "Año de adquisicion" en el formulario',icon:'ti-calendar'},
+                  {n:'4',titulo:'KPI se actualiza solo',desc:'El porcentaje de vida util se calcula automaticamente',icon:'ti-chart-bar'},
+                ].map((step,i)=>(
+                  <div key={i} style={{padding:'14px',borderRadius:10,background:'var(--color-background-secondary)',border:'0.5px solid var(--color-border-tertiary)'}}>
+                    <div style={{width:28,height:28,borderRadius:'50%',background:C.azBg,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10}}>
+                      <span style={{fontSize:13,fontWeight:500,color:C.az}}>{step.n}</span>
+                    </div>
+                    <i className={'ti '+step.icon} style={{fontSize:18,color:C.az,display:'block',marginBottom:6}}/>
+                    <div style={{fontSize:12,fontWeight:500,color:'var(--color-text-primary)',marginBottom:3}}>{step.titulo}</div>
+                    <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{step.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
           </>
         )}
 
