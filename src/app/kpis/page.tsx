@@ -51,6 +51,8 @@ export default function KpisPage() {
 
     mk('c-vida',{ type:'doughnut', data:{ datasets:[{ data:[d.vidaSaludable,d.vidaAdvertencia,d.vidaCriticos], backgroundColor:[C.ve,C.na,C.ro], borderWidth:0 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{legend:{display:false}} } })
 
+    mk('c-costo-mes',{ type:'bar', data:{ labels:(d.costoPorMes||[]).map((m:any)=>m.mes), datasets:[{ label:'Preventivo', data:(d.costoPorMes||[]).map((m:any)=>m.prev), backgroundColor:C.ve, borderRadius:3 },{ label:'Correctivo', data:(d.costoPorMes||[]).map((m:any)=>m.corr), backgroundColor:C.ro, borderRadius:3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{grid:{color:gridC},ticks:{color:txtC,font:{size:10}}}, y:{grid:{color:gridC},ticks:{color:txtC,font:{size:10},callback:(v:any)=>{ if(v>=1000000) return '$'+(v/1000000).toFixed(0)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(0)+'K'; return '$'+v }}} }, plugins:{legend:{display:false}} } })
+
     mk('c-costo',{ type:'doughnut', data:{ datasets:[{ data:[d.pctCostoMO||58, d.pctCostoRep||42], backgroundColor:[C.az, C.cy], borderWidth:0 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{legend:{display:false}} } })
   }
 
@@ -295,44 +297,151 @@ export default function KpisPage() {
         {/* COSTOS */}
         {tab==='costos' && (
           <>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+            {/* Fila 1 — KPIs principales */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
               <Card>
-                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Costo total mantenimiento</div>
-                <div style={{fontSize:28,fontWeight:500,color:C.az,marginBottom:4}}>{loading?'—':fmtCOP(d?.costoTotal||0)}</div>
-                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>COP — historial completo</div>
-              </Card>
-              <Card>
-                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>CMR — Costo / Valor reposicion</div>
-                <div style={{fontSize:28,fontWeight:500,color:loading?C.gr:d?.cmr<5?C.ve:d?.cmr<10?C.na:C.ro,marginBottom:4}}>{loading?'—':(d?.cmr||0)+'%'}</div>
-                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{loading?'Calculando...':d?.cmr<5?'Rentable — continuar PM':d?.cmr<10?'Monitorear costos':'Evaluar reemplazo'}</div>
-                {!loading&&<span style={{fontSize:10,fontWeight:500,padding:'3px 10px',borderRadius:20,background:d?.cmr<5?C.veBg:d?.cmr<10?C.naBg:C.roBg,color:d?.cmr<5?C.ve:d?.cmr<10?C.na:C.ro,display:'inline-block',marginTop:8}}>{d?.cmr<5?'CMR optimo':d?.cmr<10?'CMR moderado':'CMR alto'}</span>}
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Costo total historico</div>
+                <div style={{fontSize:26,fontWeight:500,color:C.az,marginBottom:4}}>{loading?'—':fmtCOP(d?.costoTotal||0)}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>COP — {d?.totalMant||0} ordenes de trabajo</div>
               </Card>
               <Card>
                 <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Costo promedio por OT</div>
-                <div style={{fontSize:28,fontWeight:500,color:C.mo,marginBottom:4}}>{loading?'—':fmtCOP(d?.costoProm||0)}</div>
+                <div style={{fontSize:26,fontWeight:500,color:C.mo,marginBottom:4}}>{loading?'—':fmtCOP(d?.costoProm||0)}</div>
                 <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>COP por orden completada</div>
+              </Card>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Correctivo vs Total</div>
+                <div style={{fontSize:26,fontWeight:500,color:+(d?.pctCostoCorr||0)>30?C.ro:C.ve,marginBottom:4}}>{loading?'—':(d?.pctCostoCorr||0)+'%'}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>Meta menos del 30%. Actual: {fmtCOP(d?.costoCorr||0)}</div>
+                {!loading&&+(d?.pctCostoCorr||0)>30&&<div style={{marginTop:8,padding:'5px 8px',borderRadius:6,background:C.roBg,fontSize:10,color:C.ro}}>Alerta — gasto correctivo elevado</div>}
+              </Card>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Inventario repuestos</div>
+                <div style={{fontSize:26,fontWeight:500,color:C.cy,marginBottom:4}}>{loading?'—':fmtCOP(d?.valorInventarioRep||0)}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{d?.repBajoMinimo||0} repuestos bajo minimo</div>
+                {!loading&&(d?.repBajoMinimo||0)>0&&<div style={{marginTop:8,padding:'5px 8px',borderRadius:6,background:C.naBg,fontSize:10,color:C.na}}>Reabastecer {d.repBajoMinimo} items</div>}
               </Card>
             </div>
 
+            {/* Fila 2 — Grafico evolucion mensual */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Evolucion del costo mensual — ultimos 8 meses</div>
+              <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>Preventivo vs correctivo en COP</div>
+              <div style={{display:'flex',gap:12,marginBottom:10,fontSize:11,color:'var(--color-text-secondary)'}}>
+                <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Preventivo</span>
+                <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Correctivo</span>
+              </div>
+              {loading?<Sk h={200}/>:<div style={{position:'relative',height:200}}><canvas id="c-costo-mes" role="img" aria-label="Costo mensual preventivo vs correctivo">Evolucion costos por mes.</canvas></div>}
+            </Card>
+
+            {/* Fila 3 — Por tipo + por servicio */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
               <Card>
-                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Distribucion del gasto</div>
-                {loading?<Sk h={160}/>:<div style={{position:'relative',height:160}}><canvas id="c-costo" role="img" aria-label="Distribucion costos">Distribucion costos.</canvas></div>}
-                <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:10,fontSize:11,color:'var(--color-text-secondary)'}}>
-                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.az,display:'inline-block'}}/> Mano de obra {d?.pctCostoMO||0}% — {fmtCOP(d?.costoMO||0)}</span>
-                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.cy,display:'inline-block'}}/> Repuestos {d?.pctCostoRep||0}% — {fmtCOP(d?.costoRep||0)}</span>
-                </div>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Costo por tipo de mantenimiento</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>Distribucion del gasto total</div>
+                {loading?<Sk h={160}/>:<>
+                  <Bar label={'Correctivo — '+d?.pctCostoCorr+'%'} val={fmtCOP(d?.costoCorr||0)} pct={+( d?.pctCostoCorr||0)} color={C.ro} right={+(d?.pctCostoCorr||0)>30?C.ro:C.na}/>
+                  <Bar label={'Preventivo — '+d?.pctCostoPrev+'%'} val={fmtCOP(d?.costoPrev||0)} pct={+(d?.pctCostoPrev||0)} color={C.ve} right={C.ve}/>
+                  <Bar label={'Calibracion — '+d?.pctCostoCal+'%'} val={fmtCOP(d?.costoCal||0)}  pct={+(d?.pctCostoCal||0)}  color={C.mo} right={C.mo}/>
+                  <div style={{marginTop:12,padding:'10px 12px',borderRadius:8,background:+(d?.pctCostoCorr||0)>30?C.roBg:C.veBg,border:`0.5px solid ${+(d?.pctCostoCorr||0)>30?C.ro:C.ve}30`}}>
+                    <div style={{fontSize:12,fontWeight:500,color:+(d?.pctCostoCorr||0)>30?C.ro:C.ve}}>
+                      {+(d?.pctCostoCorr||0)>30?'⚠ El correctivo supera la meta del 30%':'✓ Distribucion de costos dentro del rango'}
+                    </div>
+                    <div style={{fontSize:11,color:'var(--color-text-secondary)',marginTop:2}}>
+                      {+(d?.pctCostoCorr||0)>30?'Aumentar PM reduce costos correctivos hasta un 40%':'Continuar con el programa de mantenimiento preventivo'}
+                    </div>
+                  </div>
+                </>}
               </Card>
               <Card>
-                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Costo por tipo de mantenimiento</div>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Costo por servicio</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>Top servicios por gasto acumulado</div>
                 {loading?<Sk h={160}/>:<>
-                  <Bar label="Preventivo"  val={fmtCOP(d?.costoPrev||0)} pct={d?.costoTotal>0?Math.round(((d?.costoPrev||0)/d?.costoTotal)*100):0} color={C.ve}/>
-                  <Bar label="Correctivo"  val={fmtCOP(d?.costoCorr||0)} pct={d?.costoTotal>0?Math.round(((d?.costoCorr||0)/d?.costoTotal)*100):0} color={C.ro}/>
-                  <Bar label="Calibracion" val={fmtCOP(d?.costoCal||0)}  pct={d?.costoTotal>0?Math.round(((d?.costoCal||0)/d?.costoTotal)*100):0}  color={C.mo}/>
-                  {d?.pctCostoCorr>30&&<div style={{marginTop:10,padding:'7px 10px',borderRadius:8,background:C.naBg,fontSize:11,color:C.na}}>El correctivo supera el 30% del presupuesto. Meta: reducir con mas PM.</div>}
+                  {(d?.costoPorServicio||[]).slice(0,6).map((s:any,i:number)=>{
+                    const max = d?.costoPorServicio?.[0]?.costo||1
+                    return <Bar key={i} label={s.label} val={fmtCOP(s.costo)} pct={Math.round((s.costo/max)*100)} color={i===0?C.ro:i===1?C.na:C.az}/>
+                  })}
                 </>}
               </Card>
             </div>
+
+            {/* Fila 4 — Top equipos mas costosos */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Top equipos con mayor gasto en mantenimiento</div>
+              <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>Equipos que concentran el mayor costo historico — candidatos a evaluar CMR</div>
+              {loading?<Sk h={180}/>:(
+                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{background:'var(--color-background-secondary)'}}>
+                      {['#','Equipo','Servicio','Costo historico','% del total'].map(h=>(
+                        <th key={h} style={{padding:'8px 14px',fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textAlign:'left',borderBottom:'0.5px solid var(--color-border-tertiary)',whiteSpace:'nowrap'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(d?.topEquiposCosto||[]).map((eq:any,i:number)=>{
+                      const pct = d?.costoTotal>0?((eq.costo/d.costoTotal)*100).toFixed(1):0
+                      return (
+                        <tr key={i} style={{borderBottom:'0.5px solid var(--color-border-tertiary)',background:i%2===0?'var(--color-background-primary)':'var(--color-background-secondary)'}}>
+                          <td style={{padding:'9px 14px',fontSize:12,color:'var(--color-text-secondary)'}}>{i+1}</td>
+                          <td style={{padding:'9px 14px',fontSize:12,fontWeight:500,color:'var(--color-text-primary)',maxWidth:200}}>
+                            <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{eq.nombre}</div>
+                          </td>
+                          <td style={{padding:'9px 14px',fontSize:11,color:'var(--color-text-secondary)'}}>{eq.servicio||'N/D'}</td>
+                          <td style={{padding:'9px 14px',fontSize:12,fontWeight:500,color:i<3?C.ro:i<5?C.na:C.az}}>{fmtCOP(eq.costo)}</td>
+                          <td style={{padding:'9px 14px'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                              <div style={{width:60,height:5,background:'var(--color-background-secondary)',borderRadius:3}}>
+                                <div style={{height:5,borderRadius:3,background:i<3?C.ro:i<5?C.na:C.az,width:`${Math.min(+pct*5,100)}%`}}/>
+                              </div>
+                              <span style={{fontSize:11,color:'var(--color-text-secondary)'}}>{pct}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </Card>
+
+            {/* Fila 5 — Repuestos */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Inventario de repuestos — valor y stock</div>
+              <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>Valor en COP por repuesto. Alerta roja = bajo minimo</div>
+              {loading?<Sk h={160}/>:(
+                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{background:'var(--color-background-secondary)'}}>
+                      {['Repuesto','Stock actual','Stock minimo','Costo unitario','Valor total','Estado'].map(h=>(
+                        <th key={h} style={{padding:'8px 14px',fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textAlign:'left',borderBottom:'0.5px solid var(--color-border-tertiary)',whiteSpace:'nowrap'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(d?.topRepuestos||[]).map((r:any,i:number)=>{
+                      const bajo = r.stock <= r.minimo
+                      return (
+                        <tr key={i} style={{borderBottom:'0.5px solid var(--color-border-tertiary)',background:bajo?C.roBg:i%2===0?'var(--color-background-primary)':'var(--color-background-secondary)'}}>
+                          <td style={{padding:'9px 14px',fontSize:12,fontWeight:500,color:'var(--color-text-primary)',maxWidth:200}}>
+                            <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.nombre}</div>
+                          </td>
+                          <td style={{padding:'9px 14px',fontSize:12,fontWeight:bajo?700:400,color:bajo?C.ro:'var(--color-text-primary)'}}>{r.stock}</td>
+                          <td style={{padding:'9px 14px',fontSize:12,color:'var(--color-text-secondary)'}}>{r.minimo}</td>
+                          <td style={{padding:'9px 14px',fontSize:12,color:'var(--color-text-secondary)'}}>{fmtCOP(r.costo)}</td>
+                          <td style={{padding:'9px 14px',fontSize:12,fontWeight:500,color:'var(--color-text-primary)'}}>{fmtCOP(r.valor)}</td>
+                          <td style={{padding:'9px 14px'}}>
+                            <span style={{fontSize:10,fontWeight:500,padding:'3px 8px',borderRadius:20,background:bajo?C.roBg:C.veBg,color:bajo?C.ro:C.ve}}>
+                              {bajo?'Reponer':'OK'}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </Card>
           </>
         )}
 
