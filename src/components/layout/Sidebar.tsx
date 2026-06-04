@@ -26,6 +26,7 @@ const NAV = [
     children: [
       { label: 'Cronograma',        icon: 'ti-calendar',        href: '/mantenimiento', desc: 'Plan anual' },
       { label: 'Ordenes de trabajo',icon: 'ti-clipboard-check', href: '/ordenes',       desc: 'Kanban' },
+      { label: 'Protocolos',         icon: 'ti-list-check',      href: '/protocolos',   desc: 'Por tipo de equipo' },
       { label: 'Protocolos',        icon: 'ti-list-check',      href: '/ordenes',       desc: 'Por tipo de equipo' },
     ],
   },
