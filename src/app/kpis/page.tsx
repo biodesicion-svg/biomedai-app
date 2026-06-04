@@ -1,485 +1,388 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
-const AZ = '#1B2B5B'; const CY = '#00B4D8'; const VE = '#16A34A'
-const RO = '#DC2626'; const NA = '#D97706'; const GR = '#64748B'
-const VE_BG = '#F0FDF4'; const RO_BG = '#FEF2F2'; const NA_BG = '#FFFBEB'; const AZ_BG = '#EEF2FF'
+const C = { az:'#1B2B5B', cy:'#00B4D8', ve:'#16A34A', ro:'#DC2626', na:'#D97706', mo:'#7C3AED', gr:'#64748B', veBg:'#F0FDF4', roBg:'#FEF2F2', naBg:'#FFFBEB', azBg:'#EEF2FF' }
 
-function fmt(n: number) { return n.toLocaleString('es-CO') }
-function fmtCOP(n: number) { return '$' + fmt(Math.round(n)) }
-function color(v: number, meta: number, inv = false) {
-  if (inv) return v <= meta * 0.5 ? VE : v <= meta ? NA : RO
-  return v >= meta ? VE : v >= meta * 0.7 ? NA : RO
-}
+function fmt(n:number){ return Math.round(n).toLocaleString('es-CO') }
+function fmtCOP(n:number){ const m=Math.round(n); return m>=1000000 ? '$'+Math.round(m/1000000)+'M' : m>=1000 ? '$'+Math.round(m/1000)+'K' : '$'+m }
+function semaforo(v:number,meta:number,inv=false){ if(inv) return v<=meta*0.5?C.ve:v<=meta?C.na:C.ro; return v>=meta?C.ve:v>=meta*0.7?C.na:C.ro }
 
 export default function KpisPage() {
   const [d, setD] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('disponibilidad')
+  const charts = useRef<Record<string,any>>({})
 
-  useEffect(() => {
-    fetch('/api/kpis').then(r => r.json()).then(data => { setD(data); setLoading(false) }).catch(() => setLoading(false))
-  }, [])
+  useEffect(()=>{ fetch('/api/kpis').then(r=>r.json()).then(data=>{setD(data);setLoading(false)}).catch(()=>setLoading(false)) },[])
 
-  const Sk = ({ h = 28, w = '100%' }: any) => <div style={{ height: h, width: w, background: '#F1F5F9', borderRadius: 6 }} />
+  useEffect(()=>{
+    if(!d || loading) return
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
+    s.onload = () => drawCharts(d)
+    if ((window as any).Chart) { drawCharts(d); return }
+    document.head.appendChild(s)
+  },[d, loading])
 
-  function Card({ label, valor, unidad = '', sub, c, meta, inv, grande }: any) {
-    const col = c || (meta !== undefined ? color(Number(valor), meta, inv) : AZ)
+  function drawCharts(d:any) {
+    const Ch = (window as any).Chart
+    if(!Ch) return
+    const isDark = matchMedia('(prefers-color-scheme: dark)').matches
+    const gridC = isDark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.06)'
+    const txtC  = isDark?'#9CA3AF':'#6B7280'
+
+    function mk(id:string, cfg:any) {
+      const el = document.getElementById(id) as HTMLCanvasElement
+      if(!el) return
+      if(charts.current[id]) charts.current[id].destroy()
+      charts.current[id] = new Ch(el, cfg)
+    }
+
+    const svcLabels = (d.porServicio||[]).slice(0,8).map((s:any)=>s.label.length>12?s.label.slice(0,12)+'…':s.label)
+    const svcDisp   = (d.porServicio||[]).slice(0,8).map((s:any)=>+s.disp)
+
+    mk('c-svc',{ type:'bar', data:{ labels:svcLabels, datasets:[{ data:svcDisp, backgroundColor:svcDisp.map((v:number)=>v>=95?C.ve:v>=85?C.na:C.ro), borderRadius:4 }] }, options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', scales:{ x:{min:60,max:100,grid:{color:gridC},ticks:{color:txtC,font:{size:10},callback:(v:any)=>v+'%'}}, y:{grid:{display:false},ticks:{color:txtC,font:{size:10}}} }, plugins:{legend:{display:false}} } })
+
+    mk('c-estado',{ type:'doughnut', data:{ datasets:[{ data:[d.operativos,d.enMant,d.fuera], backgroundColor:[C.ve,C.na,C.ro], borderWidth:0 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'72%', plugins:{legend:{display:false}} } })
+
+    mk('c-tipos',{ type:'doughnut', data:{ datasets:[{ data:[d.preventivos,d.correctivos,d.calibraciones], backgroundColor:[C.ve,C.ro,C.mo], borderWidth:0 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{legend:{display:false}} } })
+
+    mk('c-mes',{ type:'bar', data:{ labels:(d.porMes||[]).map((m:any)=>m.mes), datasets:[{ label:'Preventivo', data:(d.porMes||[]).map((m:any)=>m.prev), backgroundColor:C.ve, borderRadius:3 },{ label:'Correctivo', data:(d.porMes||[]).map((m:any)=>m.corr), backgroundColor:C.ro, borderRadius:3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{grid:{color:gridC},ticks:{color:txtC,font:{size:10}}}, y:{grid:{color:gridC},ticks:{color:txtC,font:{size:10}}} }, plugins:{legend:{display:false}} } })
+
+    mk('c-vida',{ type:'doughnut', data:{ datasets:[{ data:[d.vidaSaludable,d.vidaAdvertencia,d.vidaCriticos], backgroundColor:[C.ve,C.na,C.ro], borderWidth:0 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{legend:{display:false}} } })
+
+    mk('c-costo',{ type:'doughnut', data:{ datasets:[{ data:[d.pctCostoMO||58, d.pctCostoRep||42], backgroundColor:[C.az, C.cy], borderWidth:0 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{legend:{display:false}} } })
+  }
+
+  const Sk = ({h=28,w='100%'}:any) => <div style={{height:h,width:w,background:'#F1F5F9',borderRadius:6}}/>
+
+  function Gauge({val,max,meta,label,unit,color,size=100}:any) {
+    const r=38; const circ=2*Math.PI*r; const pct=Math.min(val/max,1); const dash=pct*circ*0.75
+    const c=color||(meta?semaforo(val,meta):C.az)
     return (
-      <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: grande ? '22px' : '16px' }}>
-        <div style={{ fontSize: 10, fontWeight: 600, color: GR, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-        {loading ? <Sk h={grande ? 44 : 32} /> :
-          <div style={{ fontSize: grande ? 34 : 26, fontWeight: 700, color: col, lineHeight: 1, marginBottom: 4 }}>
-            {valor}<span style={{ fontSize: grande ? 14 : 11, marginLeft: 3, opacity: 0.7 }}>{unidad}</span>
-          </div>}
-        {meta !== undefined && !loading && (
-          <div style={{ margin: '8px 0 4px', height: 4, background: '#F1F5F9', borderRadius: 2 }}>
-            <div style={{ height: 4, borderRadius: 2, background: col, width: `${Math.min(inv ? ((meta - Number(valor)) / meta) * 100 : (Number(valor) / meta) * 100, 100)}%` }} />
-          </div>
-        )}
-        <div style={{ fontSize: 10, color: '#A1A1AA', marginTop: 4 }}>{sub}</div>
+      <div style={{textAlign:'center'}}>
+        <svg width={size} height={size} viewBox="0 0 100 100" style={{display:'block',margin:'0 auto 4px'}} role="img" aria-label={`${label} ${val}${unit}`}>
+          <circle cx="50" cy="50" r={r} fill="none" stroke="var(--color-background-secondary)" strokeWidth="10" strokeDasharray={`${circ*0.75} ${circ}`} strokeDashoffset={`-${circ*0.125}`} strokeLinecap="round"/>
+          <circle cx="50" cy="50" r={r} fill="none" stroke={c} strokeWidth="10" strokeDasharray={`${dash} ${circ}`} strokeDashoffset={`-${circ*0.125}`} strokeLinecap="round"/>
+          <text x="50" y="48" textAnchor="middle" fontSize="17" fontWeight="500" fill="var(--color-text-primary)">{val}</text>
+          <text x="50" y="63" textAnchor="middle" fontSize="9" fill="var(--color-text-secondary)">{unit}</text>
+        </svg>
       </div>
     )
   }
 
+  function Bar({label,val,pct,color,right}:any) {
+    return (
+      <div style={{marginBottom:10}}>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'var(--color-text-secondary)',marginBottom:4}}>
+          <span>{label}</span><span style={{fontWeight:500,color:right||'var(--color-text-primary)'}}>{val}</span>
+        </div>
+        <div style={{height:6,background:'var(--color-background-secondary)',borderRadius:3,overflow:'hidden'}}>
+          <div style={{height:6,borderRadius:3,background:color,width:`${Math.max(pct,1)}%`,transition:'width 0.8s'}}/>
+        </div>
+      </div>
+    )
+  }
+
+  function Card({children,style={}}:any) {
+    return <div style={{background:'var(--color-background-primary)',border:'0.5px solid var(--color-border-tertiary)',borderRadius:12,padding:16,...style}}>{children}</div>
+  }
+
   const TABS = [
-    { id: 'disponibilidad', label: 'Disponibilidad', icon: 'ti-activity' },
-    { id: 'mantenimiento',  label: 'Mantenimiento',  icon: 'ti-tool' },
-    { id: 'costos',         label: 'Costos',          icon: 'ti-currency-dollar' },
-    { id: 'vida_util',      label: 'Vida Util',       icon: 'ti-clock-hour-4' },
-    { id: 'inventario',     label: 'Inventario',      icon: 'ti-package' },
-    { id: 'normativa',      label: 'Normativa',       icon: 'ti-shield-check' },
+    {id:'disponibilidad',label:'Disponibilidad',icon:'ti-activity'},
+    {id:'mantenimiento', label:'Mantenimiento', icon:'ti-tool'},
+    {id:'vida',          label:'Vida util',     icon:'ti-clock-hour-4'},
+    {id:'costos',        label:'Costos',        icon:'ti-currency-dollar'},
+    {id:'normativa',     label:'Normativa',     icon:'ti-shield-check'},
   ]
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#FAFAFA' }}>
+  const pctPrev = d?.totalMant>0?Math.round((d.preventivos/d.totalMant)*100):0
+  const pctCorr = d?.totalMant>0?Math.round((d.correctivos/d.totalMant)*100):0
+  const pctCal  = d?.totalMant>0?Math.round((d.calibraciones/d.totalMant)*100):0
 
-      <div style={{ background: '#fff', borderBottom: '0.5px solid #E4E4E7', padding: '14px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+  return (
+    <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'var(--color-background-tertiary,#FAFAFA)'}}>
+      <div style={{background:'var(--color-background-primary)',borderBottom:'0.5px solid var(--color-border-tertiary)',padding:'14px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
-          <div style={{ fontSize: 11, color: '#A1A1AA', marginBottom: 2 }}>SYNAP / Business Intelligence / KPIs</div>
-          <h1 style={{ fontSize: 18, fontWeight: 600, color: '#18181B', margin: 0 }}>Indicadores clave de desempeño</h1>
+          <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:2}}>SYNAP / Business Intelligence / KPIs</div>
+          <h1 style={{fontSize:18,fontWeight:500,color:'var(--color-text-primary)',margin:0}}>Indicadores clave de desempeño</h1>
         </div>
-        <div style={{ fontSize: 11, color: '#A1A1AA', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <i className="ti ti-database" style={{ fontSize: 13 }} /> {d?.total || 0} equipos · {d?.totalMant || 0} mantenimientos
+        <div style={{fontSize:11,color:'var(--color-text-secondary)',display:'flex',alignItems:'center',gap:6}}>
+          <i className="ti ti-database" style={{fontSize:13}}/> {loading?'Cargando...':`${d?.total||0} equipos · ${d?.totalMant||0} mantenimientos`}
         </div>
       </div>
 
-      {/* Resumen ejecutivo — siempre visible */}
-      <div style={{ padding: '16px 28px 0', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
-        <Card label="Disponibilidad" valor={d?.disponibilidad} unidad="%" sub={`${d?.operativos}/${d?.total} operativos`} meta={95} grande />
-        <Card label="MTBF" valor={d?.mtbf} unidad="días" sub="Entre fallas correctivas" c={AZ} grande />
-        <Card label="MTTR" valor={d?.mttr} unidad="h" sub="Meta <4h criticos" meta={4} inv grande />
-        <Card label="Cumplimiento PM" valor={d?.cumplimientoPM} unidad="%" sub={`${d?.pmEjecutados}/${d?.pmRequeridos} PM criticos`} meta={90} grande />
-        <Card label="Vida util critica" valor={d?.vidaCriticos} unidad="" sub=">80% vida consumida" c={d?.vidaCriticos > 0 ? RO : VE} grande />
-        <Card label="Mant. vencidos" valor={d?.mantVencidos} unidad="" sub="Programados sin ejecutar" c={d?.mantVencidos > 0 ? RO : VE} grande />
+      {/* Resumen siempre visible */}
+      <div style={{padding:'16px 28px 0',display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:10}}>
+        {[
+          {label:'Disponibilidad', val:loading?'—':d?.disponibilidad+'%', sub:`${d?.operativos||0}/${d?.total||0} operativos`, color:semaforo(d?.disponibilidad||0,95)},
+          {label:'MTBF',           val:loading?'—':(d?.mtbf||0)+' días', sub:'Entre fallas',                                    color:C.az},
+          {label:'MTTR',           val:loading?'—':(d?.mttr||0)+' h',    sub:'Tiempo de reparacion',                            color:semaforo(d?.mttr||0,4,true)},
+          {label:'Cumplimiento PM',val:loading?'—':d?.cumplimientoPM+'%',sub:`${d?.pmEjecutados||0}/${d?.pmRequeridos||0} PM criticos`, color:semaforo(d?.cumplimientoPM||0,90)},
+          {label:'Vida util critica',val:loading?'—':d?.vidaCriticos||0, sub:'>80% vida consumida',                             color:d?.vidaCriticos>0?C.ro:C.ve},
+          {label:'OTs vencidas',   val:loading?'—':d?.vencidos||0,       sub:'Sin ejecutar',                                    color:d?.vencidos>0?C.ro:C.ve},
+        ].map((k,i) => (
+          <Card key={i} style={{padding:'14px 16px'}}>
+            <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>{k.label}</div>
+            <div style={{fontSize:24,fontWeight:500,color:k.color,lineHeight:1,marginBottom:4}}>{k.val}</div>
+            <div style={{fontSize:10,color:'var(--color-text-secondary)'}}>{k.sub}</div>
+          </Card>
+        ))}
       </div>
 
       {/* Tabs */}
-      <div style={{ padding: '14px 28px 0' }}>
-        <div style={{ display: 'flex', gap: 4, background: '#F4F4F5', borderRadius: 10, padding: 4, width: 'fit-content' }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: tab === t.id ? 600 : 400, background: tab === t.id ? '#fff' : 'transparent', color: tab === t.id ? AZ : '#71717A', boxShadow: tab === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
-              <i className={'ti ' + t.icon} style={{ fontSize: 13 }} />{t.label}
+      <div style={{padding:'14px 28px 0'}}>
+        <div style={{display:'flex',gap:4,background:'var(--color-background-secondary)',borderRadius:10,padding:4,width:'fit-content'}}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 14px',borderRadius:7,border:'none',cursor:'pointer',fontSize:12,fontWeight:tab===t.id?500:400,background:tab===t.id?'var(--color-background-primary)':'transparent',color:tab===t.id?C.az:'var(--color-text-secondary)',boxShadow:tab===t.id?'0 1px 3px rgba(0,0,0,0.08)':'none',transition:'all 0.15s'}}>
+              <i className={'ti '+t.icon} style={{fontSize:13}}/>{t.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ padding: '16px 28px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{padding:'16px 28px 28px',display:'flex',flexDirection:'column',gap:14}}>
 
-        {/* ── DISPONIBILIDAD ── */}
-        {tab === 'disponibilidad' && (
+        {/* DISPONIBILIDAD */}
+        {tab==='disponibilidad' && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-              <Card label="Equipos operativos" valor={d?.operativos} sub={`${d?.disponibilidad}% disponibilidad`} meta={d?.total} />
-              <Card label="En mantenimiento" valor={d?.enMant} sub="Temporalmente fuera" c={NA} />
-              <Card label="Fuera de servicio" valor={d?.fuera} sub="Requieren intervencion" c={d?.fuera > 0 ? RO : VE} />
-              <Card label="Dados de baja" valor={d?.baja} sub="Retirados del inventario" c={GR} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 16 }}>Disponibilidad por servicio</div>
-                {loading ? <Sk h={160} /> : (d?.porServicio || []).map((s: any) => (
-                  <div key={s.label} style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, color: '#52525B' }}>{s.label}</span>
-                      <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
-                        <span style={{ fontWeight: 600, color: Number(s.disp) >= 90 ? VE : Number(s.disp) >= 75 ? NA : RO }}>{s.disp}%</span>
-                        <span style={{ color: '#A1A1AA' }}>{s.operativos}/{s.total}</span>
-                        {s.alto > 0 && <span style={{ color: RO, fontSize: 10 }}>⚠ {s.alto} alto riesgo</span>}
-                      </div>
-                    </div>
-                    <div style={{ height: 5, background: '#F4F4F5', borderRadius: 3 }}>
-                      <div style={{ height: 5, borderRadius: 3, width: `${s.disp}%`, background: Number(s.disp) >= 90 ? VE : Number(s.disp) >= 75 ? NA : RO }} />
-                    </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+              {[
+                {label:'Disponibilidad',val:d?.disponibilidad||0,max:100,meta:95,unit:'%'},
+                {label:'MTBF',         val:d?.mtbf||0,          max:90, unit:'días', color:C.az},
+                {label:'MTTR',         val:d?.mttr||0,          max:8,  unit:'h',   meta:4,inv:true},
+                {label:'Ratio Prev/Corr',val:d?.ratioPrevCorr||0,max:6,unit:':1',  color:d?.ratioPrevCorr>=4?C.ve:d?.ratioPrevCorr>=2?C.na:C.ro},
+              ].map((g,i)=>(
+                <Card key={i} style={{textAlign:'center'}}>
+                  <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>{g.label}</div>
+                  {loading ? <Sk h={100}/> : <Gauge {...g} size={100}/>}
+                  <div style={{fontSize:10,color:'var(--color-text-secondary)',marginTop:4}}>
+                    {g.label==='Disponibilidad'?'Meta ≥95%':g.label==='MTTR'?'Meta <4h criticos':g.label==='MTBF'?'Meta >30 dias':'Meta ≥4:1'}
                   </div>
-                ))}
-              </div>
-
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 16 }}>Clasificacion por riesgo INVIMA</div>
-                {loading ? <Sk h={160} /> : (
-                  <>
-                    {[
-                      { label: 'Clase III — Riesgo alto', val: d?.claseIII, desc: 'Equipos de soporte vital y cirugía', c: RO },
-                      { label: 'Clase IIb — Riesgo alto', val: d?.claseIIb, desc: 'Monitores, desfibriladores, ventiladores', c: RO },
-                      { label: 'Clase IIa — Riesgo moderado', val: d?.claseIIa, desc: 'Bombas, ecografos, electrocardiografos', c: NA },
-                      { label: 'Clase I — Riesgo bajo', val: d?.claseI, desc: 'Camas, balanzas, nebulizadores', c: VE },
-                    ].map(item => (
-                      <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '0.5px solid #F4F4F5' }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 8, background: item.c + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: item.c }}>{item.val || 0}</span>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 500, color: '#18181B' }}>{item.label}</div>
-                          <div style={{ fontSize: 10, color: '#A1A1AA' }}>{item.desc}</div>
-                        </div>
-                      </div>
-                    ))}
-                    <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: AZ_BG, fontSize: 11, color: AZ }}>
-                      <b>Total alto riesgo (IIb + III):</b> {(d?.claseIIb || 0) + (d?.claseIII || 0)} equipos requieren PM semestral
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <Card label="MTBF — Tiempo entre fallas" valor={d?.mtbf} unidad="días" sub="Calculado sobre correctivos reales. Meta >30 días" c={Number(d?.mtbf) >= 30 ? VE : NA} />
-              <Card label="MTTR — Tiempo de reparacion" valor={d?.mttr} unidad="horas" sub="Promedio de duracion por intervencion. Meta <4h criticos" meta={4} inv />
-              <Card label="Ratio Prev / Correctivo" valor={d?.ratioPrevCorr} unidad=":1" sub="Plantas maduras apuntan a 4:1 o superior" c={Number(d?.ratioPrevCorr) >= 4 ? VE : Number(d?.ratioPrevCorr) >= 2 ? NA : RO} />
-            </div>
-          </>
-        )}
-
-        {/* ── MANTENIMIENTO ── */}
-        {tab === 'mantenimiento' && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-              <Card label="Total mantenimientos" valor={d?.totalMant} sub="Historial completo registrado" c={AZ} />
-              <Card label="Preventivos" valor={d?.preventivos} sub={`${d?.totalMant > 0 ? Math.round((d?.preventivos/d?.totalMant)*100) : 0}% del total — meta >80%`} c={VE} />
-              <Card label="Correctivos" valor={d?.correctivos} sub={`${d?.totalMant > 0 ? Math.round((d?.correctivos/d?.totalMant)*100) : 0}% del total — meta <20%`} c={d?.correctivos > d?.preventivos ? RO : NA} />
-              <Card label="Calibraciones" valor={d?.calibraciones} sub="Calibraciones documentadas" c={'#7C3AED'} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <Card label="Completados" valor={d?.mantCompletados} sub="Ordenes finalizadas" c={VE} />
-              <Card label="Pendientes" valor={d?.mantPendientes} sub="Programados sin ejecutar" c={NA} />
-              <Card label="Vencidos" valor={d?.mantVencidos} sub="Fecha pasada sin ejecutar — accion inmediata" c={d?.mantVencidos > 0 ? RO : VE} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 4 }}>Cumplimiento PM criticos — Res. 4816/2008</div>
-                <div style={{ fontSize: 11, color: '#A1A1AA', marginBottom: 16 }}>Equipos clase IIb y III deben tener minimo 2 PM por año</div>
-                {loading ? <Sk h={80} /> : (
-                  <>
-                    <div style={{ fontSize: 42, fontWeight: 700, color: Number(d?.cumplimientoPM) >= 90 ? VE : Number(d?.cumplimientoPM) >= 70 ? NA : RO, marginBottom: 8 }}>
-                      {d?.cumplimientoPM}%
-                    </div>
-                    <div style={{ height: 8, background: '#F1F5F9', borderRadius: 4, marginBottom: 8 }}>
-                      <div style={{ height: 8, borderRadius: 4, background: Number(d?.cumplimientoPM) >= 90 ? VE : Number(d?.cumplimientoPM) >= 70 ? NA : RO, width: `${d?.cumplimientoPM}%` }} />
-                    </div>
-                    <div style={{ fontSize: 12, color: '#52525B' }}>{d?.pmEjecutados} PM ejecutados de {d?.pmRequeridos} requeridos en equipos de alto riesgo</div>
-                    <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: Number(d?.cumplimientoPM) >= 90 ? VE_BG : RO_BG, fontSize: 11, color: Number(d?.cumplimientoPM) >= 90 ? VE : RO }}>
-                      {Number(d?.cumplimientoPM) >= 90 ? '✓ Cumple con Res. 4816/2008' : '✗ Incumplimiento — riesgo en visita de habilitacion'}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 4 }}>Tasa de hallazgos por mantenimiento</div>
-                <div style={{ fontSize: 11, color: '#A1A1AA', marginBottom: 16 }}>Porcentaje de OTs con hallazgos documentados</div>
-                {loading ? <Sk h={80} /> : (
-                  <>
-                    <div style={{ fontSize: 42, fontWeight: 700, color: AZ, marginBottom: 8 }}>{d?.tasaHallazgos}%</div>
-                    <div style={{ fontSize: 12, color: '#52525B', marginBottom: 12 }}>{d?.conHallazgos} de {d?.mantCompletados} OTs completadas tienen hallazgos documentados</div>
-                    <div style={{ padding: '8px 12px', borderRadius: 8, background: AZ_BG, fontSize: 11, color: AZ }}>
-                      Un alto porcentaje indica buena documentacion tecnica
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 16 }}>Distribucion de mantenimientos por tipo</div>
-              {loading ? <Sk h={80} /> : (d?.porTipo || []).map((t: any) => (
-                <div key={t.label} style={{ marginBottom: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontSize: 12, color: '#52525B' }}>{t.label}</span>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
-                      <span style={{ fontWeight: 600, color: '#18181B' }}>{t.value}</span>
-                      <span style={{ color: '#A1A1AA' }}>{t.pct}%</span>
-                    </div>
-                  </div>
-                  <div style={{ height: 6, background: '#F4F4F5', borderRadius: 3 }}>
-                    <div style={{ height: 6, borderRadius: 3, width: `${t.pct}%`, background: t.label === 'Preventivo' ? VE : t.label === 'Correctivo' ? RO : '#7C3AED' }} />
-                  </div>
-                </div>
+                </Card>
               ))}
             </div>
-          </>
-        )}
 
-        {/* ── COSTOS ── */}
-        {tab === 'costos' && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <Card label="Costo total mantenimiento" valor={d ? fmtCOP(d.costoTotal) : '$0'} sub="Suma historica de todas las OTs" c={AZ} grande />
-              <Card label="Costo promedio por OT" valor={d ? fmtCOP(d.costoProm) : '$0'} sub="Por orden de trabajo completada" c={'#7C3AED'} grande />
-              <Card label="Valor del parque tecnologico" valor={d ? fmtCOP(d.valorParque) : '$0'} sub="Suma valor adquisicion equipos activos" c={VE} grande />
-            </div>
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Disponibilidad por servicio</div>
+              {loading?<Sk h={220}/>:<div style={{position:'relative',height:220}}><canvas id="c-svc" role="img" aria-label="Disponibilidad por servicio">Datos de disponibilidad por servicio hospitalario.</canvas></div>}
+            </Card>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <Card label="Costo mano de obra" valor={d ? fmtCOP(d.costoMO) : '$0'} sub={`${d?.costoTotal > 0 ? Math.round((d?.costoMO/d?.costoTotal)*100) : 0}% del costo total`} c={AZ} />
-              <Card label="Costo en repuestos" valor={d ? fmtCOP(d.costoRep) : '$0'} sub={`${d?.costoTotal > 0 ? Math.round((d?.costoRep/d?.costoTotal)*100) : 0}% del costo total`} c={NA} />
-              <Card label="Costo correctivos" valor={d ? fmtCOP(d.costoCorr) : '$0'} sub={`${d?.pctCostoCorr}% del total — meta <30%`} c={Number(d?.pctCostoCorr) < 30 ? VE : RO} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 4 }}>CMR — Costo de Mantenimiento / Valor de Reposicion</div>
-                <div style={{ fontSize: 11, color: '#A1A1AA', marginBottom: 16 }}>Indicador clave para decision de reemplazo. Si supera 10% anual: evaluar reemplazo</div>
-                {loading ? <Sk h={80} /> : (
-                  <>
-                    <div style={{ fontSize: 42, fontWeight: 700, color: Number(d?.cmr) < 5 ? VE : Number(d?.cmr) < 10 ? NA : RO, marginBottom: 8 }}>
-                      {d?.cmr}%
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
-                      {[
-                        { rango: 'CMR <5%', desc: 'Rentable', c: VE, bg: VE_BG },
-                        { rango: 'CMR 5-10%', desc: 'Monitorear', c: NA, bg: NA_BG },
-                        { rango: 'CMR >10%', desc: 'Reemplazar', c: RO, bg: RO_BG },
-                      ].map(item => (
-                        <div key={item.rango} style={{ padding: '10px', borderRadius: 8, background: item.bg, textAlign: 'center' }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: item.c }}>{item.rango}</div>
-                          <div style={{ fontSize: 10, color: '#52525B' }}>{item.desc}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 16 }}>Costo de mantenimiento por servicio</div>
-                {loading ? <Sk h={160} /> : (d?.porServicio || []).slice(0, 6).map((s: any) => (
-                  <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '0.5px solid #F4F4F5' }}>
-                    <div>
-                      <div style={{ fontSize: 12, color: '#52525B' }}>{s.label}</div>
-                      <div style={{ fontSize: 10, color: '#A1A1AA' }}>{s.total} equipos</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#18181B' }}>{fmtCOP(s.costo || 0)}</div>
-                      <div style={{ fontSize: 10, color: '#A1A1AA' }}>COP</div>
-                    </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Estado del parque tecnologico</div>
+                {loading?<Sk h={160}/>:<div style={{position:'relative',height:160}}><canvas id="c-estado" role="img" aria-label="Estado equipos">Estado de equipos.</canvas></div>}
+                <div style={{display:'flex',gap:12,marginTop:10,flexWrap:'wrap',fontSize:11,color:'var(--color-text-secondary)'}}>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Operativo {d?.operativos||0}</span>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.na,display:'inline-block'}}/> En mant. {d?.enMant||0}</span>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Fuera {d?.fuera||0}</span>
+                </div>
+              </Card>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Clasificacion por riesgo INVIMA</div>
+                {loading?<Sk h={160}/>:<>
+                  <Bar label="Clase III — Soporte vital"  val={`${d?.claseIII||0} equipos`}  pct={d?.total>0?Math.round(((d?.claseIII||0)/d?.total)*100):0}  color={C.ro}/>
+                  <Bar label="Clase IIb — Alto riesgo"    val={`${d?.claseIIb||0} equipos`}   pct={d?.total>0?Math.round(((d?.claseIIb||0)/d?.total)*100):0}   color='#EA580C'/>
+                  <Bar label="Clase IIa — Moderado"       val={`${d?.claseIIa||0} equipos`}   pct={d?.total>0?Math.round(((d?.claseIIa||0)/d?.total)*100):0}   color={C.na}/>
+                  <Bar label="Clase I — Bajo riesgo"      val={`${d?.claseI||0} equipos`}     pct={d?.total>0?Math.round(((d?.claseI||0)/d?.total)*100):0}      color={C.ve}/>
+                  <div style={{marginTop:10,padding:'8px 10px',borderRadius:8,background:C.azBg,fontSize:11,color:C.az}}>
+                    {(d?.claseIIb||0)+(d?.claseIII||0)} equipos requieren PM semestral obligatorio
                   </div>
-                ))}
-              </div>
+                </>}
+              </Card>
             </div>
           </>
         )}
 
-        {/* ── VIDA UTIL ── */}
-        {tab === 'vida_util' && (
+        {/* MANTENIMIENTO */}
+        {tab==='mantenimiento' && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <div style={{ background: VE_BG, borderRadius: 12, border: `0.5px solid ${VE}40`, padding: 22 }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: GR, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Vida util saludable</div>
-                <div style={{ fontSize: 36, fontWeight: 700, color: VE, marginBottom: 4 }}>{d?.vidaSaludable || 0}</div>
-                <div style={{ fontSize: 11, color: '#71717A' }}>Equipos con menos del 60% de vida consumida</div>
-              </div>
-              <div style={{ background: NA_BG, borderRadius: 12, border: `0.5px solid ${NA}40`, padding: 22 }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: GR, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>En advertencia</div>
-                <div style={{ fontSize: 36, fontWeight: 700, color: NA, marginBottom: 4 }}>{d?.vidaAdvertencia || 0}</div>
-                <div style={{ fontSize: 11, color: '#71717A' }}>Equipos con 60-80% de vida consumida — planificar reemplazo</div>
-              </div>
-              <div style={{ background: RO_BG, borderRadius: 12, border: `0.5px solid ${RO}40`, padding: 22 }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: GR, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Criticos — reemplazar</div>
-                <div style={{ fontSize: 36, fontWeight: 700, color: RO, marginBottom: 4 }}>{d?.vidaCriticos || 0}</div>
-                <div style={{ fontSize: 11, color: '#71717A' }}>Equipos con mas del 80% de vida consumida</div>
-              </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+              <Card style={{textAlign:'center'}}>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Cumplimiento PM</div>
+                {loading?<Sk h={110}/>:<Gauge val={d?.cumplimientoPM||0} max={100} meta={90} unit="%" size={110}/>}
+                <div style={{fontSize:10,color:'var(--color-text-secondary)',marginTop:4}}>{d?.pmEjecutados||0}/{d?.pmRequeridos||0} PM criticos ejecutados</div>
+                <span style={{fontSize:10,fontWeight:500,padding:'3px 10px',borderRadius:20,background:d?.cumplimientoPM>=90?C.veBg:C.naBg,color:d?.cumplimientoPM>=90?C.ve:C.na,display:'inline-block',marginTop:8}}>
+                  {d?.cumplimientoPM>=90?'Cumple Res. 4816':'Por mejorar'}
+                </span>
+              </Card>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Tipos de mantenimiento</div>
+                {loading?<Sk h={130}/>:<div style={{position:'relative',height:130}}><canvas id="c-tipos" role="img" aria-label="Tipos de mantenimiento">Tipos de mantenimiento.</canvas></div>}
+                <div style={{display:'flex',flexDirection:'column',gap:5,marginTop:8,fontSize:11,color:'var(--color-text-secondary)'}}>
+                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Preventivo {pctPrev}% — {d?.preventivos||0} OTs</span>
+                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Correctivo {pctCorr}% — {d?.correctivos||0} OTs</span>
+                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.mo,display:'inline-block'}}/> Calibracion {pctCal}% — {d?.calibraciones||0} OTs</span>
+                </div>
+              </Card>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Estado de ordenes</div>
+                {loading?<Sk h={130}/>:<>
+                  <Bar label="Completadas" val={`${d?.completados||0} (${d?.totalMant>0?Math.round(((d?.completados||0)/d?.totalMant)*100):0}%)`} pct={d?.totalMant>0?Math.round(((d?.completados||0)/d?.totalMant)*100):0} color={C.ve} right={C.ve}/>
+                  <Bar label="Pendientes"  val={`${d?.pendientes||0} (${d?.totalMant>0?Math.round(((d?.pendientes||0)/d?.totalMant)*100):0}%)`}  pct={d?.totalMant>0?Math.round(((d?.pendientes||0)/d?.totalMant)*100):0}  color={C.na} right={C.na}/>
+                  <Bar label="Vencidas"    val={`${d?.vencidos||0}`}    pct={d?.totalMant>0?Math.round(((d?.vencidos||0)/d?.totalMant)*100):0}    color={C.ro} right={C.ro}/>
+                  {d?.vencidos>0 && <div style={{marginTop:8,padding:'7px 10px',borderRadius:8,background:C.roBg,fontSize:11,color:C.ro}}>{d.vencidos} OTs vencidas — accion inmediata</div>}
+                </>}
+              </Card>
             </div>
 
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '0.5px solid #E4E4E7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B' }}>Top 10 equipos prioritarios para reemplazo</div>
-                <div style={{ fontSize: 11, color: '#A1A1AA' }}>Basado en vida util real de Supabase + estandares OMS/IETSI</div>
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Mantenimientos por mes — ultimos 12 meses</div>
+              <div style={{display:'flex',gap:12,marginBottom:10,fontSize:11,color:'var(--color-text-secondary)'}}>
+                <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Preventivo</span>
+                <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Correctivo</span>
               </div>
-              {loading ? <div style={{ padding: 20 }}><Sk h={200} /></div> : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#F8F9FA' }}>
-                      {['Equipo', 'Servicio', 'Año adq.', 'Vida util', 'Consumida', 'Costo mant.', 'CMR', 'Accion'].map(h => (
-                        <th key={h} style={{ padding: '10px 14px', fontSize: 10, fontWeight: 600, color: GR, textAlign: 'left', borderBottom: '0.5px solid #E4E4E7', whiteSpace: 'nowrap' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(d?.topReemplazar || []).map((eq: any, i: number) => (
-                      <tr key={eq.id} style={{ borderBottom: '0.5px solid #F4F4F5', background: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#18181B', maxWidth: 180 }}>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>{eq.nombre}</div>
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 11, color: GR }}>{eq.servicio || 'N/D'}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#52525B' }}>{eq.edad ? new Date().getFullYear() - eq.edad : 'N/D'}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#52525B' }}>{eq.vidaUtil} años</td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <div style={{ width: 60, height: 5, background: '#F4F4F5', borderRadius: 3 }}>
-                              <div style={{ height: 5, borderRadius: 3, background: eq.pctVida >= 80 ? RO : NA, width: `${eq.pctVida}%` }} />
-                            </div>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: eq.pctVida >= 80 ? RO : NA }}>{eq.pctVida}%</span>
-                          </div>
-                        </td>
-                        <td style={{ padding: '10px 14px', fontSize: 11, color: '#52525B' }}>{fmtCOP(eq.costoMant || 0)}</td>
-                        <td style={{ padding: '10px 14px', fontSize: 11, fontWeight: 600, color: Number(eq.cmrEq) > 10 ? RO : Number(eq.cmrEq) > 5 ? NA : VE }}>{eq.cmrEq ? eq.cmrEq + '%' : 'N/D'}</td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <span style={{ fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, background: RO_BG, color: RO }}>Reemplazar</span>
-                        </td>
-                      </tr>
-                    ))}
-                    {(!d?.topReemplazar?.length) && (
-                      <tr><td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: VE, fontSize: 13 }}>✓ No hay equipos en estado critico de vida util</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 4 }}>Tabla de vida util estandar por tipo de equipo</div>
-              <div style={{ fontSize: 11, color: '#A1A1AA', marginBottom: 16 }}>Fuente: OMS, IETSI/EsSalud, ECRI Institute, practica clinica colombiana</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                {[
-                  ['Monitor multiparametro','7-10'],['Ventilador mecanico','10-15'],
-                  ['Desfibrilador','10-12'],['Bomba de infusion','7-10'],
-                  ['Incubadora neonatal','10-15'],['Electrobisturi','7-10'],
-                  ['Ecografo','7-10'],['Rayos X','10-15'],
-                  ['Autoclave','10-15'],['Glucometro','3-5'],
-                  ['Oximetro de pulso','5-7'],['Nebulizador','3-5'],
-                  ['Maquina de anestesia','10-15'],['Cardiotocografo','7-10'],
-                  ['Cama hospitalaria','10-15'],['Aspirador quirurgico','7-10'],
-                ].map(([eq, vida]) => (
-                  <div key={eq} style={{ padding: '10px 12px', borderRadius: 8, background: '#F8F9FA', border: '0.5px solid #E4E4E7' }}>
-                    <div style={{ fontSize: 11, color: '#52525B', marginBottom: 2 }}>{eq}</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: AZ }}>{vida} años</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+              {loading?<Sk h={200}/>:<div style={{position:'relative',height:200}}><canvas id="c-mes" role="img" aria-label="Mantenimientos por mes">Mantenimientos por mes.</canvas></div>}
+            </Card>
           </>
         )}
 
-        {/* ── INVENTARIO ── */}
-        {tab === 'inventario' && (
+        {/* VIDA UTIL */}
+        {tab==='vida' && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-              <Card label="Total equipos activos" valor={d?.total} sub="En inventario activo" c={AZ} grande />
-              <Card label="Alto riesgo (IIb/III)" valor={d?.altoRiesgo} sub="PM semestral obligatorio" c={RO} grande />
-              <Card label="Riesgo moderado (IIa)" valor={d?.medioRiesgo} sub="PM anual recomendado" c={NA} grande />
-              <Card label="Riesgo bajo (I)" valor={d?.bajoRiesgo} sub="PM segun fabricante" c={VE} grande />
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+              <Card style={{background:C.veBg,border:`0.5px solid ${C.ve}40`,textAlign:'center'}}>
+                <div style={{fontSize:10,fontWeight:500,color:C.ve,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Vida saludable</div>
+                <div style={{fontSize:40,fontWeight:500,color:C.ve,lineHeight:1,marginBottom:6}}>{loading?'—':d?.vidaSaludable||0}</div>
+                <div style={{fontSize:11,color:'#71717A'}}>Equipos con menos del 60% vida consumida</div>
+              </Card>
+              <Card style={{background:C.naBg,border:`0.5px solid ${C.na}40`,textAlign:'center'}}>
+                <div style={{fontSize:10,fontWeight:500,color:C.na,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>En advertencia</div>
+                <div style={{fontSize:40,fontWeight:500,color:C.na,lineHeight:1,marginBottom:6}}>{loading?'—':d?.vidaAdvertencia||0}</div>
+                <div style={{fontSize:11,color:'#71717A'}}>Equipos con 60-80% vida consumida — planificar reemplazo</div>
+              </Card>
+              <Card style={{background:C.roBg,border:`0.5px solid ${C.ro}40`,textAlign:'center'}}>
+                <div style={{fontSize:10,fontWeight:500,color:C.ro,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Critico — reemplazar</div>
+                <div style={{fontSize:40,fontWeight:500,color:C.ro,lineHeight:1,marginBottom:6}}>{loading?'—':d?.vidaCriticos||0}</div>
+                <div style={{fontSize:11,color:'#71717A'}}>Equipos con mas del 80% vida consumida</div>
+              </Card>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 16 }}>Equipos por tipo</div>
-                {loading ? <Sk h={160} /> : (d?.porTipoEquipo || []).map((t: any) => (
-                  <div key={t.label} style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, color: '#52525B', textTransform: 'capitalize' }}>{t.label}</span>
-                      <div style={{ display: 'flex', gap: 10, fontSize: 12 }}>
-                        <span style={{ fontWeight: 600, color: '#18181B' }}>{t.value}</span>
-                        <span style={{ color: '#A1A1AA' }}>{t.pct}%</span>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Distribucion de vida util</div>
+                {loading?<Sk h={180}/>:<div style={{position:'relative',height:180}}><canvas id="c-vida" role="img" aria-label="Distribucion vida util">Distribucion vida util.</canvas></div>}
+                <div style={{display:'flex',gap:14,marginTop:10,fontSize:11,color:'var(--color-text-secondary)'}}>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Saludable</span>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.na,display:'inline-block'}}/> Advertencia</span>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Critico</span>
+                </div>
+              </Card>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Top equipos prioritarios para reemplazo</div>
+                {loading?<Sk h={180}/>:<>
+                  {(d?.topReemplazar||[]).map((eq:any,i:number)=>(
+                    <div key={eq.id} style={{marginBottom:10}}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--color-text-secondary)',marginBottom:3}}>
+                        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'70%'}}>{eq.nombre}</span>
+                        <span style={{fontWeight:500,color:eq.pctVida>=90?C.ro:C.na,flexShrink:0}}>{eq.pctVida}%</span>
+                      </div>
+                      <div style={{height:6,background:'var(--color-background-secondary)',borderRadius:3,overflow:'hidden'}}>
+                        <div style={{height:6,borderRadius:3,background:eq.pctVida>=90?C.ro:'#EA580C',width:`${eq.pctVida}%`}}/>
                       </div>
                     </div>
-                    <div style={{ height: 5, background: '#F4F4F5', borderRadius: 3 }}>
-                      <div style={{ height: 5, borderRadius: 3, width: `${t.pct}%`, background: AZ }} />
-                    </div>
+                  ))}
+                  {(!d?.topReemplazar?.length)&&<div style={{textAlign:'center',padding:'20px',color:C.ve,fontSize:13}}>✓ Sin equipos en vida util critica</div>}
+                  <div style={{marginTop:8,padding:'7px 10px',borderRadius:8,background:'var(--color-background-secondary)',fontSize:11,color:'var(--color-text-secondary)'}}>
+                    Basado en anio adquisicion y estandar OMS/IETSI
                   </div>
-                ))}
-              </div>
-
-              <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 16 }}>Equipos por servicio</div>
-                {loading ? <Sk h={160} /> : (d?.porServicio || []).map((s: any) => (
-                  <div key={s.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '0.5px solid #F4F4F5' }}>
-                    <span style={{ fontSize: 12, color: '#52525B' }}>{s.label}</span>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                      {s.alto > 0 && <span style={{ fontSize: 10, color: RO }}>⚠ {s.alto} críticos</span>}
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#18181B' }}>{s.total}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                </>}
+              </Card>
             </div>
           </>
         )}
 
-        {/* ── NORMATIVA ── */}
-        {tab === 'normativa' && (
+        {/* COSTOS */}
+        {tab==='costos' && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <div style={{ background: Number(d?.cumplimientoPM) >= 90 ? VE_BG : RO_BG, borderRadius: 12, border: `0.5px solid ${Number(d?.cumplimientoPM) >= 90 ? VE : RO}40`, padding: 20 }}>
-                <div style={{ fontSize: 11, color: GR, marginBottom: 8 }}>RES. 4816/2008 — TECNOVIGILANCIA</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: Number(d?.cumplimientoPM) >= 90 ? VE : RO }}>{d?.cumplimientoPM}%</div>
-                <div style={{ fontSize: 11, color: '#71717A', marginTop: 4 }}>Cumplimiento PM equipos criticos</div>
-                <div style={{ marginTop: 10, fontSize: 11, fontWeight: 500, color: Number(d?.cumplimientoPM) >= 90 ? VE : RO }}>
-                  {Number(d?.cumplimientoPM) >= 90 ? '✓ CUMPLE' : '✗ INCUMPLE — Riesgo habilitacion'}
-                </div>
-              </div>
-              <div style={{ background: Number(d?.disponibilidad) >= 85 ? VE_BG : NA_BG, borderRadius: 12, border: `0.5px solid ${Number(d?.disponibilidad) >= 85 ? VE : NA}40`, padding: 20 }}>
-                <div style={{ fontSize: 11, color: GR, marginBottom: 8 }}>RES. 3100/2019 — HABILITACION</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: Number(d?.disponibilidad) >= 85 ? VE : NA }}>{d?.disponibilidad}%</div>
-                <div style={{ fontSize: 11, color: '#71747A', marginTop: 4 }}>Disponibilidad del parque tecnologico</div>
-                <div style={{ marginTop: 10, fontSize: 11, fontWeight: 500, color: Number(d?.disponibilidad) >= 85 ? VE : NA }}>
-                  {Number(d?.disponibilidad) >= 85 ? '✓ CUMPLE' : '⚠ REVISAR — Disponibilidad baja'}
-                </div>
-              </div>
-              <div style={{ background: d?.mantVencidos === 0 ? VE_BG : RO_BG, borderRadius: 12, border: `0.5px solid ${d?.mantVencidos === 0 ? VE : RO}40`, padding: 20 }}>
-                <div style={{ fontSize: 11, color: GR, marginBottom: 8 }}>DEC. 4725/2005 — DISPOSITIVOS</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: d?.mantVencidos === 0 ? VE : RO }}>{d?.mantVencidos}</div>
-                <div style={{ fontSize: 11, color: '#71747A', marginTop: 4 }}>Mantenimientos vencidos sin ejecutar</div>
-                <div style={{ marginTop: 10, fontSize: 11, fontWeight: 500, color: d?.mantVencidos === 0 ? VE : RO }}>
-                  {d?.mantVencidos === 0 ? '✓ AL DIA' : '✗ VENCIDOS — Accion inmediata'}
-                </div>
-              </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Costo total mantenimiento</div>
+                <div style={{fontSize:28,fontWeight:500,color:C.az,marginBottom:4}}>{loading?'—':fmtCOP(d?.costoTotal||0)}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>COP — historial completo</div>
+              </Card>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>CMR — Costo / Valor reposicion</div>
+                <div style={{fontSize:28,fontWeight:500,color:loading?C.gr:d?.cmr<5?C.ve:d?.cmr<10?C.na:C.ro,marginBottom:4}}>{loading?'—':(d?.cmr||0)+'%'}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{loading?'Calculando...':d?.cmr<5?'Rentable — continuar PM':d?.cmr<10?'Monitorear costos':'Evaluar reemplazo'}</div>
+                {!loading&&<span style={{fontSize:10,fontWeight:500,padding:'3px 10px',borderRadius:20,background:d?.cmr<5?C.veBg:d?.cmr<10?C.naBg:C.roBg,color:d?.cmr<5?C.ve:d?.cmr<10?C.na:C.ro,display:'inline-block',marginTop:8}}>{d?.cmr<5?'CMR optimo':d?.cmr<10?'CMR moderado':'CMR alto'}</span>}
+              </Card>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Costo promedio por OT</div>
+                <div style={{fontSize:28,fontWeight:500,color:C.mo,marginBottom:4}}>{loading?'—':fmtCOP(d?.costoProm||0)}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>COP por orden completada</div>
+              </Card>
             </div>
 
-            <div style={{ background: '#fff', borderRadius: 12, border: '0.5px solid #E4E4E7', padding: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', marginBottom: 16 }}>Marco normativo aplicable — Colombia</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Distribucion del gasto</div>
+                {loading?<Sk h={160}/>:<div style={{position:'relative',height:160}}><canvas id="c-costo" role="img" aria-label="Distribucion costos">Distribucion costos.</canvas></div>}
+                <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:10,fontSize:11,color:'var(--color-text-secondary)'}}>
+                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.az,display:'inline-block'}}/> Mano de obra {d?.pctCostoMO||0}% — {fmtCOP(d?.costoMO||0)}</span>
+                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.cy,display:'inline-block'}}/> Repuestos {d?.pctCostoRep||0}% — {fmtCOP(d?.costoRep||0)}</span>
+                </div>
+              </Card>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Costo por tipo de mantenimiento</div>
+                {loading?<Sk h={160}/>:<>
+                  <Bar label="Preventivo"  val={fmtCOP(d?.costoPrev||0)} pct={d?.costoTotal>0?Math.round(((d?.costoPrev||0)/d?.costoTotal)*100):0} color={C.ve}/>
+                  <Bar label="Correctivo"  val={fmtCOP(d?.costoCorr||0)} pct={d?.costoTotal>0?Math.round(((d?.costoCorr||0)/d?.costoTotal)*100):0} color={C.ro}/>
+                  <Bar label="Calibracion" val={fmtCOP(d?.costoCal||0)}  pct={d?.costoTotal>0?Math.round(((d?.costoCal||0)/d?.costoTotal)*100):0}  color={C.mo}/>
+                  {d?.pctCostoCorr>30&&<div style={{marginTop:10,padding:'7px 10px',borderRadius:8,background:C.naBg,fontSize:11,color:C.na}}>El correctivo supera el 30% del presupuesto. Meta: reducir con mas PM.</div>}
+                </>}
+              </Card>
+            </div>
+          </>
+        )}
+
+        {/* NORMATIVA */}
+        {tab==='normativa' && (
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
               {[
-                { norma: 'Res. 4816/2008', titulo: 'Programa Nacional de Tecnovigilancia', desc: 'Obligacion de reportar eventos adversos al INVIMA. PM documentado para equipos IIb y III minimo semestral. Sistema SIVIISP.', tipo: 'obligatorio', estado: Number(d?.cumplimientoPM) >= 90 },
-                { norma: 'Dec. 4725/2005', titulo: 'Dispositivos medicos y equipos biomedicos', desc: 'Registro sanitario INVIMA vigente para equipos clase IIa, IIb y III. Importacion y comercializacion regulada.', tipo: 'obligatorio', estado: true },
-                { norma: 'Res. 3100/2019', titulo: 'Habilitacion de prestadores de salud', desc: 'Condiciones de habilitacion. Equipos deben tener mantenimiento documentado, hoja de vida y manual del fabricante disponible.', tipo: 'obligatorio', estado: Number(d?.disponibilidad) >= 85 },
-                { norma: 'Res. 2003/2014', titulo: 'Procedimientos y condiciones de habilitacion', desc: 'Define estandares para dotacion de equipos biomedicos segun servicio habilitado.', tipo: 'obligatorio', estado: true },
-                { norma: 'ISO 13485:2016', titulo: 'Gestion de calidad para dispositivos medicos', desc: 'Estandar internacional. Requiere control de equipos de medicion y seguimiento del ciclo de vida.', tipo: 'recomendado', estado: true },
-                { norma: 'IEC 60601-1', titulo: 'Seguridad electrica equipos medicos', desc: 'Corriente de fuga maxima 100 μA. Clase de proteccion verificable en mantenimiento preventivo.', tipo: 'recomendado', estado: true },
-                { norma: 'ISO 55000:2014', titulo: 'Gestion de activos fisicos', desc: 'Marco para gestion sistematica del parque tecnologico durante todo su ciclo de vida util.', tipo: 'recomendado', estado: true },
-              ].map(item => (
-                <div key={item.norma} style={{ display: 'flex', gap: 14, padding: '12px 14px', borderRadius: 10, background: item.tipo === 'obligatorio' ? (item.estado ? VE_BG : RO_BG) : '#F8F9FA', border: `0.5px solid ${item.tipo === 'obligatorio' ? (item.estado ? VE : RO) : '#E4E4E7'}30`, marginBottom: 8 }}>
-                  <div style={{ flexShrink: 0, minWidth: 100 }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: item.tipo === 'obligatorio' ? RO : VE, color: '#fff' }}>
-                      {item.tipo === 'obligatorio' ? 'OBLIGATORIO' : 'RECOMENDADO'}
-                    </span>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#18181B', marginTop: 6 }}>{item.norma}</div>
-                    {item.tipo === 'obligatorio' && (
-                      <div style={{ fontSize: 10, fontWeight: 600, color: item.estado ? VE : RO, marginTop: 4 }}>
-                        {item.estado ? '✓ CUMPLE' : '✗ REVISAR'}
-                      </div>
-                    )}
+                {norma:'Res. 4816/2008',val:d?.cumplimientoPM||0,meta:90,label:'PM equipos criticos',ok:(d?.cumplimientoPM||0)>=90},
+                {norma:'Res. 3100/2019',val:d?.disponibilidad||0,meta:85,label:'Disponibilidad parque',ok:(d?.disponibilidad||0)>=85},
+                {norma:'OTs vencidas',  val:d?.vencidos||0,      max:true,label:'Sin ejecutar',        ok:(d?.vencidos||0)===0},
+              ].map((item,i)=>(
+                <Card key={i} style={{background:item.ok?C.veBg:C.roBg,border:`0.5px solid ${item.ok?C.ve:C.ro}40`,textAlign:'center'}}>
+                  <div style={{fontSize:10,fontWeight:500,color:item.ok?C.ve:C.ro,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>{item.norma}</div>
+                  {loading?<Sk h={90}/>:(
+                    <svg width={90} height={90} viewBox="0 0 90 90" style={{display:'block',margin:'0 auto 6px'}} role="img" aria-label={`${item.norma} ${item.val}`}>
+                      <circle cx="45" cy="45" r="35" fill="none" stroke={item.ok?'#BBF7D0':'#FECACA'} strokeWidth="9"/>
+                      <circle cx="45" cy="45" r="35" fill="none" stroke={item.ok?C.ve:C.ro} strokeWidth="9" strokeDasharray={`${(item.max?(item.val===0?220:Math.max(220-(item.val*10),0)):((item.val/100)*220)).toFixed(0)} 220`} strokeDashoffset="-55" strokeLinecap="round" transform="rotate(-90 45 45)"/>
+                      <text x="45" y="42" textAnchor="middle" fontSize="18" fontWeight="500" fill={item.ok?C.ve:C.ro}>{item.max?item.val:item.val+'%'}</text>
+                      <text x="45" y="57" textAnchor="middle" fontSize="8" fill={item.ok?C.ve:C.ro}>{item.ok?'cumple':'revisar'}</text>
+                    </svg>
+                  )}
+                  <div style={{fontSize:11,color:'#71717A'}}>{item.label}</div>
+                </Card>
+              ))}
+            </div>
+
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:14}}>Marco normativo — Colombia</div>
+              {[
+                {norma:'Res. 4816/2008',titulo:'Tecnovigilancia INVIMA',desc:`PM semestral equipos IIb/III documentado. ${d?.pmEjecutados||0}/${d?.pmRequeridos||0} PM ejecutados. ${d?.vencidos||0} OTs vencidas.`,tipo:'obligatorio',ok:(d?.cumplimientoPM||0)>=90},
+                {norma:'Res. 3100/2019',titulo:'Habilitacion IPS',desc:`Disponibilidad del parque tecnologico. Hoja de vida y manuales disponibles. Actual: ${d?.disponibilidad||0}%.`,tipo:'obligatorio',ok:(d?.disponibilidad||0)>=85},
+                {norma:'Dec. 4725/2005',titulo:'Dispositivos medicos',desc:`Registro INVIMA vigente para equipos IIa, IIb, III. Verificar ${d?.vidaCriticos||0} equipos en vida util critica.`,tipo:'obligatorio',ok:(d?.vidaCriticos||0)<10},
+                {norma:'Res. 2003/2014',titulo:'Condiciones de habilitacion',desc:'Define estandares de dotacion de equipos biomedicos segun servicio habilitado.',tipo:'obligatorio',ok:true},
+                {norma:'ISO 13485:2016',titulo:'Gestion de calidad',desc:'Control de equipos de medicion y seguimiento del ciclo de vida. Recomendado para acreditacion ICONTEC.',tipo:'recomendado',ok:true},
+                {norma:'IEC 60601-1',  titulo:'Seguridad electrica',desc:'Corriente de fuga max 100 μA. Verificar en PM de equipos clase IIb y III.',tipo:'recomendado',ok:true},
+              ].map((item,i)=>(
+                <div key={i} style={{display:'flex',gap:14,padding:'12px 14px',borderRadius:10,background:item.tipo==='obligatorio'?(item.ok?C.veBg:C.roBg):'var(--color-background-secondary)',border:`0.5px solid ${item.tipo==='obligatorio'?(item.ok?C.ve:C.ro):'var(--color-border-tertiary)'}30`,marginBottom:8}}>
+                  <div style={{flexShrink:0,minWidth:110}}>
+                    <span style={{fontSize:9,fontWeight:500,padding:'2px 7px',borderRadius:20,background:item.tipo==='obligatorio'?C.ro:C.ve,color:'#fff'}}>{item.tipo==='obligatorio'?'OBLIGATORIO':'RECOMENDADO'}</span>
+                    <div style={{fontSize:12,fontWeight:500,color:'var(--color-text-primary)',marginTop:5}}>{item.norma}</div>
+                    {item.tipo==='obligatorio'&&<div style={{fontSize:10,fontWeight:500,color:item.ok?C.ve:C.ro,marginTop:3}}>{item.ok?'✓ Cumple':'✗ Revisar'}</div>}
                   </div>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 500, color: '#18181B', marginBottom: 2 }}>{item.titulo}</div>
-                    <div style={{ fontSize: 11, color: '#71717A' }}>{item.desc}</div>
+                    <div style={{fontSize:12,fontWeight:500,color:'var(--color-text-primary)',marginBottom:2}}>{item.titulo}</div>
+                    <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{item.desc}</div>
                   </div>
                 </div>
               ))}
-            </div>
+            </Card>
           </>
         )}
 
