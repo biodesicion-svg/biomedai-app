@@ -1,660 +1,496 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Wrench, AlertTriangle, CheckCircle, Clock, Activity, DollarSign, Calendar, TrendingUp, Package } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
-const riesgoColor: Record<string,{text:string;bg:string;border:string}> = {
-  alto:  {text:'#f87171',bg:'#ef444415',border:'#ef444430'},
-  medio: {text:'#fcd34d',bg:'#f59e0b15',border:'#f59e0b30'},
-  bajo:  {text:'#4ade80',bg:'#10b98115',border:'#10b98130'},
-}
-const estadoColor: Record<string,string> = {
-  operativo:'#4ade80',mantenimiento:'#fcd34d',fuera_servicio:'#f87171',baja:'#64748b'
-}
-const tipoColor: Record<string,{bg:string;text:string;dot:string}> = {
-  preventivo:  {bg:'#16a34a20',text:'#4ade80',dot:'#4ade80'},
-  correctivo:  {bg:'#ef444420',text:'#f87171',dot:'#f87171'},
-  calibracion: {bg:'#f59e0b20',text:'#fcd34d',dot:'#fcd34d'},
+const AZ='#1B2B5B',CY='#00B4D8',VE='#16A34A',RO='#DC2626',NA='#D97706',GR='#64748B'
+const VE_BG='#F0FDF4',RO_BG='#FEF2F2',NA_BG='#FFFBEB',AZ_BG='#EEF2FF'
+
+const fmt=(n:number)=>n>=1000000?'$'+(n/1000000).toFixed(1)+'M':n>=1000?'$'+Math.round(n/1000)+'K':'$'+Math.round(n)
+const fmtCOP=(n:number)=>'$'+Math.round(n).toLocaleString('es-CO')+' COP'
+const fmtFecha=(s:string)=>{ if(!s) return '—'; const d=new Date(s); return d.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}) }
+
+const VIDA_UTIL:Record<string,number>={monitor:8,ventilador:12,desfibrilador:10,bomba:8,incubadora:12,autoclave:12,ecografo:8,rayos:12,electrobisturi:8,glucometro:4,oximetro:6,nebulizador:4,anestesia:12,dialisis:12,cama:12}
+function getVU(nombre:string,vidaUtilAnos:number|null):number{
+  if(vidaUtilAnos) return vidaUtilAnos
+  const n=nombre.toLowerCase()
+  for(const[k,v] of Object.entries(VIDA_UTIL)) if(n.includes(k)) return v
+  return 8
 }
 
-const fmt = (n: number) => {
-  if (n>=1_000_000) return `$${(n/1_000_000).toFixed(1)}M`
-  if (n>=1_000) return `$${Math.round(n/1_000)}K`
-  return `$${Math.round(n)}`
+function Card({children,style={}}:any){
+  return <div style={{background:'#fff',border:'0.5px solid #E4E4E7',borderRadius:12,padding:16,...style}}>{children}</div>
 }
-const fmtCOP = (n: number) => `$${Math.round(n).toLocaleString('es-CO')} COP`
-
-// Generar historial simulado si no hay datos
-function generarHistorialSimulado(equipo: any): any[] {
-  const anioInicio = equipo.anio_adquisicion || 2018
-  const anioActual = new Date().getFullYear()
-  const historial: any[] = []
-  const tiposEquipo: Record<string,{freqMeses:number;costoCorr:[number,number];costoPrev:[number,number]}> = {
-    'monitor':      {freqMeses:6,  costoCorr:[800000,2500000],  costoPrev:[200000,600000]},
-    'ventilador':   {freqMeses:6,  costoCorr:[1500000,4000000], costoPrev:[400000,900000]},
-    'desfibrilador':{freqMeses:6,  costoCorr:[1200000,3500000], costoPrev:[300000,800000]},
-    'bomba':        {freqMeses:6,  costoCorr:[500000,1800000],  costoPrev:[150000,450000]},
-    'incubadora':   {freqMeses:6,  costoCorr:[1800000,5000000], costoPrev:[500000,1200000]},
-    'glucometro':   {freqMeses:12, costoCorr:[80000,250000],    costoPrev:[50000,150000]},
-    'camilla':      {freqMeses:12, costoCorr:[150000,500000],   costoPrev:[80000,200000]},
-    'default':      {freqMeses:12, costoCorr:[200000,800000],   costoPrev:[100000,350000]},
-  }
-  const nombre = equipo.nombre?.toLowerCase() || ''
-  const cfg = Object.entries(tiposEquipo).find(([k])=>nombre.includes(k))?.[1] || tiposEquipo.default
-  const rand = (min: number, max: number) => Math.round(min + Math.random()*(max-min))
-
-  let id = 1
-  for (let anio = anioInicio; anio <= anioActual; anio++) {
-    // Preventivos cada 6 o 12 meses
-    const mesesPrev = cfg.freqMeses === 6 ? [1,7] : [1]
-    mesesPrev.forEach(mes => {
-      if (anio === anioActual && mes > new Date().getMonth()+1) return
-      const fecha = new Date(anio, mes-1, rand(1,28))
-      historial.push({
-        id: `sim-${id++}`,
-        tipo: 'preventivo',
-        estado: 'completado',
-        fecha_programada: fecha.toISOString().split('T')[0],
-        fecha_realizado: new Date(fecha.getTime()+rand(1,5)*86400000).toISOString().split('T')[0],
-        costo_total: rand(cfg.costoPrev[0], cfg.costoPrev[1]),
-        duracion_horas: rand(2,8),
-        descripcion: `Mantenimiento preventivo semestral — Revisión general, limpieza, verificación eléctrica y funcional`,
-        hallazgos: null,
-        simulado: true,
-      })
-    })
-    // Correctivos aleatorios (más si el equipo es viejo o de alto riesgo)
-    const probCorr = equipo.riesgo==='alto' ? 0.7 : equipo.riesgo==='medio' ? 0.4 : 0.2
-    const numCorr = Math.random() < probCorr ? rand(1,3) : 0
-    for (let c=0; c<numCorr; c++) {
-      const mes = rand(1,12)
-      if (anio === anioActual && mes > new Date().getMonth()+1) continue
-      historial.push({
-        id: `sim-corr-${id++}`,
-        tipo: 'correctivo',
-        estado: 'completado',
-        fecha_programada: new Date(anio, mes-1, rand(1,28)).toISOString().split('T')[0],
-        costo_total: rand(cfg.costoCorr[0], cfg.costoCorr[1]),
-        duracion_horas: rand(3,16),
-        descripcion: `Mantenimiento correctivo — Falla reportada por usuario. Diagnóstico, reparación y prueba funcional`,
-        hallazgos: `Se encontró ${['falla en sensor','daño en cable de paciente','falla en display','problema en batería','error en tarjeta electrónica'][rand(0,4)]}`,
-        simulado: true,
-      })
-    }
-  }
-  return historial.sort((a,b)=>new Date(b.fecha_programada).getTime()-new Date(a.fecha_programada).getTime())
+function Sk({h=24,w='100%'}:any){
+  return <div style={{height:h,width:w,background:'#F1F5F9',borderRadius:6}}/>
 }
-
-function BarChartCOP({ data, labels, color='#0d9488', height=120 }: any) {
-  const max = Math.max(...data, 1)
+function Badge({label,color,bg}:any){
+  return <span style={{fontSize:10,fontWeight:500,padding:'2px 8px',borderRadius:20,background:bg,color,display:'inline-block'}}>{label}</span>
+}
+function KpiCard({label,val,unit='',sub,color=AZ}:any){
   return (
-    <div className="flex items-end gap-1" style={{height}}>
-      {data.map((v: number, i: number) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div className="w-full rounded-t transition-all relative group"
-            style={{height:`${(v/max)*100}%`,background:color,opacity:0.8,minHeight:v>0?'4px':'0'}}>
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10"
-              style={{background:'#1e2d3d',color:'#e2e8f0'}}>
-              {fmt(v)}
-            </div>
-          </div>
-          <div style={{fontSize:'9px',color:'#3d5166'}}>{labels[i]}</div>
-        </div>
-      ))}
-    </div>
+    <Card style={{padding:'14px 16px'}}>
+      <div style={{fontSize:10,fontWeight:500,color:GR,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}}>{label}</div>
+      <div style={{fontSize:24,fontWeight:500,color,lineHeight:1,marginBottom:4}}>{val}<span style={{fontSize:12,marginLeft:3,opacity:0.7}}>{unit}</span></div>
+      <div style={{fontSize:10,color:'#A1A1AA'}}>{sub}</div>
+    </Card>
   )
 }
 
-function LineChart({ data, labels, color='#2dd4bf', height=100 }: any) {
-  const max = Math.max(...data, 1)
-  const w=400, h=height, padX=10, padY=10
-  const getPath = () => data.map((v: number, i: number) => {
-    const x = padX+(i/(data.length-1))*(w-padX*2)
-    const y = padY+((max-v)/max)*(h-padY*2)
-    return `${i===0?'M':'L'} ${x} ${y}`
-  }).join(' ')
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%',height}}>
-      <defs>
-        <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3"/>
-          <stop offset="100%" stopColor={color} stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      <path d={`${getPath()} L ${padX+(data.length-1)/(data.length-1)*(w-padX*2)} ${h-padY} L ${padX} ${h-padY} Z`} fill="url(#lineGrad)"/>
-      <path d={getPath()} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
-      {data.map((v: number,i: number)=>{
-        const x=padX+(i/(data.length-1))*(w-padX*2)
-        const y=padY+((max-v)/max)*(h-padY*2)
-        return <circle key={i} cx={x} cy={y} r={3} fill={color} stroke="#080e16" strokeWidth={1.5}/>
-      })}
-    </svg>
-  )
-}
-
-export default function EquipoDetallePage() {
-  const params = useParams()
-  const [equipo, setEquipo] = useState<any>(null)
-  const [mantenimientos, setMantenimientos] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'info'|'historial'|'kpis'|'prediccion'|'costos'>('info')
+export default function EquipoDetallePage(){
+  const params=useParams()
+  const[equipo,setEquipo]=useState<any>(null)
+  const[mants,setMants]=useState<any[]>([])
+  const[loading,setLoading]=useState(true)
+  const[tab,setTab]=useState('info')
 
   useEffect(()=>{
-    async function cargar() {
-      const supabase = createClient()
-      const { data: eq } = await supabase.from('equipos').select('*').eq('id', params.id).single()
-      if (eq) setEquipo(eq)
-      const { data: mants } = await supabase
-        .from('mantenimientos').select('*').eq('equipo_id', params.id)
-        .order('fecha_programada',{ascending:false})
-      setMantenimientos(mants || [])
+    async function cargar(){
+      const sb=createClient()
+      const{data:eq}=await sb.from('equipos').select('*').eq('id',params.id).single()
+      if(eq) setEquipo(eq)
+      const{data:mn}=await sb.from('mantenimientos').select('*').eq('equipo_id',params.id).order('fecha_realizado',{ascending:false})
+      setMants(mn||[])
       setLoading(false)
     }
     cargar()
   },[params.id])
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-screen" style={{background:'#080e16'}}>
-      <Activity className="w-8 h-8 animate-pulse" style={{color:'#2dd4bf'}}/>
+  if(loading) return(
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'#fff'}}>
+      <i className="ti ti-loader-2" style={{fontSize:32,color:AZ,animation:'spin 1s linear infinite'}}/>
     </div>
   )
-  if (!equipo) return (
-    <div className="flex flex-col items-center justify-center min-h-screen" style={{background:'#080e16'}}>
-      <AlertTriangle className="w-10 h-10 mb-4" style={{color:'#f59e0b'}}/>
-      <p className="text-sm" style={{color:'#7a9bb5'}}>Equipo no encontrado</p>
-      <Link href="/inventario" className="mt-4 text-xs" style={{color:'#2dd4bf'}}>← Volver</Link>
+  if(!equipo) return(
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',background:'#fff',gap:12}}>
+      <i className="ti ti-alert-triangle" style={{fontSize:40,color:NA}}/>
+      <div style={{fontSize:14,color:GR}}>Equipo no encontrado</div>
+      <Link href="/inventario" style={{fontSize:12,color:AZ,textDecoration:'none'}}>← Volver al inventario</Link>
     </div>
   )
 
-  // Usar historial real o simulado
-  const historialCompleto = mantenimientos.length > 0 ? mantenimientos : generarHistorialSimulado(equipo)
-  const esSimulado = mantenimientos.length === 0
+  const anioHoy=new Date().getFullYear()
+  const vu=getVU(equipo.nombre||'',equipo.vida_util_anos)
+  const anioAdq=equipo.anio_adquisicion||null
+  const edad=anioAdq?anioHoy-anioAdq:null
+  const pctVida=edad?Math.min(Math.round((edad/vu)*100),100):null
 
-  const rc = riesgoColor[equipo.riesgo] || riesgoColor.bajo
-  const anioActual = new Date().getFullYear()
-  const vidaUtil = equipo.anio_adquisicion ? anioActual - equipo.anio_adquisicion : null
-  const vidaRestante = equipo.vida_util_anos && vidaUtil ? equipo.vida_util_anos - vidaUtil : null
-  const pctVida = equipo.vida_util_anos && vidaUtil ? Math.min((vidaUtil/equipo.vida_util_anos)*100,100) : 0
+  const preventivos=mants.filter(m=>m.tipo==='preventivo')
+  const correctivos=mants.filter(m=>m.tipo==='correctivo')
+  const calibraciones=mants.filter(m=>m.tipo==='calibracion')
+  const costoTotal=mants.reduce((s,m)=>s++(m.costo_total||0),0)
+  const costoPrev=preventivos.reduce((s,m)=>s++(m.costo_total||0),0)
+  const costoCorr=correctivos.reduce((s,m)=>s++(m.costo_total||0),0)
+  const durs=mants.filter(m=>m.duracion_horas&&+m.duracion_horas>0).map(m=>+m.duracion_horas)
+  const mttr=durs.length>0?(durs.reduce((a,b)=>a+b,0)/durs.length).toFixed(1):'N/D'
+  const ratioPC=correctivos.length>0?(preventivos.length/correctivos.length).toFixed(1):'N/D'
+  const conHallazgos=mants.filter(m=>m.hallazgos&&m.hallazgos.trim()!=='').length
 
-  const preventivos  = historialCompleto.filter(m=>m.tipo==='preventivo').length
-  const correctivos  = historialCompleto.filter(m=>m.tipo==='correctivo').length
-  const calibraciones = historialCompleto.filter(m=>m.tipo==='calibracion').length
+  const rColor=equipo.riesgo==='alto'?RO:equipo.riesgo==='medio'?NA:VE
+  const rBg=equipo.riesgo==='alto'?RO_BG:equipo.riesgo==='medio'?NA_BG:VE_BG
+  const eColor=equipo.estado==='operativo'?VE:equipo.estado==='baja'?GR:equipo.estado==='en_mantenimiento'?NA:RO
+  const eBg=equipo.estado==='operativo'?VE_BG:equipo.estado==='baja'?'#F4F4F5':equipo.estado==='en_mantenimiento'?NA_BG:RO_BG
 
-  // ── DATOS PARA GRÁFICAS ──
-  const anioInicio = equipo.anio_adquisicion || anioActual - 5
-  const anios = Array.from({length:anioActual-anioInicio+1},(_,i)=>anioInicio+i)
-
-  // Costos por año
-  const costosPorAnio = anios.map(a =>
-    historialCompleto
-      .filter(m=>m.fecha_programada && new Date(m.fecha_programada).getFullYear()===a)
-      .reduce((s:number,m:any)=>s+Number(m.costo_total||0),0)
-  )
-  const costoTotal = costosPorAnio.reduce((a,b)=>a+b,0)
-  const costoPromAnual = anios.length>0 ? costoTotal/anios.length : 0
-
-  // Correctivos por año
-  const corrPorAnio = anios.map(a =>
-    historialCompleto.filter(m=>m.tipo==='correctivo'&&m.fecha_programada&&new Date(m.fecha_programada).getFullYear()===a).length
-  )
-  // Preventivos por año
-  const prevPorAnio = anios.map(a =>
-    historialCompleto.filter(m=>m.tipo==='preventivo'&&m.fecha_programada&&new Date(m.fecha_programada).getFullYear()===a).length
-  )
-
-  // Proyección costos próximos 3 años
-  const ult3 = costosPorAnio.slice(-3)
-  const promUlt3 = ult3.length>0 ? ult3.reduce((a,b)=>a+b,0)/ult3.length : 0
-  const proyAnios = [anioActual+1, anioActual+2, anioActual+3]
-  const proyecciones = [
-    Math.round(promUlt3*1.10),
-    Math.round(promUlt3*1.18),
-    Math.round(promUlt3*1.28),
+  const TABS=[
+    {id:'info',      label:'Informacion',  icon:'ti-clipboard-list'},
+    {id:'historial', label:'Historial',    icon:'ti-history'},
+    {id:'kpis',      label:'KPIs',         icon:'ti-chart-bar'},
+    {id:'costos',    label:'Costos',       icon:'ti-currency-dollar'},
+    {id:'documentos',label:'Documentos',   icon:'ti-files'},
   ]
 
-  // Score de riesgo
-  const score = Math.min(Math.round(
-    (pctVida*0.35) +
-    (correctivos>0?(correctivos/Math.max(historialCompleto.length,1))*100*0.35:0) +
-    (equipo.riesgo==='alto'?30:equipo.riesgo==='medio'?15:5)
-  ),100)
-  const alertaNivel = score>=70?'critico':score>=45?'alto':score>=25?'medio':'bajo'
-  const alertaColors: Record<string,string> = {critico:'#f87171',alto:'#fcd34d',medio:'#818cf8',bajo:'#4ade80'}
-  const alertaLabel: Record<string,string> = {critico:'Crítico',alto:'Alto',medio:'Medio',bajo:'Bajo'}
-
-  // MTTR
-  const duraciones = historialCompleto.filter(m=>m.duracion_horas).map(m=>Number(m.duracion_horas))
-  const mttr = duraciones.length>0 ? (duraciones.reduce((a,b)=>a+b,0)/duraciones.length).toFixed(1) : '—'
-
-  return (
-    <div className="flex flex-col min-h-screen" style={{background:'#080e16'}}>
+  return(
+    <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#FAFAFA'}}>
 
       {/* Topbar */}
-      <div className="px-8 py-5 flex items-center gap-4"
-        style={{borderBottom:'1px solid #1e2d3d',background:'#0a1120'}}>
-        <Link href="/inventario"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-          style={{background:'#1e2d3d',color:'#7a9bb5',border:'1px solid #253447'}}>
-          <ArrowLeft className="w-3.5 h-3.5"/> Inventario
+      <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'14px 28px',display:'flex',alignItems:'center',gap:14}}>
+        <Link href="/inventario" style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:8,border:'0.5px solid #E4E4E7',background:'#F8F9FA',textDecoration:'none',fontSize:12,color:GR,flexShrink:0}}>
+          <i className="ti ti-arrow-left" style={{fontSize:13}}/> Inventario
         </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xs font-mono" style={{color:'#4a6580'}}>{equipo.codigo_inventario}</span>
-            {esSimulado && (
-              <span className="text-xs px-2 py-0.5 rounded" style={{background:'#818cf820',color:'#818cf8',border:'1px solid #818cf830'}}>
-                Historial simulado
-              </span>
-            )}
-          </div>
-          <h1 className="text-xl font-bold" style={{color:'#e2e8f0'}}>{equipo.nombre}</h1>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:10,color:'#A1A1AA',marginBottom:2}}>{equipo.codigo_inventario} · {equipo.servicio||'Sin servicio'}</div>
+          <h1 style={{fontSize:17,fontWeight:500,color:'#18181B',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{equipo.nombre}</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{background:rc.bg,color:rc.text,border:`1px solid ${rc.border}`}}>
-            <div className="w-1.5 h-1.5 rounded-full" style={{background:rc.text}}/>
-            Riesgo {equipo.riesgo}
-          </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{background:'#1e2d3d',color:estadoColor[equipo.estado]||'#7a9bb5'}}>
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{background:estadoColor[equipo.estado]||'#7a9bb5'}}/>
-            {equipo.estado?.replace('_',' ')}
-          </div>
+        <div style={{display:'flex',gap:8,flexShrink:0}}>
+          <Badge label={`Riesgo ${equipo.riesgo||'N/D'}`} color={rColor} bg={rBg}/>
+          <Badge label={equipo.estado?.replace('_',' ')||'N/D'} color={eColor} bg={eBg}/>
+          {equipo.clase_invima&&<Badge label={`Clase ${equipo.clase_invima}`} color={AZ} bg={AZ_BG}/>}
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-8 py-3"
-        style={{borderBottom:'1px solid #1e2d3d',background:'#0a1120'}}>
-        {[
-          {id:'info',      label:'📋 Información'},
-          {id:'historial', label:'📅 Historial'},
-          {id:'costos',    label:'💰 Costos'},
-          {id:'prediccion',label:'🔮 Predicción'},
-          {id:'kpis',      label:'📊 KPIs'},
-        ].map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id as any)}
-            className="px-4 py-2 rounded-lg text-xs font-semibold transition-all"
-            style={{
-              background:tab===t.id?'#0d948820':'transparent',
-              color:tab===t.id?'#2dd4bf':'#3d5166',
-              border:tab===t.id?'1px solid #0d948840':'1px solid transparent',
-            }}>
-            {t.label}
+      <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'0 28px',display:'flex',gap:4}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'10px 14px',border:'none',borderBottom:tab===t.id?`2px solid ${AZ}`:'2px solid transparent',background:'transparent',cursor:'pointer',fontSize:12,fontWeight:tab===t.id?500:400,color:tab===t.id?AZ:GR,transition:'all 0.15s'}}>
+            <i className={'ti '+t.icon} style={{fontSize:13}}/>{t.label}
           </button>
         ))}
       </div>
 
-      <div className="flex-1 px-8 py-6 overflow-y-auto">
+      <div style={{flex:1,padding:'20px 28px',display:'flex',flexDirection:'column',gap:14,maxWidth:1100}}>
 
         {/* ── INFO ── */}
-        {tab==='info' && (
-          <div className="grid grid-cols-3 gap-5 max-w-5xl">
-            <div className="col-span-2 space-y-4">
-              <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                <div className="text-xs font-bold uppercase tracking-wider mb-4" style={{color:'#3d5166'}}>Datos del equipo</div>
-                <div className="grid grid-cols-2 gap-4">
+        {tab==='info'&&(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14}}>
+              <Card>
+                <div style={{fontSize:12,fontWeight:500,color:AZ,marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
+                  <i className="ti ti-clipboard-data" style={{fontSize:15}}/> Datos del equipo
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                   {[
-                    ['Nombre',equipo.nombre],['Tipo',equipo.tipo],
-                    ['Marca',equipo.marca||'—'],['Modelo',equipo.modelo||'—'],
-                    ['Serie',equipo.serie||'—'],['Código',equipo.codigo_inventario],
-                    ['Clase INVIMA',equipo.clase_invima||'—'],['Servicio',equipo.servicio||'—'],
-                    ['Ubicación',equipo.ubicacion||'—'],['Estado',equipo.estado?.replace('_',' ')||'—'],
+                    ['Nombre',equipo.nombre],
+                    ['Tipo',equipo.tipo],
+                    ['Marca',equipo.marca||'—'],
+                    ['Modelo',equipo.modelo||'—'],
+                    ['Serie',equipo.serie||'—'],
+                    ['Codigo inventario',equipo.codigo_inventario||'—'],
+                    ['Clase INVIMA',equipo.clase_invima||'—'],
+                    ['Clasificacion riesgo',equipo.riesgo||'—'],
+                    ['Servicio',equipo.servicio||'—'],
+                    ['Ubicacion',equipo.ubicacion||'—'],
+                    ['Estado',equipo.estado?.replace('_',' ')||'—'],
+                    ['Notas',equipo.notas||'—'],
                   ].map(([k,v])=>(
-                    <div key={k}>
-                      <div className="text-xs mb-0.5" style={{color:'#3d5166'}}>{k}</div>
-                      <div className="text-sm font-semibold" style={{color:'#e2e8f0'}}>{v}</div>
+                    <div key={k} style={{padding:'8px 0',borderBottom:'0.5px solid #F4F4F5'}}>
+                      <div style={{fontSize:10,color:'#A1A1AA',marginBottom:2}}>{k}</div>
+                      <div style={{fontSize:13,fontWeight:500,color:'#18181B'}}>{v}</div>
                     </div>
                   ))}
                 </div>
-              </div>
-              <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                <div className="text-xs font-bold uppercase tracking-wider mb-4" style={{color:'#3d5166'}}>Adquisición</div>
-                <div className="grid grid-cols-3 gap-4">
+              </Card>
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                <Card>
+                  <div style={{fontSize:12,fontWeight:500,color:AZ,marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                    <i className="ti ti-calendar" style={{fontSize:15}}/> Adquisicion
+                  </div>
                   {[
-                    ['Fecha de compra', equipo.anio_adquisicion ? `${equipo.anio_adquisicion}` : '—'],
-                    ['Año fabricación', equipo.anio_fabricacion||'—'],
-                    ['Vida útil estimada', equipo.vida_util_anos?`${equipo.vida_util_anos} años`:'—'],
+                    ['Año adquisicion',equipo.anio_adquisicion||'—'],
+                    ['Año fabricacion',equipo.anio_fabricacion||'—'],
+                    ['Vida util estimada',equipo.vida_util_anos?equipo.vida_util_anos+' años':vu+' años (std OMS)'],
+                    ['Garantia',equipo.garantia||'—'],
                   ].map(([k,v])=>(
-                    <div key={k}>
-                      <div className="text-xs mb-0.5" style={{color:'#3d5166'}}>{k}</div>
-                      <div className="text-sm font-semibold" style={{color:'#e2e8f0'}}>{v}</div>
+                    <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'0.5px solid #F4F4F5',fontSize:12}}>
+                      <span style={{color:'#A1A1AA'}}>{k}</span>
+                      <span style={{fontWeight:500,color:'#18181B'}}>{v}</span>
                     </div>
                   ))}
-                </div>
-                {equipo.valor_adquisicion && (
-                  <div className="mt-4 pt-4" style={{borderTop:'1px solid #1e2d3d'}}>
-                    <div className="text-xs mb-0.5" style={{color:'#3d5166'}}>Valor de adquisición</div>
-                    <div className="text-xl font-bold" style={{color:'#2dd4bf'}}>{fmtCOP(equipo.valor_adquisicion)}</div>
+                  {equipo.valor_adquisicion&&(
+                    <div style={{marginTop:10,padding:'10px',borderRadius:8,background:AZ_BG}}>
+                      <div style={{fontSize:10,color:GR,marginBottom:2}}>Valor de adquisicion</div>
+                      <div style={{fontSize:18,fontWeight:500,color:AZ}}>{fmtCOP(equipo.valor_adquisicion)}</div>
+                    </div>
+                  )}
+                </Card>
+                <Card>
+                  <div style={{fontSize:12,fontWeight:500,color:AZ,marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                    <i className="ti ti-clock-hour-4" style={{fontSize:15}}/> Vida util
                   </div>
-                )}
+                  {pctVida!==null?(
+                    <>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:6}}>
+                        <span style={{color:GR}}>{edad} años en uso de {vu}</span>
+                        <span style={{fontWeight:600,color:pctVida>=80?RO:pctVida>=60?NA:VE}}>{pctVida}%</span>
+                      </div>
+                      <div style={{height:8,background:'#F1F5F9',borderRadius:4,overflow:'hidden',marginBottom:8}}>
+                        <div style={{height:8,borderRadius:4,background:pctVida>=80?RO:pctVida>=60?NA:VE,width:`${pctVida}%`}}/>
+                      </div>
+                      <Badge label={pctVida>=80?'Critico — reemplazar':pctVida>=60?'En advertencia':'Vida util saludable'} color={pctVida>=80?RO:pctVida>=60?NA:VE} bg={pctVida>=80?RO_BG:pctVida>=60?NA_BG:VE_BG}/>
+                    </>
+                  ):(
+                    <div style={{padding:'10px',borderRadius:8,background:NA_BG,fontSize:11,color:NA}}>
+                      Ingresa el año de adquisicion para ver el porcentaje de vida util consumida
+                    </div>
+                  )}
+                </Card>
+                <Card>
+                  <div style={{fontSize:12,fontWeight:500,color:AZ,marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+                    <i className="ti ti-tool" style={{fontSize:15}}/> Resumen mantenimiento
+                  </div>
+                  {[
+                    ['Total intervenciones',mants.length],
+                    ['Preventivos',preventivos.length],
+                    ['Correctivos',correctivos.length],
+                    ['Calibraciones',calibraciones.length],
+                    ['Costo total',mants.length>0?fmt(costoTotal):'Sin datos'],
+                  ].map(([k,v])=>(
+                    <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'0.5px solid #F4F4F5',fontSize:12}}>
+                      <span style={{color:'#A1A1AA'}}>{k}</span>
+                      <span style={{fontWeight:500,color:'#18181B'}}>{v}</span>
+                    </div>
+                  ))}
+                </Card>
               </div>
             </div>
-            <div className="space-y-4">
-              {equipo.vida_util_anos && (
-                <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                  <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{color:'#3d5166'}}>Vida útil</div>
-                  <div className="flex justify-between text-xs mb-2">
-                    <span style={{color:'#7a9bb5'}}>{vidaUtil} años en uso</span>
-                    <span style={{color:pctVida>80?'#f87171':'#fcd34d'}}>{Math.round(pctVida)}%</span>
-                  </div>
-                  <div className="h-3 rounded-full mb-3" style={{background:'#1e2d3d'}}>
-                    <div className="h-3 rounded-full" style={{width:`${pctVida}%`,background:pctVida>80?'#ef4444':pctVida>50?'#f59e0b':'#10b981'}}/>
-                  </div>
-                  <div className="text-sm font-bold" style={{color:vidaRestante&&vidaRestante<2?'#f87171':'#4ade80'}}>
-                    {vidaRestante!==null?vidaRestante>0?`${vidaRestante} años restantes`:'Vida útil vencida':'—'}
-                  </div>
-                </div>
-              )}
-              <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{color:'#3d5166'}}>Resumen intervenciones</div>
-                {[
-                  {l:'Total',v:historialCompleto.length,c:'#e2e8f0'},
-                  {l:'Preventivos',v:preventivos,c:'#4ade80'},
-                  {l:'Correctivos',v:correctivos,c:'#f87171'},
-                  {l:'Calibraciones',v:calibraciones,c:'#fcd34d'},
-                ].map(s=>(
-                  <div key={s.l} className="flex justify-between items-center py-2" style={{borderBottom:'1px dashed #1e2d3d'}}>
-                    <span className="text-xs" style={{color:'#3d5166'}}>{s.l}</span>
-                    <span className="text-sm font-bold" style={{color:s.c}}>{s.v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          </>
         )}
 
         {/* ── HISTORIAL ── */}
-        {tab==='historial' && (
-          <div className="max-w-3xl">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-base font-bold" style={{color:'#e2e8f0'}}>Línea de tiempo de intervenciones</h2>
-                <p className="text-xs mt-0.5" style={{color:'#3d5166'}}>
-                  {historialCompleto.length} intervenciones · {anioInicio} — {anioActual}
-                  {esSimulado && <span style={{color:'#818cf8'}}> · Historial generado por IA</span>}
-                </p>
+        {tab==='historial'&&(
+          <>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{fontSize:13,fontWeight:500,color:'#18181B'}}>{mants.length} intervenciones registradas</div>
+              <div style={{display:'flex',gap:8}}>
+                {[
+                  {label:'Todos',val:'todos'},
+                  {label:'Preventivos',val:'preventivo'},
+                  {label:'Correctivos',val:'correctivo'},
+                  {label:'Calibraciones',val:'calibracion'},
+                ].map(f=>(
+                  <button key={f.val} style={{padding:'5px 12px',borderRadius:20,border:'0.5px solid #E4E4E7',background:'#fff',fontSize:11,cursor:'pointer',color:GR}}>{f.label}</button>
+                ))}
               </div>
             </div>
-            <div className="relative">
-              <div className="absolute left-5 top-0 bottom-0 w-0.5"
-                style={{background:'linear-gradient(to bottom,#0d9488,#1e2d3d)'}}/>
-              <div className="space-y-0">
-                {historialCompleto.map((m,i)=>{
-                  const tc = tipoColor[m.tipo]||tipoColor.preventivo
-                  const fecha = m.fecha_programada
-                    ? new Date(m.fecha_programada).toLocaleDateString('es-CO',{year:'numeric',month:'short',day:'numeric'})
-                    : '—'
-                  return (
-                    <div key={m.id||i} className="relative flex gap-5 pb-5">
-                      <div className="relative z-10 flex-shrink-0">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                          style={{background:m.estado==='completado'?'#0d9488':'#1e2d3d',border:`2px solid ${m.estado==='completado'?'#0d9488':'#253447'}`}}>
-                          {m.estado==='completado'
-                            ? <CheckCircle className="w-4 h-4 text-white"/>
-                            : <Clock className="w-4 h-4" style={{color:'#fcd34d'}}/>}
+            {mants.length===0?(
+              <Card style={{textAlign:'center',padding:'48px'}}>
+                <i className="ti ti-history" style={{fontSize:40,color:'#E4E4E7',display:'block',marginBottom:10}}/>
+                <div style={{fontSize:13,color:GR,marginBottom:4}}>Sin historial de mantenimiento</div>
+                <div style={{fontSize:11,color:'#A1A1AA'}}>Las intervenciones registradas apareceran aqui</div>
+              </Card>
+            ):(
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {mants.map((m,i)=>{
+                  const tc=m.tipo==='preventivo'?{c:VE,bg:VE_BG}:m.tipo==='correctivo'?{c:RO,bg:RO_BG}:{c:'#7C3AED',bg:'#EDE9FE'}
+                  return(
+                    <Card key={m.id||i} style={{padding:'14px 18px'}}>
+                      <div style={{display:'flex',alignItems:'flex-start',gap:14}}>
+                        <div style={{width:40,height:40,borderRadius:10,background:tc.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          <i className={`ti ${m.tipo==='preventivo'?'ti-shield-check':m.tipo==='correctivo'?'ti-alert-triangle':'ti-ruler-measure'}`} style={{fontSize:18,color:tc.c}}/>
                         </div>
-                      </div>
-                      <div className="flex-1 rounded-xl p-4" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-semibold px-2.5 py-1 rounded capitalize"
-                              style={{background:tc.bg,color:tc.text}}>{m.tipo}</span>
-                            <span className="text-xs" style={{color:'#3d5166'}}>{fecha}</span>
-                            {m.simulado && <span className="text-xs px-1.5 py-0.5 rounded" style={{background:'#818cf815',color:'#818cf8'}}>Simulado</span>}
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
+                            <Badge label={m.tipo} color={tc.c} bg={tc.bg}/>
+                            <Badge label={m.estado||'completado'} color={m.estado==='completado'?VE:NA} bg={m.estado==='completado'?VE_BG:NA_BG}/>
+                            <span style={{fontSize:11,color:'#A1A1AA'}}>
+                              {m.fecha_realizado?fmtFecha(m.fecha_realizado):m.fecha_programada?'Prog. '+fmtFecha(m.fecha_programada):'Sin fecha'}
+                            </span>
+                            {m.duracion_horas&&<span style={{fontSize:11,color:'#A1A1AA'}}><i className="ti ti-clock" style={{fontSize:11}}/> {m.duracion_horas}h</span>}
                           </div>
-                          <div className="flex items-center gap-3 text-xs">
-                            {m.duracion_horas && <span style={{color:'#3d5166'}}><Clock className="w-3 h-3 inline mr-0.5"/>{m.duracion_horas}h</span>}
-                            {m.costo_total && Number(m.costo_total)>0 && (
-                              <span className="font-bold" style={{color:'#2dd4bf'}}>{fmtCOP(Number(m.costo_total))}</span>
-                            )}
-                          </div>
+                          {m.descripcion&&<div style={{fontSize:12,color:'#52525B',marginBottom:4}}>{m.descripcion}</div>}
+                          {m.hallazgos&&(
+                            <div style={{padding:'6px 10px',borderRadius:6,background:NA_BG,border:`0.5px solid ${NA}30`,fontSize:11,color:'#92400E',marginBottom:4}}>
+                              <b>Hallazgo:</b> {m.hallazgos}
+                            </div>
+                          )}
+                          {m.repuesto_usado&&(
+                            <div style={{padding:'6px 10px',borderRadius:6,background:AZ_BG,border:`0.5px solid ${AZ}30`,fontSize:11,color:AZ}}>
+                              <i className="ti ti-package" style={{fontSize:11}}/> <b>Repuesto:</b> {m.repuesto_usado}
+                            </div>
+                          )}
                         </div>
-                        {m.descripcion && <p className="text-xs leading-relaxed mb-2" style={{color:'#7a9bb5'}}>{String(m.descripcion).replace(/&#x0D;/g,'').replace(/\n/g,' ').substring(0,150)}</p>}
-                        {m.hallazgos && <div className="text-xs px-2 py-1.5 rounded" style={{background:'#f59e0b10',color:'#fcd34d',border:'1px solid #f59e0b20'}}>⚠ {m.hallazgos}</div>}
+                        {m.costo_total&&+m.costo_total>0&&(
+                          <div style={{textAlign:'right',flexShrink:0}}>
+                            <div style={{fontSize:14,fontWeight:500,color:'#18181B'}}>{fmt(+m.costo_total)}</div>
+                            <div style={{fontSize:10,color:'#A1A1AA'}}>COP</div>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    </Card>
                   )
                 })}
-                {equipo.anio_adquisicion && (
-                  <div className="relative flex gap-5">
-                    <div className="relative z-10 flex-shrink-0">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{background:'#0d948820',border:'2px solid #0d9488'}}>
-                        <Calendar className="w-4 h-4" style={{color:'#2dd4bf'}}/>
-                      </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── KPIs ── */}
+        {tab==='kpis'&&(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+              <KpiCard label="Total intervenciones" val={mants.length} sub="Historial completo" color={AZ}/>
+              <KpiCard label="Ratio Prev/Corr" val={ratioPC} unit=":1" sub="Meta minimo 4:1" color={ratioPC==='N/D'?GR:+ratioPC>=4?VE:+ratioPC>=2?NA:RO}/>
+              <KpiCard label="MTTR promedio" val={mttr} unit="h" sub="Tiempo medio de reparacion" color={mttr==='N/D'?GR:+mttr<=4?VE:NA}/>
+              <KpiCard label="Tasa de hallazgos" val={mants.length>0?Math.round((conHallazgos/mants.length)*100):0} unit="%" sub={`${conHallazgos} de ${mants.length} OTs documentadas`} color={AZ}/>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+              <KpiCard label="Preventivos" val={preventivos.length} sub={`${mants.length>0?Math.round((preventivos.length/mants.length)*100):0}% del total`} color={VE}/>
+              <KpiCard label="Correctivos" val={correctivos.length} sub={`${mants.length>0?Math.round((correctivos.length/mants.length)*100):0}% del total`} color={correctivos.length>preventivos.length?RO:NA}/>
+              <KpiCard label="Calibraciones" val={calibraciones.length} sub={`${mants.length>0?Math.round((calibraciones.length/mants.length)*100):0}% del total`} color='#7C3AED'/>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <Card>
+                <div style={{fontSize:12,fontWeight:500,color:'#18181B',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                  <i className="ti ti-chart-bar" style={{fontSize:15,color:AZ}}/> Distribucion por tipo
+                </div>
+                {[
+                  {label:'Preventivo',val:preventivos.length,color:VE,bg:VE_BG},
+                  {label:'Correctivo',val:correctivos.length,color:RO,bg:RO_BG},
+                  {label:'Calibracion',val:calibraciones.length,color:'#7C3AED',bg:'#EDE9FE'},
+                ].map(item=>(
+                  <div key={item.label} style={{marginBottom:12}}>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:4}}>
+                      <span style={{color:GR}}>{item.label}</span>
+                      <span style={{fontWeight:500,color:'#18181B'}}>{item.val} ({mants.length>0?Math.round((item.val/mants.length)*100):0}%)</span>
                     </div>
-                    <div className="flex-1 rounded-xl p-4" style={{background:'#0d1626',border:'1px solid #0d948830'}}>
-                      <div className="text-xs font-bold mb-1" style={{color:'#2dd4bf'}}>Adquisición del equipo</div>
-                      <p className="text-xs" style={{color:'#3d5166'}}>
-                        {equipo.nombre} — {equipo.marca} {equipo.modelo}
-                        {equipo.valor_adquisicion && ` · ${fmtCOP(Number(equipo.valor_adquisicion))}`}
-                      </p>
+                    <div style={{height:7,background:'#F4F4F5',borderRadius:4,overflow:'hidden'}}>
+                      <div style={{height:7,borderRadius:4,background:item.color,width:`${mants.length>0?Math.round((item.val/mants.length)*100):0}%`}}/>
                     </div>
                   </div>
-                )}
-              </div>
+                ))}
+              </Card>
+              <Card>
+                <div style={{fontSize:12,fontWeight:500,color:'#18181B',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+                  <i className="ti ti-stethoscope" style={{fontSize:15,color:AZ}}/> Diagnostico del equipo
+                </div>
+                {[
+                  {
+                    check: mants.length>=2,
+                    ok: preventivos.length>=correctivos.length,
+                    label: 'Balance PM vs correctivos',
+                    desc: preventivos.length>=correctivos.length?'El programa preventivo supera los correctivos':'Los correctivos superan a los preventivos',
+                  },
+                  {
+                    check: true,
+                    ok: correctivos.length===0,
+                    label: 'Historial correctivos',
+                    desc: correctivos.length===0?'Sin intervenciones correctivas registradas':`${correctivos.length} intervenciones correctivas`,
+                  },
+                  {
+                    check: equipo.valor_adquisicion!=null,
+                    ok: equipo.valor_adquisicion!=null,
+                    label: 'Valor adquisicion registrado',
+                    desc: equipo.valor_adquisicion?fmtCOP(equipo.valor_adquisicion):'Registra el valor para calcular CMR',
+                  },
+                  {
+                    check: true,
+                    ok: pctVida===null||pctVida<60,
+                    label: 'Estado de vida util',
+                    desc: pctVida===null?'Ingresa año de adquisicion':pctVida>=80?'Vida util critica — evaluar reemplazo':pctVida>=60?'En advertencia — planificar reemplazo':'Vida util saludable',
+                  },
+                ].map((item,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'8px 10px',borderRadius:8,background:item.ok?VE_BG:RO_BG,marginBottom:8,border:`0.5px solid ${item.ok?VE:RO}30`}}>
+                    <i className={`ti ${item.ok?'ti-check':'ti-alert-triangle'}`} style={{fontSize:14,color:item.ok?VE:RO,flexShrink:0,marginTop:1}}/>
+                    <div>
+                      <div style={{fontSize:11,fontWeight:500,color:'#18181B',marginBottom:1}}>{item.label}</div>
+                      <div style={{fontSize:11,color:GR}}>{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </Card>
             </div>
-          </div>
+          </>
         )}
 
         {/* ── COSTOS ── */}
-        {tab==='costos' && (
-          <div className="max-w-4xl space-y-5">
-            {/* KPIs costo */}
-            <div className="grid grid-cols-4 gap-4">
-              {[
-                {l:'Costo total histórico', v:fmtCOP(costoTotal), c:'#2dd4bf'},
-                {l:'Promedio anual', v:fmtCOP(costoPromAnual), c:'#818cf8'},
-                {l:'Costo preventivos', v:fmtCOP(historialCompleto.filter(m=>m.tipo==='preventivo').reduce((a:number,m:any)=>a+Number(m.costo_total||0),0)), c:'#4ade80'},
-                {l:'Costo correctivos', v:fmtCOP(historialCompleto.filter(m=>m.tipo==='correctivo').reduce((a:number,m:any)=>a+Number(m.costo_total||0),0)), c:'#f87171'},
-              ].map(k=>(
-                <div key={k.l} className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                  <div className="text-base font-bold mb-1" style={{color:k.c}}>{k.v}</div>
-                  <div className="text-xs" style={{color:'#3d5166'}}>{k.l}</div>
+        {tab==='costos'&&(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+              <KpiCard label="Costo total historico" val={mants.length>0?fmt(costoTotal):'Sin datos'} sub="Suma de todas las intervenciones" color={AZ}/>
+              <KpiCard label="Costo preventivos" val={preventivos.length>0?fmt(costoPrev):'Sin datos'} sub={`${costoTotal>0?Math.round((costoPrev/costoTotal)*100):0}% del total`} color={VE}/>
+              <KpiCard label="Costo correctivos" val={correctivos.length>0?fmt(costoCorr):'Sin datos'} sub={`${costoTotal>0?Math.round((costoCorr/costoTotal)*100):0}% del total — meta <30%`} color={costoTotal>0&&costoCorr/costoTotal>0.3?RO:NA}/>
+              <KpiCard label="CMR" val={equipo.valor_adquisicion&&costoTotal>0?((costoTotal/equipo.valor_adquisicion)*100).toFixed(1)+'%':'N/D'} sub="Costo mant / valor adquisicion" color={equipo.valor_adquisicion&&costoTotal>0?((costoTotal/equipo.valor_adquisicion)*100)<5?VE:((costoTotal/equipo.valor_adquisicion)*100)<10?NA:RO:GR}/>
+            </div>
+            <Card>
+              <div style={{fontSize:12,fontWeight:500,color:'#18181B',marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                <i className="ti ti-receipt" style={{fontSize:15,color:AZ}}/> Detalle de costos por intervencion
+              </div>
+              <div style={{fontSize:11,color:'#A1A1AA',marginBottom:14}}>Ordenado por fecha — mas reciente primero</div>
+              {mants.filter(m=>m.costo_total&&+m.costo_total>0).length===0?(
+                <div style={{textAlign:'center',padding:'32px',color:'#A1A1AA'}}>
+                  <i className="ti ti-currency-dollar" style={{fontSize:32,display:'block',marginBottom:8,opacity:0.3}}/>
+                  <div style={{fontSize:12}}>Sin costos registrados en las OTs</div>
                 </div>
-              ))}
-            </div>
-
-            {/* Gráfica costos por año */}
-            <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="text-sm font-bold mb-1" style={{color:'#e2e8f0'}}>Costos de Mantenimiento por Año — COP</div>
-              <div className="text-xs mb-4" style={{color:'#3d5166'}}>
-                Histórico {anioInicio}–{anioActual} · Total acumulado: {fmtCOP(costoTotal)}
-              </div>
-              <BarChartCOP data={costosPorAnio} labels={anios.map(String)} color="#2dd4bf" height={150}/>
-            </div>
-
-            {/* Proyección costos */}
-            <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="text-sm font-bold mb-1" style={{color:'#e2e8f0'}}>Proyección de Costos 2026–2028 — COP</div>
-              <div className="text-xs mb-4" style={{color:'#3d5166'}}>
-                Estimación basada en tendencia histórica · Incluye +10/18/28% por inflación y envejecimiento
-              </div>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {proyAnios.map((a,i)=>(
-                  <div key={a} className="rounded-xl p-4 text-center" style={{background:'#111827',border:'1px solid #1e2d3d'}}>
-                    <div className="text-xs mb-1" style={{color:'#3d5166'}}>{a}</div>
-                    <div className="text-lg font-bold" style={{color:'#818cf8'}}>{fmt(proyecciones[i])}</div>
-                    <div className="text-xs mt-0.5" style={{color:'#3d5166'}}>{fmtCOP(proyecciones[i])}</div>
-                    <div className="text-xs mt-1" style={{color:i===0?'#fcd34d':i===1?'#fb923c':'#f87171'}}>
-                      +{[10,18,28][i]}% vs actual
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <BarChartCOP
-                data={[...costosPorAnio.slice(-3), ...proyecciones]}
-                labels={[...anios.slice(-3).map(String), ...proyAnios.map(String)]}
-                color="#818cf8" height={120}/>
-              <div className="mt-3 flex items-center gap-2 text-xs" style={{color:'#3d5166'}}>
-                <div className="w-3 h-3 rounded-sm" style={{background:'#818cf8'}}/>
-                <span>Barras pálidas = proyección · Barras sólidas = histórico</span>
-              </div>
-            </div>
-
-            {/* Desglose por tipo */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                <div className="text-sm font-bold mb-4" style={{color:'#e2e8f0'}}>Correctivos por Año</div>
-                <BarChartCOP data={corrPorAnio} labels={anios.map(String)} color="#f87171" height={110}/>
-              </div>
-              <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                <div className="text-sm font-bold mb-4" style={{color:'#e2e8f0'}}>Preventivos por Año</div>
-                <BarChartCOP data={prevPorAnio} labels={anios.map(String)} color="#4ade80" height={110}/>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── PREDICCIÓN ── */}
-        {tab==='prediccion' && (
-          <div className="max-w-4xl space-y-5">
-            {/* Score */}
-            <div className="rounded-xl p-5" style={{background:'#0d1626',border:`1px solid ${alertaColors[alertaNivel]}30`}}>
-              <div className="flex items-center gap-6">
-                <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-3xl font-black flex-shrink-0"
-                  style={{background:`${alertaColors[alertaNivel]}15`,border:`2px solid ${alertaColors[alertaNivel]}`,color:alertaColors[alertaNivel]}}>
-                  {score}
-                </div>
-                <div className="flex-1">
-                  <div className="text-lg font-black mb-1" style={{color:alertaColors[alertaNivel]}}>
-                    Riesgo {alertaLabel[alertaNivel]}
-                  </div>
-                  <div className="text-xs mb-3" style={{color:'#3d5166'}}>Score de riesgo de falla · 0 = mínimo · 100 = crítico</div>
-                  <div className="space-y-1.5">
-                    {[
-                      {l:'Vida útil consumida',v:Math.round(pctVida*0.35),max:35,c:pctVida>=80?'#f87171':'#4ade80'},
-                      {l:'Ratio correctivos',v:Math.round(correctivos/Math.max(historialCompleto.length,1)*100*0.35),max:35,c:correctivos>3?'#f87171':'#4ade80'},
-                      {l:'Clase de riesgo INVIMA',v:equipo.riesgo==='alto'?30:equipo.riesgo==='medio'?15:5,max:30,c:equipo.riesgo==='alto'?'#f87171':'#fcd34d'},
-                    ].map(f=>(
-                      <div key={f.l} className="flex items-center gap-3">
-                        <div className="text-xs w-44" style={{color:'#3d5166'}}>{f.l}</div>
-                        <div className="flex-1 h-2 rounded-full" style={{background:'#1e2d3d'}}>
-                          <div className="h-2 rounded-full" style={{width:`${(f.v/f.max)*100}%`,background:f.c}}/>
-                        </div>
-                        <div className="text-xs font-mono w-8 text-right" style={{color:f.c}}>{f.v}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-xs mb-1" style={{color:'#3d5166'}}>Prob. falla 90 días</div>
-                  <div className="text-3xl font-black" style={{color:alertaColors[alertaNivel]}}>{Math.min(Math.round(score*0.85),95)}%</div>
-                  <div className="text-xs mt-1" style={{color:'#3d5166'}}>
-                    Falla est.: {new Date(Date.now()+Math.max(30,Math.round((100-score)*2.5))*86400000).toLocaleDateString('es-CO',{month:'short',day:'numeric',year:'numeric'})}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Vida útil visual */}
-            <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="text-sm font-bold mb-3" style={{color:'#e2e8f0'}}>Vida útil consumida vs restante</div>
-              <div className="flex justify-between text-xs mb-2">
-                <span style={{color:'#3d5166'}}>{vidaUtil} años en servicio</span>
-                <span style={{color:pctVida>=80?'#f87171':'#4ade80'}}>{Math.round(pctVida)}% consumido</span>
-              </div>
-              <div className="h-6 rounded-xl overflow-hidden" style={{background:'#1e2d3d'}}>
-                <div className="h-6 rounded-xl flex items-center px-3 transition-all"
-                  style={{
-                    width:`${pctVida}%`,
-                    background:pctVida>=80?'linear-gradient(90deg,#f59e0b,#ef4444)':pctVida>=60?'linear-gradient(90deg,#fcd34d,#f59e0b)':'linear-gradient(90deg,#10b981,#4ade80)',
-                    minWidth:'40px'
-                  }}>
-                  <span className="text-white text-xs font-bold">{vidaUtil}a usados</span>
-                </div>
-              </div>
-              <div className="flex justify-between text-xs mt-1.5">
-                <span style={{color:'#3d5166'}}>Adquisición: {equipo.anio_adquisicion||'—'}</span>
-                <span style={{color:vidaRestante!==null&&vidaRestante<=2?'#f87171':'#3d5166'}}>
-                  {vidaRestante!==null?vidaRestante>0?`Quedan ${vidaRestante} años`:'⚠ Vida útil vencida':'—'}
-                </span>
-                <span style={{color:'#3d5166'}}>Fin: {equipo.anio_adquisicion&&equipo.vida_util_anos?equipo.anio_adquisicion+equipo.vida_util_anos:'—'}</span>
-              </div>
-            </div>
-
-            {/* Tendencia correctivos + proyección */}
-            <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="text-sm font-bold mb-1" style={{color:'#e2e8f0'}}>Tendencia de Fallas — Histórico vs Proyección</div>
-              <div className="text-xs mb-4" style={{color:'#3d5166'}}>
-                Correctivos por año · Proyección 2026–2028 sin plan preventivo
-              </div>
-              <BarChartCOP
-                data={[...corrPorAnio, ...proyAnios.map((_,i)=>Math.round((corrPorAnio.slice(-1)[0]||0)*([1.2,1.4,1.6][i])))] }
-                labels={[...anios.map(String),...proyAnios.map(String)]}
-                color="#f87171" height={130}/>
-              <div className="mt-3 grid grid-cols-3 gap-3">
-                {proyAnios.map((a,i)=>(
-                  <div key={a} className="rounded-lg p-3 text-center" style={{background:'#111827'}}>
-                    <div className="text-xs mb-0.5" style={{color:'#3d5166'}}>Correctivos est. {a}</div>
-                    <div className="text-lg font-bold" style={{color:'#f87171'}}>
-                      {Math.round((corrPorAnio.slice(-1)[0]||0)*([1.2,1.4,1.6][i]))}
-                    </div>
-                    <div className="text-xs" style={{color:'#3d5166'}}>fallas estimadas</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recomendación */}
-            <div className="rounded-xl p-5" style={{
-              background:`${alertaColors[alertaNivel]}10`,
-              border:`1px solid ${alertaColors[alertaNivel]}30`
-            }}>
-              <div className="text-sm font-bold mb-2" style={{color:alertaColors[alertaNivel]}}>
-                💡 Recomendación técnica
-              </div>
-              <p className="text-sm leading-relaxed" style={{color:'#7a9bb5'}}>
-                {alertaNivel==='critico'
-                  ? `Este equipo presenta riesgo crítico de falla. Se recomienda intervención técnica inmediata, revisión completa de componentes y evaluación para reemplazo. Costo estimado de no intervenir: ${fmtCOP(proyecciones[0])}/año en correctivos.`
-                  : alertaNivel==='alto'
-                  ? `El equipo muestra indicadores de deterioro acelerado. Programar mantenimiento preventivo completo en los próximos 30 días y asegurar disponibilidad de repuestos críticos.`
-                  : alertaNivel==='medio'
-                  ? `Mantener el plan de mantenimiento preventivo actual. Monitorear mensualmente los indicadores de funcionamiento y documentar cualquier anomalía.`
-                  : `El equipo se encuentra en buen estado predictivo. Continuar con el cronograma de mantenimiento preventivo establecido para mantener este nivel de desempeño.`
-                }
-              </p>
-              {equipo.vida_util_anos && vidaRestante!==null && vidaRestante<=3 && (
-                <div className="mt-3 px-3 py-2 rounded-lg text-xs" style={{background:'#ef444415',color:'#fca5a5',border:'1px solid #ef444430'}}>
-                  ⚠ Considerar presupuesto para reemplazo: el equipo vence su vida útil en {vidaRestante<=0?'este año':`${vidaRestante} año(s)`}.
-                  Valor estimado de reemplazo: {equipo.valor_adquisicion?fmtCOP(Number(equipo.valor_adquisicion)*1.4):'consultar con proveedor'}.
-                </div>
+              ):(
+                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{background:'#F8F9FA'}}>
+                      {['Fecha','Tipo','Descripcion','Costo MO','Costo Repuestos','Total'].map(h=>(
+                        <th key={h} style={{padding:'8px 12px',fontSize:10,fontWeight:500,color:GR,textAlign:'left',borderBottom:'0.5px solid #E4E4E7'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mants.filter(m=>m.costo_total&&+m.costo_total>0).map((m,i)=>{
+                      const tc=m.tipo==='preventivo'?{c:VE,bg:VE_BG}:m.tipo==='correctivo'?{c:RO,bg:RO_BG}:{c:'#7C3AED',bg:'#EDE9FE'}
+                      return(
+                        <tr key={m.id||i} style={{borderBottom:'0.5px solid #F4F4F5',background:i%2===0?'#fff':'#FAFAFA'}}>
+                          <td style={{padding:'9px 12px',fontSize:11,color:GR,whiteSpace:'nowrap'}}>{fmtFecha(m.fecha_realizado||m.fecha_programada)}</td>
+                          <td style={{padding:'9px 12px'}}><Badge label={m.tipo} color={tc.c} bg={tc.bg}/></td>
+                          <td style={{padding:'9px 12px',fontSize:11,color:'#52525B',maxWidth:200}}>
+                            <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.descripcion||'—'}</div>
+                          </td>
+                          <td style={{padding:'9px 12px',fontSize:11,color:GR}}>{m.costo_mano_obra?fmt(+m.costo_mano_obra):'—'}</td>
+                          <td style={{padding:'9px 12px',fontSize:11,color:GR}}>{m.costo_repuestos?fmt(+m.costo_repuestos):'—'}</td>
+                          <td style={{padding:'9px 12px',fontSize:12,fontWeight:500,color:'#18181B'}}>{fmt(+m.costo_total)}</td>
+                        </tr>
+                      )
+                    })}
+                    <tr style={{background:AZ_BG}}>
+                      <td colSpan={5} style={{padding:'9px 12px',fontSize:12,fontWeight:500,color:AZ}}>Total acumulado</td>
+                      <td style={{padding:'9px 12px',fontSize:13,fontWeight:600,color:AZ}}>{fmt(costoTotal)}</td>
+                    </tr>
+                  </tbody>
+                </table>
               )}
-            </div>
-          </div>
+            </Card>
+            {equipo.valor_adquisicion&&costoTotal>0&&(
+              <Card style={{background:costoTotal/equipo.valor_adquisicion<0.05?VE_BG:costoTotal/equipo.valor_adquisicion<0.1?NA_BG:RO_BG,border:`0.5px solid ${costoTotal/equipo.valor_adquisicion<0.05?VE:costoTotal/equipo.valor_adquisicion<0.1?NA:RO}40`}}>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <i className={`ti ${costoTotal/equipo.valor_adquisicion<0.1?'ti-check':'ti-alert-triangle'}`} style={{fontSize:20,color:costoTotal/equipo.valor_adquisicion<0.05?VE:costoTotal/equipo.valor_adquisicion<0.1?NA:RO}}/>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:500,color:'#18181B',marginBottom:2}}>
+                      CMR: {((costoTotal/equipo.valor_adquisicion)*100).toFixed(1)}% — {costoTotal/equipo.valor_adquisicion<0.05?'Equipo rentable':costoTotal/equipo.valor_adquisicion<0.1?'Monitorear costos':'Evaluar reemplazo'}
+                    </div>
+                    <div style={{fontSize:11,color:GR}}>
+                      Costo acumulado {fmtCOP(costoTotal)} sobre valor de adquisicion {fmtCOP(equipo.valor_adquisicion)}. {costoTotal/equipo.valor_adquisicion>=0.1?'Un CMR mayor al 10% indica que puede ser mas economico reemplazar el equipo.':'El costo de mantenimiento esta dentro del rango aceptable.'}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </>
         )}
 
-        {/* ── KPIS ── */}
-        {tab==='kpis' && (
-          <div className="max-w-3xl">
-            <div className="grid grid-cols-3 gap-4 mb-5">
-              {[
-                {l:'Disponibilidad',v:equipo.estado==='operativo'?'Operativo':'No disponible',c:equipo.estado==='operativo'?'#4ade80':'#f87171',sub:'Estado actual'},
-                {l:'Total intervenciones',v:historialCompleto.length,c:'#2dd4bf',sub:'Historial completo'},
-                {l:'Ratio Prev/Corr',v:correctivos>0?(preventivos/correctivos).toFixed(1):'N/D',c:correctivos>0&&(preventivos/correctivos)>=0.8?'#4ade80':'#f59e0b',sub:'Meta ≥ 0.80'},
-                {l:'MTTR promedio',v:`${mttr}h`,c:'#818cf8',sub:'Tiempo medio reparación'},
-                {l:'Años en servicio',v:vidaUtil!==null?`${vidaUtil} años`:'—',c:'#fb923c',sub:`De ${equipo.vida_util_anos||'?'} años útiles`},
-                {l:'Costo total COP',v:fmt(costoTotal),c:'#fcd34d',sub:fmtCOP(costoTotal)},
-              ].map(k=>(
-                <div key={k.l} className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-                  <div className="text-2xl font-bold mb-1" style={{color:k.c}}>{k.v}</div>
-                  <div className="text-xs font-bold mb-0.5" style={{color:'#7a9bb5'}}>{k.l}</div>
-                  <div className="text-xs" style={{color:'#3d5166'}}>{k.sub}</div>
-                </div>
-              ))}
-            </div>
-            <div className="rounded-xl p-5" style={{background:'#0d1626',border:'1px solid #1e2d3d'}}>
-              <div className="text-sm font-bold mb-4" style={{color:'#e2e8f0'}}>Evolución de costos — COP</div>
-              <LineChart data={costosPorAnio} labels={anios.map(String)} color="#2dd4bf" height={120}/>
-              <div className="flex justify-between text-xs mt-2" style={{color:'#3d5166'}}>
-                {anios.map(a=><span key={a}>{a}</span>)}
+        {/* ── DOCUMENTOS ── */}
+        {tab==='documentos'&&(
+          <>
+            <Card>
+              <div style={{fontSize:12,fontWeight:500,color:'#18181B',marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                <i className="ti ti-files" style={{fontSize:15,color:AZ}}/> Generar documentos del equipo
               </div>
-            </div>
-          </div>
+              <div style={{fontSize:11,color:'#A1A1AA',marginBottom:16}}>Genera los documentos oficiales de este equipo con un clic. Los PDFs incluyen todos los datos registrados.</div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+                {[
+                  {tipo:'ficha',      label:'Ficha tecnica',                 icon:'ti-clipboard-data',   desc:'Especificaciones tecnicas'},
+                  {tipo:'hoja',       label:'Hoja de vida',                  icon:'ti-file-description', desc:'Historial completo'},
+                  {tipo:'cronograma', label:'Cronograma de mantenimiento',   icon:'ti-calendar-stats',   desc:'Programacion anual'},
+                  {tipo:'protocolo',  label:'Protocolo de mantenimiento',    icon:'ti-list-check',        desc:'Procedimiento paso a paso'},
+                  {tipo:'preinstalacion',label:'Requisitos pre-instalacion', icon:'ti-tool',              desc:'Condiciones de instalacion'},
+                ].map(doc=>(
+                  <button key={doc.tipo} onClick={async()=>{
+                    const r=await fetch('/api/documentos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tipo:doc.tipo,nombre:equipo.nombre,marca:equipo.marca||'N/D',modelo:equipo.modelo||'N/D',referencia:equipo.codigo_inventario||'N/D',serial:equipo.serie||'N/D',servicio:equipo.servicio||'N/D'})})
+                    const d=await r.json()
+                    if(d.url){const a=document.createElement('a');a.href=d.url;a.download=d.nombre;a.click()}
+                  }}
+                  style={{display:'flex',flexDirection:'column',alignItems:'flex-start',gap:8,padding:'14px',borderRadius:10,border:'0.5px solid #E4E4E7',background:'#fff',cursor:'pointer',textAlign:'left',transition:'all 0.15s'}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=AZ;e.currentTarget.style.background=AZ_BG}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor='#E4E4E7';e.currentTarget.style.background='#fff'}}>
+                    <div style={{width:36,height:36,borderRadius:8,background:AZ_BG,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <i className={'ti '+doc.icon} style={{fontSize:18,color:AZ}}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:500,color:'#18181B',marginBottom:2}}>{doc.label}</div>
+                      <div style={{fontSize:10,color:'#A1A1AA'}}>{doc.desc}</div>
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:AZ,marginTop:'auto'}}>
+                      <i className="ti ti-file-type-pdf" style={{fontSize:12}}/> Generar PDF
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Card>
+            <Card>
+              <div style={{fontSize:12,fontWeight:500,color:'#18181B',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
+                <i className="ti ti-upload" style={{fontSize:15,color:AZ}}/> Documentos cargados
+              </div>
+              <div style={{textAlign:'center',padding:'32px',color:'#A1A1AA',border:'1.5px dashed #E4E4E7',borderRadius:10}}>
+                <i className="ti ti-cloud-upload" style={{fontSize:36,display:'block',marginBottom:8,opacity:0.3}}/>
+                <div style={{fontSize:12,marginBottom:4}}>Arrastra archivos aqui o haz clic para cargar</div>
+                <div style={{fontSize:11}}>Manual del fabricante, registro INVIMA, declaracion de importacion</div>
+              </div>
+            </Card>
+          </>
         )}
 
       </div>
