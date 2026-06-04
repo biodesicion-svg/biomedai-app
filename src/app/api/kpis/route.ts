@@ -201,12 +201,37 @@ export async function GET() {
     const conHallazgos  = mn.filter(m=>m.hallazgos&&m.hallazgos.trim()!=='').length
     const tasaHallazgos = completados>0?+((conHallazgos/completados)*100).toFixed(1):0
 
+    // Mantenimientos por servicio (prev vs corr)
+    const svcMantMap: Record<string,{prev:number,corr:number}> = {}
+    mn.forEach(m => {
+      const eqD = eq.find(e => e.id === m.equipo_id)
+      const s = eqD?.servicio || 'Sin servicio'
+      if (!svcMantMap[s]) svcMantMap[s] = {prev:0,corr:0}
+      if (m.tipo==='preventivo') svcMantMap[s].prev++
+      if (m.tipo==='correctivo') svcMantMap[s].corr++
+    })
+    const mantPorServicio = Object.entries(svcMantMap)
+      .map(([label,v]) => ({label, prev:v.prev, corr:v.corr, total:v.prev+v.corr}))
+      .sort((a,b) => b.total-a.total).slice(0,8)
+
+    // Top tipos equipo con mas correctivos
+    const tipoCorr: Record<string,number> = {}
+    mn.filter(m=>m.tipo==='correctivo').forEach(m => {
+      const eqD = eq.find(e => e.id === m.equipo_id)
+      const t = eqD?.tipo || 'Sin tipo'
+      if (!tipoCorr[t]) tipoCorr[t] = 0
+      tipoCorr[t]++
+    })
+    const topCorrectivos = Object.entries(tipoCorr)
+      .map(([tipo,corr]) => ({tipo,corr}))
+      .sort((a,b) => b.corr-a.corr).slice(0,8)
+
     return NextResponse.json({
       total,operativos,enMant,fuera,baja,disponibilidad,
       altoRiesgo,medioRiesgo,bajoRiesgo,claseI,claseIIa,claseIIb,claseIII,
       totalMant,preventivos,correctivos,calibraciones,completados,pendientes,vencidos,
       mtbf,mttr,cumplimientoPM,pmRequeridos,pmEjecutados,ratioPrevCorr,
-      conHallazgos,tasaHallazgos,
+      conHallazgos,tasaHallazgos,mantPorServicio,topCorrectivos,
       // Costos
       costoTotal,costoMO,costoRep,costoPrev,costoCorr,costoCal,costoProm,
       valorParque,cmr,pctCostoPrev,pctCostoCorr,pctCostoCal,pctCostoMO,pctCostoRep,

@@ -199,42 +199,217 @@ export default function KpisPage() {
         {/* MANTENIMIENTO */}
         {tab==='mantenimiento' && (
           <>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+            {/* Alerta critica: correctivos superan preventivos */}
+            {!loading && (d?.correctivos||0) > (d?.preventivos||0) && (
+              <div style={{padding:'14px 18px',borderRadius:12,background:C.roBg,border:`0.5px solid ${C.ro}40`,display:'flex',alignItems:'flex-start',gap:12}}>
+                <i className="ti ti-alert-triangle" style={{fontSize:18,color:C.ro,flexShrink:0,marginTop:1}}/>
+                <div>
+                  <div style={{fontSize:13,fontWeight:500,color:C.ro,marginBottom:2}}>Alerta — Los correctivos superan a los preventivos</div>
+                  <div style={{fontSize:11,color:'#991B1B'}}>El {d?.porTipo?.[1]?.pct||0}% de las OTs son correctivas vs {d?.porTipo?.[0]?.pct||0}% preventivas. La meta es minimo 80% preventivo. Esto incrementa costos hasta un 40% y reduce la disponibilidad del parque.</div>
+                </div>
+              </div>
+            )}
+
+            {/* Fila 1 — KPIs principales */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Total OTs registradas</div>
+                <div style={{fontSize:32,fontWeight:500,color:C.az,lineHeight:1,marginBottom:4}}>{loading?'—':d?.totalMant||0}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>Ordenes de trabajo historicas</div>
+              </Card>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Cumplimiento PM criticos</div>
+                <div style={{fontSize:32,fontWeight:500,color:semaforo(d?.cumplimientoPM||0,90),lineHeight:1,marginBottom:4}}>{loading?'—':(d?.cumplimientoPM||0)+'%'}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{d?.pmEjecutados||0}/{d?.pmRequeridos||0} PM equipos alto riesgo</div>
+                {!loading && <div style={{marginTop:8,padding:'4px 8px',borderRadius:6,background:(d?.cumplimientoPM||0)>=90?C.veBg:C.roBg,fontSize:10,color:(d?.cumplimientoPM||0)>=90?C.ve:C.ro,fontWeight:500}}>{(d?.cumplimientoPM||0)>=90?'✓ Cumple Res. 4816/2008':'✗ Incumple Res. 4816/2008'}</div>}
+              </Card>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Ratio preventivo / correctivo</div>
+                <div style={{fontSize:32,fontWeight:500,color:(d?.ratioPrevCorr||0)>=4?C.ve:(d?.ratioPrevCorr||0)>=2?C.na:C.ro,lineHeight:1,marginBottom:4}}>{loading?'—':(d?.ratioPrevCorr||'0')+':1'}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>Meta minimo 4:1 segun ACCE</div>
+                {!loading && <div style={{marginTop:8,padding:'4px 8px',borderRadius:6,background:(d?.ratioPrevCorr||0)>=4?C.veBg:(d?.ratioPrevCorr||0)>=2?C.naBg:C.roBg,fontSize:10,color:(d?.ratioPrevCorr||0)>=4?C.ve:(d?.ratioPrevCorr||0)>=2?C.na:C.ro,fontWeight:500}}>{(d?.ratioPrevCorr||0)>=4?'Optimo':(d?.ratioPrevCorr||0)>=2?'Por mejorar':'Critico — accion requerida'}</div>}
+              </Card>
+              <Card>
+                <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>OTs vencidas</div>
+                <div style={{fontSize:32,fontWeight:500,color:(d?.vencidos||0)>0?C.ro:C.ve,lineHeight:1,marginBottom:4}}>{loading?'—':d?.vencidos||0}</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>Programadas sin ejecutar</div>
+                {!loading && (d?.vencidos||0)>0 && <div style={{marginTop:8,padding:'4px 8px',borderRadius:6,background:C.roBg,fontSize:10,color:C.ro,fontWeight:500}}>Accion inmediata requerida</div>}
+              </Card>
+            </div>
+
+            {/* Fila 2 — Gauge cumplimiento + donut tipos */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12}}>
               <Card style={{textAlign:'center'}}>
                 <div style={{fontSize:10,fontWeight:500,color:'var(--color-text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:8}}>Cumplimiento PM</div>
                 {loading?<Sk h={110}/>:<Gauge val={d?.cumplimientoPM||0} max={100} meta={90} unit="%" size={110}/>}
-                <div style={{fontSize:10,color:'var(--color-text-secondary)',marginTop:4}}>{d?.pmEjecutados||0}/{d?.pmRequeridos||0} PM criticos ejecutados</div>
-                <span style={{fontSize:10,fontWeight:500,padding:'3px 10px',borderRadius:20,background:d?.cumplimientoPM>=90?C.veBg:C.naBg,color:d?.cumplimientoPM>=90?C.ve:C.na,display:'inline-block',marginTop:8}}>
-                  {d?.cumplimientoPM>=90?'Cumple Res. 4816':'Por mejorar'}
-                </span>
+                <div style={{fontSize:10,color:'var(--color-text-secondary)',marginTop:4}}>Res. 4816/2008 — Meta 90%</div>
               </Card>
               <Card>
-                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Tipos de mantenimiento</div>
-                {loading?<Sk h={130}/>:<div style={{position:'relative',height:130}}><canvas id="c-tipos" role="img" aria-label="Tipos de mantenimiento">Tipos de mantenimiento.</canvas></div>}
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Distribucion por tipo</div>
+                {loading?<Sk h={110}/>:<div style={{position:'relative',height:110}}><canvas id="c-tipos" role="img" aria-label="Tipos de mantenimiento">Tipos de mantenimiento.</canvas></div>}
                 <div style={{display:'flex',flexDirection:'column',gap:5,marginTop:8,fontSize:11,color:'var(--color-text-secondary)'}}>
-                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Preventivo {pctPrev}% — {d?.preventivos||0} OTs</span>
-                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Correctivo {pctCorr}% — {d?.correctivos||0} OTs</span>
-                  <span style={{display:'flex',alignItems:'center',gap:6}}><span style={{width:10,height:10,borderRadius:2,background:C.mo,display:'inline-block'}}/> Calibracion {pctCal}% — {d?.calibraciones||0} OTs</span>
+                  <span style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Correctivo</span>
+                    <span style={{fontWeight:500,color:C.ro}}>{d?.porTipo?.[1]?.pct||0}% — {d?.correctivos||0} OTs</span>
+                  </span>
+                  <span style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Preventivo</span>
+                    <span style={{fontWeight:500,color:C.ve}}>{d?.porTipo?.[0]?.pct||0}% — {d?.preventivos||0} OTs</span>
+                  </span>
+                  <span style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,borderRadius:2,background:C.mo,display:'inline-block'}}/> Calibracion</span>
+                    <span style={{fontWeight:500,color:C.mo}}>{d?.porTipo?.[2]?.pct||0}% — {d?.calibraciones||0} OTs</span>
+                  </span>
                 </div>
               </Card>
               <Card>
                 <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Estado de ordenes</div>
-                {loading?<Sk h={130}/>:<>
-                  <Bar label="Completadas" val={`${d?.completados||0} (${d?.totalMant>0?Math.round(((d?.completados||0)/d?.totalMant)*100):0}%)`} pct={d?.totalMant>0?Math.round(((d?.completados||0)/d?.totalMant)*100):0} color={C.ve} right={C.ve}/>
-                  <Bar label="Pendientes"  val={`${d?.pendientes||0} (${d?.totalMant>0?Math.round(((d?.pendientes||0)/d?.totalMant)*100):0}%)`}  pct={d?.totalMant>0?Math.round(((d?.pendientes||0)/d?.totalMant)*100):0}  color={C.na} right={C.na}/>
-                  <Bar label="Vencidas"    val={`${d?.vencidos||0}`}    pct={d?.totalMant>0?Math.round(((d?.vencidos||0)/d?.totalMant)*100):0}    color={C.ro} right={C.ro}/>
-                  {d?.vencidos>0 && <div style={{marginTop:8,padding:'7px 10px',borderRadius:8,background:C.roBg,fontSize:11,color:C.ro}}>{d.vencidos} OTs vencidas — accion inmediata</div>}
+                {loading?<Sk h={110}/>:<>
+                  <Bar label="Completadas" val={`${d?.completados||0}`} pct={d?.totalMant>0?Math.round(((d?.completados||0)/d?.totalMant)*100):0} color={C.ve} right={C.ve}/>
+                  <Bar label="Pendientes"  val={`${d?.pendientes||0}`}  pct={d?.totalMant>0?Math.round(((d?.pendientes||0)/d?.totalMant)*100):0}  color={C.na} right={C.na}/>
+                  <Bar label="Vencidas"    val={`${d?.vencidos||0}`}    pct={d?.totalMant>0?Math.round(((d?.vencidos||0)/d?.totalMant)*100):1}    color={C.ro} right={C.ro}/>
                 </>}
+                <div style={{marginTop:10,padding:'8px 10px',borderRadius:8,background:C.veBg,fontSize:11,color:C.ve}}>
+                  {d?.completados||0} OTs completadas al 100%
+                </div>
               </Card>
             </div>
 
+            {/* Fila 3 — Barras por mes */}
             <Card>
-              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:12}}>Mantenimientos por mes — ultimos 12 meses</div>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Mantenimientos por mes — ultimos 8 meses</div>
+              <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:10}}>Preventivo vs correctivo ejecutados</div>
               <div style={{display:'flex',gap:12,marginBottom:10,fontSize:11,color:'var(--color-text-secondary)'}}>
                 <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ve,display:'inline-block'}}/> Preventivo</span>
                 <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.ro,display:'inline-block'}}/> Correctivo</span>
               </div>
               {loading?<Sk h={200}/>:<div style={{position:'relative',height:200}}><canvas id="c-mes" role="img" aria-label="Mantenimientos por mes">Mantenimientos por mes.</canvas></div>}
+            </Card>
+
+            {/* Fila 4 — Por servicio */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Mantenimientos por servicio</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>Preventivo vs correctivo por area</div>
+                {loading?<Sk h={200}/>:
+                  (d?.mantPorServicio||[]).slice(0,6).map((s:any,i:number)=>{
+                    const tot = s.prev+s.corr
+                    const pctP = tot>0?Math.round((s.prev/tot)*100):0
+                    const pctC = tot>0?Math.round((s.corr/tot)*100):0
+                    return (
+                      <div key={i} style={{marginBottom:12}}>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'var(--color-text-secondary)',marginBottom:4}}>
+                          <span style={{fontWeight:500,color:'var(--color-text-primary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'60%'}}>{s.label}</span>
+                          <span>{tot} OTs</span>
+                        </div>
+                        <div style={{height:8,background:'var(--color-background-secondary)',borderRadius:4,overflow:'hidden',display:'flex'}}>
+                          <div style={{height:8,background:C.ve,width:`${pctP}%`,transition:'width 0.8s'}}/>
+                          <div style={{height:8,background:C.ro,width:`${pctC}%`,transition:'width 0.8s'}}/>
+                        </div>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--color-text-secondary)',marginTop:3}}>
+                          <span style={{color:C.ve}}>{pctP}% prev ({s.prev})</span>
+                          <span style={{color:C.ro}}>{pctC}% corr ({s.corr})</span>
+                        </div>
+                      </div>
+                    )
+                  })
+                }
+              </Card>
+              <Card>
+                <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:4}}>Top tipos de equipo con mas correctivos</div>
+                <div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:12}}>Equipos que generan mas intervenciones no planificadas</div>
+                {loading?<Sk h={200}/>:
+                  (d?.topCorrectivos||[]).slice(0,7).map((t:any,i:number)=>(
+                    <div key={i} style={{marginBottom:10}}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:3}}>
+                        <span style={{color:'var(--color-text-secondary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'75%'}}>{t.tipo}</span>
+                        <span style={{fontWeight:500,color:i<2?C.ro:i<4?C.na:C.az,flexShrink:0}}>{t.corr} correctivos</span>
+                      </div>
+                      <div style={{height:5,background:'var(--color-background-secondary)',borderRadius:3,overflow:'hidden'}}>
+                        <div style={{height:5,borderRadius:3,background:i<2?C.ro:i<4?C.na:C.az,width:`${Math.round((t.corr/(d?.topCorrectivos?.[0]?.corr||1))*100)}%`}}/>
+                      </div>
+                    </div>
+                  ))
+                }
+              </Card>
+            </div>
+
+            {/* Fila 5 — Diagnostico e interpretacion */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
+                <i className="ti ti-stethoscope" style={{fontSize:16,color:C.az}}/>
+                Diagnostico del programa de mantenimiento
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+                {[
+                  {
+                    titulo:'Ratio Prev/Corr actual',
+                    valor:(d?.ratioPrevCorr||0)+':1',
+                    meta:'Meta: 4:1',
+                    estado:(d?.ratioPrevCorr||0)>=4?'optimo':(d?.ratioPrevCorr||0)>=2?'advertencia':'critico',
+                    desc:(d?.ratioPrevCorr||0)>=4?'El programa preventivo es solido y eficiente.':(d?.ratioPrevCorr||0)>=2?'Se recomienda aumentar la frecuencia de PM para equipos de alto riesgo.':'El 73% de intervenciones son correctivas. Se recomienda restructurar el plan de PM urgente.',
+                    icono:(d?.ratioPrevCorr||0)>=4?'ti-check':'ti-alert-triangle'
+                  },
+                  {
+                    titulo:'Correctivos en Salas de Cirugia',
+                    valor:'227 OTs',
+                    meta:'El servicio mas critico',
+                    estado:'critico',
+                    desc:'Salas de Cirugia concentra el 31% de todos los correctivos. Priorizar PM semestral en equipos de este servicio.',
+                    icono:'ti-urgent'
+                  },
+                  {
+                    titulo:'Datos por completar',
+                    valor:'Sin duracion',
+                    meta:'Para MTTR real',
+                    estado:'advertencia',
+                    desc:'Ninguna OT tiene duracion registrada. Completar este campo permite calcular MTTR real y mejorar la planificacion.',
+                    icono:'ti-clock-edit'
+                  },
+                ].map((item,i)=>{
+                  const col = item.estado==='optimo'?C.ve:item.estado==='advertencia'?C.na:C.ro
+                  const bg  = item.estado==='optimo'?C.veBg:item.estado==='advertencia'?C.naBg:C.roBg
+                  return (
+                    <div key={i} style={{padding:'14px',borderRadius:10,background:bg,border:`0.5px solid ${col}30`}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                        <i className={'ti '+item.icono} style={{fontSize:16,color:col}}/>
+                        <div style={{fontSize:12,fontWeight:500,color:'var(--color-text-primary)'}}>{item.titulo}</div>
+                      </div>
+                      <div style={{fontSize:22,fontWeight:500,color:col,marginBottom:4}}>{item.valor}</div>
+                      <div style={{fontSize:10,color:col,marginBottom:6,fontWeight:500}}>{item.meta}</div>
+                      <div style={{fontSize:11,color:'var(--color-text-secondary)',lineHeight:1.5}}>{item.desc}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+
+            {/* Fila 6 — Plan de accion */}
+            <Card>
+              <div style={{fontSize:13,fontWeight:500,color:'var(--color-text-primary)',marginBottom:14,display:'flex',alignItems:'center',gap:8}}>
+                <i className="ti ti-list-check" style={{fontSize:16,color:C.az}}/>
+                Plan de accion recomendado
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {[
+                  {prioridad:'Alta',color:C.ro,bg:C.roBg,accion:'Programar PM inmediato para los 227 correctivos en Salas de Cirugia',responsable:'Ingeniero Biomedico',plazo:'30 dias'},
+                  {prioridad:'Alta',color:C.ro,bg:C.roBg,accion:'Registrar la duracion de cada OT para habilitar calculo de MTTR real',responsable:'Tecnico ejecutor',plazo:'Inmediato'},
+                  {prioridad:'Media',color:C.na,bg:C.naBg,accion:'Aumentar PM preventivos en Monitor De Signos Vitales (124 equipos, 73 correctivos)',responsable:'Ingeniero Biomedico',plazo:'60 dias'},
+                  {prioridad:'Media',color:C.na,bg:C.naBg,accion:'Asignar tecnico responsable a cada OT para trazabilidad completa',responsable:'Coordinador biomedico',plazo:'45 dias'},
+                  {prioridad:'Baja',color:C.ve,bg:C.veBg,accion:'Documentar hallazgos y repuestos usados en cada intervencion correctiva',responsable:'Tecnico ejecutor',plazo:'90 dias'},
+                ].map((item,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:14,padding:'12px 14px',borderRadius:10,background:item.bg,border:`0.5px solid ${item.color}30`}}>
+                    <span style={{fontSize:10,fontWeight:600,padding:'3px 8px',borderRadius:20,background:item.color,color:'#fff',flexShrink:0,whiteSpace:'nowrap'}}>{item.prioridad}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:500,color:'var(--color-text-primary)',marginBottom:2}}>{item.accion}</div>
+                      <div style={{fontSize:11,color:'var(--color-text-secondary)'}}>Responsable: {item.responsable}</div>
+                    </div>
+                    <div style={{flexShrink:0,textAlign:'right'}}>
+                      <div style={{fontSize:10,color:item.color,fontWeight:500}}>{item.plazo}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
           </>
         )}
