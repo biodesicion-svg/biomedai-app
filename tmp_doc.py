@@ -61,7 +61,7 @@ def mk(ruta,c):
   d=SimpleDocTemplate(ruta,pagesize=letter,leftMargin=1.5*cm,rightMargin=1.5*cm,topMargin=1.5*cm,bottomMargin=1.5*cm)
   d.build(c)
 
-tipo='hoja'
+tipo='cronograma'
 c=[]
 
 if tipo=='ficha':
@@ -146,5 +146,5 @@ elif tipo=='preinstalacion':
   c.append(frm(['Tecnico Instalador','Recibido por (Cliente)'],['SYNAP','(Institucion)']))
   c+=pie()
 
-mk('/workspaces/biomedai-app/public/documentos/SYNAP_hoja_CC22121790.pdf',c)
+mk('/workspaces/biomedai-app/public/documentos/SYNAP_cronograma_CC22121790.pdf',c)
 print('OK')
