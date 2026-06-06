@@ -100,6 +100,38 @@ export default function EquipoDetallePage(){
     {id:'documentos',label:'Documentos',   icon:'ti-files'},
   ]
 
+  function QRBoton({equipoId,nombre,codigo}:{equipoId:string,nombre:string,codigo:string}){
+    const[qr,setQr]=useState('')
+    const[show,setShow]=useState(false)
+    async function gen(){
+      if(qr){setShow(true);return}
+      const r=await fetch(`/api/qr?id=${equipoId}&nombre=${encodeURIComponent(nombre)}&codigo=${encodeURIComponent(codigo||'')}`)
+      const d=await r.json()
+      if(d.qr){setQr(d.qr);setShow(true)}
+    }
+    return(
+      <>
+        <button onClick={gen} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:8,border:'0.5px solid #E4E4E7',background:'#F8F9FA',fontSize:12,color:AZ,cursor:'pointer'}}>
+          <i className="ti ti-qrcode" style={{fontSize:13}}/> Ver QR
+        </button>
+        {show&&qr&&(
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200}} onClick={()=>setShow(false)}>
+            <div style={{background:'#fff',borderRadius:16,padding:24,textAlign:'center',maxWidth:280}} onClick={e=>e.stopPropagation()}>
+              <div style={{fontSize:14,fontWeight:500,color:'#18181B',marginBottom:4}}>{nombre}</div>
+              <div style={{fontSize:11,color:GR,marginBottom:12}}>{codigo}</div>
+              <img src={qr} style={{width:200,height:200,borderRadius:8,border:'1px solid #E4E4E7'}}/>
+              <div style={{fontSize:11,color:GR,marginTop:10,marginBottom:14}}>Escanea para abrir la hoja de vida</div>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={()=>setShow(false)} style={{flex:1,padding:'8px',borderRadius:8,border:'0.5px solid #E4E4E7',background:'#fff',fontSize:12,cursor:'pointer',color:GR}}>Cerrar</button>
+                <button onClick={()=>{const a=document.createElement('a');a.href=qr;a.download=`QR_${codigo}.png`;a.click()}} style={{flex:1,padding:'8px',borderRadius:8,border:'none',background:AZ,color:'#fff',fontSize:12,cursor:'pointer'}}>Descargar</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    )
+  }
+
   return(
     <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#FAFAFA'}}>
 
@@ -108,6 +140,7 @@ export default function EquipoDetallePage(){
         <Link href="/inventario" style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:8,border:'0.5px solid #E4E4E7',background:'#F8F9FA',textDecoration:'none',fontSize:12,color:GR,flexShrink:0}}>
           <i className="ti ti-arrow-left" style={{fontSize:13}}/> Inventario
         </Link>
+        <QRBoton equipoId={equipo.id} nombre={equipo.nombre} codigo={equipo.codigo_inventario}/>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:10,color:'#A1A1AA',marginBottom:2}}>{equipo.codigo_inventario} · {equipo.servicio||'Sin servicio'}</div>
           <h1 style={{fontSize:17,fontWeight:500,color:'#18181B',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{equipo.nombre}</h1>
