@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import ExportarXLS from '@/components/ui/ExportarXLS'
 import { createClient } from '@/lib/supabase'
 
 const AZ='#1B2B5B',VE='#16A34A',RO='#DC2626',NA='#D97706',GR='#64748B',MO='#7C3AED'
@@ -152,6 +153,7 @@ export default function SolicitudesPage(){
           <button onClick={()=>setShowCrear(true)} style={{width:'100%',padding:'9px',borderRadius:8,border:'none',background:AZ,color:'#fff',fontSize:12,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
             <i className="ti ti-plus" style={{fontSize:14}}/> Nueva solicitud
           </button>
+          <ExportarXLS tipoDefault="solicitudes"/>
         </div>
 
         {/* Stats */}

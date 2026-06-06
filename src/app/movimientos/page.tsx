@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import ExportarXLS from '@/components/ui/ExportarXLS'
 import { createClient } from '@/lib/supabase'
 
 const AZ='#1B2B5B',VE='#16A34A',RO='#DC2626',NA='#D97706',GR='#64748B',MO='#7C3AED'
@@ -108,6 +109,7 @@ export default function MovimientosPage(){
             <i className="ti ti-search" style={{position:'absolute',left:8,top:'50%',transform:'translateY(-50%)',color:'#A1A1AA',fontSize:13}}/>
             <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar equipo o servicio..." style={{paddingLeft:28,height:34,fontSize:12,width:220}}/>
           </div>
+          <ExportarXLS tipoDefault="movimientos"/>
           <button onClick={()=>setShowCrear(true)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,border:'none',background:AZ,color:'#fff',fontSize:12,fontWeight:500,cursor:'pointer'}}>
             <i className="ti ti-plus" style={{fontSize:14}}/> Registrar movimiento
           </button>
