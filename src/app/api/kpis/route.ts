@@ -1,16 +1,17 @@
+import { getInstitutionId } from '@/lib/get-institution'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const INST = '00000000-0000-0000-0000-000000000001'
 
 export async function GET() {
+  const IID = await getInstitutionId()
   try {
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
     const [{ data: equipos }, { data: mants }, { data: repuestos }] = await Promise.all([
-      sb.from('equipos').select('id,nombre,tipo,servicio,riesgo,clase_invima,estado,anio_adquisicion,vida_util_anos,valor_adquisicion').eq('institucion_id', INST).eq('activo', true),
-      sb.from('mantenimientos').select('id,equipo_id,tipo,estado,fecha_programada,fecha_realizado,duracion_horas,costo_total,costo_mano_obra,costo_repuestos,hallazgos').eq('institucion_id', INST),
-      sb.from('repuestos').select('id,nombre,stock_actual,stock_minimo,costo_unitario,proveedor').eq('institucion_id', INST).eq('activo', true),
+      sb.from('equipos').select('id,nombre,tipo,servicio,riesgo,clase_invima,estado,anio_adquisicion,vida_util_anos,valor_adquisicion').eq('institucion_id', IID).eq('activo', true),
+      sb.from('mantenimientos').select('id,equipo_id,tipo,estado,fecha_programada,fecha_realizado,duracion_horas,costo_total,costo_mano_obra,costo_repuestos,hallazgos').eq('institucion_id', IID),
+      sb.from('repuestos').select('id,nombre,stock_actual,stock_minimo,costo_unitario,proveedor').eq('institucion_id', IID).eq('activo', true),
     ])
 
     const eq  = equipos  || []

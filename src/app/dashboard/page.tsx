@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
-const INST = '00000000-0000-0000-0000-000000000001'
 
 function MiniBar({ value, max, color }: { value: number; max: number; color: string }) {
   return (
@@ -26,6 +25,16 @@ function Semaforo({ value, meta, invert = false }: { value: number; meta: number
   )
 }
 
+async function getIID(): Promise<string> {
+  try {
+    const r = await fetch('/api/auth/me')
+    const d = await r.json()
+    return d.institucion_id || '00000000-0000-0000-0000-000000000001'
+  } catch {
+    return '00000000-0000-0000-0000-000000000001'
+  }
+}
+
 export default function Dashboard() {
   const [kpis, setKpis] = useState<any>(null)
   const [alertas, setAlertas] = useState<any[]>([])
@@ -36,6 +45,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function cargar() {
+      const IID = await getIID()
       // KPIs
       const kRes = await fetch('/api/kpis').then(r => r.json()).catch(() => null)
       if (kRes) setKpis(kRes)
@@ -45,7 +55,7 @@ export default function Dashboard() {
       const { data: eqs } = await supabase
         .from('equipos')
         .select('id, nombre, riesgo, estado, servicio, anio_adquisicion, vida_util_anos')
-        .eq('institucion_id', INST)
+        .eq('institucion_id', IID)
         .eq('activo', true)
         .eq('riesgo', 'alto')
         .eq('estado', 'operativo')
@@ -71,7 +81,7 @@ export default function Dashboard() {
       setLoading(false)
     }
     cargar()
-  }, [])
+  },[])
 
   const Sk = ({ w = '100%', h = 20 }: any) => (
     <div style={{ width: w, height: h, background: '#F4F4F5', borderRadius: 4 }} />

@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase'
 
 const AZ='#1B2B5B',VE='#16A34A',RO='#DC2626',NA='#D97706',GR='#64748B',MO='#7C3AED'
 const VE_BG='#F0FDF4',RO_BG='#FEF2F2',NA_BG='#FFFBEB',AZ_BG='#EEF2FF',MO_BG='#F5F3FF'
-const INST='00000000-0000-0000-0000-000000000001'
 
 const TIPOS=[
   {v:'traslado',    l:'Traslado',     icon:'ti-transfer',    c:AZ, bg:AZ_BG},
@@ -29,6 +28,16 @@ function TipoBadge({tipo}:any){
   </span>
 }
 
+async function getIID(): Promise<string> {
+  try {
+    const r = await fetch('/api/auth/me')
+    const d = await r.json()
+    return d.institucion_id || '00000000-0000-0000-0000-000000000001'
+  } catch {
+    return '00000000-0000-0000-0000-000000000001'
+  }
+}
+
 export default function MovimientosPage(){
   const[movimientos,setMovimientos]=useState<any[]>([])
   const[loading,setLoading]=useState(true)
@@ -45,7 +54,13 @@ export default function MovimientosPage(){
     responsable_nombre:'',responsable_cargo:'',
   })
 
-  useEffect(()=>{ cargar() },[])
+  useEffect(()=>{
+    async function load(){
+    const IID = await getIID()
+    cargar()
+    }
+    load()
+  },[])
 
   async function cargar(){
     const r=await fetch('/api/movimientos')
@@ -58,7 +73,7 @@ export default function MovimientosPage(){
     setNuevo(p=>({...p,equipo_nombre:q,equipo_id:'',equipo_codigo:'',servicio_origen:''}))
     if(q.length<2){setEquiposBusq([]);return}
     const sb=createClient()
-    const{data}=await sb.from('equipos').select('id,nombre,codigo_inventario,servicio,ubicacion').eq('institucion_id',INST).eq('activo',true).or(`nombre.ilike.%${q}%,codigo_inventario.ilike.%${q}%`).limit(8)
+    const{data}=await sb.from('equipos').select('id,nombre,codigo_inventario,servicio,ubicacion').eq('institucion_id',IID).eq('activo',true).or(`nombre.ilike.%${q}%,codigo_inventario.ilike.%${q}%`).limit(8)
     setEquiposBusq(data||[])
   }
 

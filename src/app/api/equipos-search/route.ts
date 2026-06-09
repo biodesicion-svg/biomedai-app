@@ -1,9 +1,10 @@
+import { getInstitutionId } from '@/lib/get-institution'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const INST = '00000000-0000-0000-0000-000000000001'
 
 export async function GET(req: Request) {
+  const IID = await getInstitutionId()
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') || ''
   const supabase = createClient(
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
   const { data } = await supabase
     .from('equipos')
     .select('id, nombre, codigo_inventario, servicio, marca')
-    .eq('institucion_id', INST)
+    .eq('institucion_id', IID)
     .eq('activo', true)
     .or(`nombre.ilike.%${q}%,codigo_inventario.ilike.%${q}%,marca.ilike.%${q}%`)
     .limit(8)

@@ -1,7 +1,7 @@
+import { getInstitutionId } from '@/lib/get-institution'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const INST = '00000000-0000-0000-0000-000000000001'
 const sb = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 function fmtFecha(f: string) {
@@ -13,6 +13,7 @@ function fmtCOP(n: number) {
 }
 
 export async function POST(req: Request) {
+  const IID = await getInstitutionId()
   const { mensaje, contexto } = await req.json()
   const texto = (mensaje || '').toLowerCase().trim()
   const supabase = sb()
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
     const { data: servicios } = await supabase
       .from('equipos')
       .select('servicio')
-      .eq('institucion_id', INST)
+      .eq('institucion_id', IID)
       .eq('activo', true)
       .ilike('nombre', `%${soloPalabra}%`)
 
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
     const { count } = await supabase
       .from('equipos')
       .select('*', { count: 'exact', head: true })
-      .eq('institucion_id', INST)
+      .eq('institucion_id', IID)
       .eq('activo', true)
       .ilike('nombre', `%${soloPalabra}%`)
 
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
     let query = supabase
       .from('equipos')
       .select('id, nombre, codigo_inventario, marca, modelo, serie, servicio, estado, riesgo, clase_invima, anio_adquisicion')
-      .eq('institucion_id', INST)
+      .eq('institucion_id', IID)
       .eq('activo', true)
       .ilike('nombre', `%${tipoEncontrado}%`)
       .order('servicio')
@@ -138,7 +139,7 @@ export async function POST(req: Request) {
     const { data: serviciosDB } = await supabase
       .from('equipos')
       .select('servicio')
-      .eq('institucion_id', INST)
+      .eq('institucion_id', IID)
       .eq('activo', true)
 
     const serviciosUnicos = [...new Set((serviciosDB || []).map(e => e.servicio).filter(Boolean))]
@@ -149,7 +150,7 @@ export async function POST(req: Request) {
       const { data: porSvc } = await supabase
         .from('equipos')
         .select('servicio')
-        .eq('institucion_id', INST)
+        .eq('institucion_id', IID)
         .eq('activo', true)
 
       const conConteo: Record<string, number> = {}
@@ -170,7 +171,7 @@ export async function POST(req: Request) {
     const { data: equiposSvc } = await supabase
       .from('equipos')
       .select('id, nombre, codigo_inventario, marca, modelo, estado, riesgo, clase_invima, serie')
-      .eq('institucion_id', INST)
+      .eq('institucion_id', IID)
       .eq('activo', true)
       .ilike('servicio', `%${servicioMatch}%`)
       .order('nombre')
@@ -213,7 +214,7 @@ export async function POST(req: Request) {
     const { data: equipos } = await supabase
       .from('equipos')
       .select('*')
-      .eq('institucion_id', INST)
+      .eq('institucion_id', IID)
       .eq('activo', true)
       .or(`nombre.ilike.%${busqueda}%,codigo_inventario.ilike.%${busqueda}%,serie.ilike.%${busqueda}%`)
       .limit(5)
@@ -367,9 +368,9 @@ export async function POST(req: Request) {
   // ── ESTADÍSTICAS GENERALES ────────────────────────────────────────
   if (esEstadistica) {
     const [eqRes, mantRes, repRes] = await Promise.all([
-      supabase.from('equipos').select('estado, riesgo, servicio').eq('institucion_id', INST).eq('activo', true),
-      supabase.from('mantenimientos').select('tipo, estado, costo_total').eq('institucion_id', INST),
-      supabase.from('repuestos').select('stock_actual, stock_minimo').eq('institucion_id', INST),
+      supabase.from('equipos').select('estado, riesgo, servicio').eq('institucion_id', IID).eq('activo', true),
+      supabase.from('mantenimientos').select('tipo, estado, costo_total').eq('institucion_id', IID),
+      supabase.from('repuestos').select('stock_actual, stock_minimo').eq('institucion_id', IID),
     ])
 
     const eq = eqRes.data || []
@@ -416,7 +417,7 @@ export async function POST(req: Request) {
     const { data: rep } = await supabase
       .from('repuestos')
       .select('*')
-      .eq('institucion_id', INST)
+      .eq('institucion_id', IID)
       .order('stock_actual', { ascending: true })
 
     const sinStock = (rep || []).filter(r => r.stock_actual === 0)
@@ -457,7 +458,7 @@ export async function POST(req: Request) {
   const { data: equiposLibre } = await supabase
     .from('equipos')
     .select('id, nombre, codigo_inventario, marca, servicio, estado, riesgo')
-    .eq('institucion_id', INST)
+    .eq('institucion_id', IID)
     .eq('activo', true)
     .or(`nombre.ilike.%${texto}%,codigo_inventario.ilike.%${texto}%,marca.ilike.%${texto}%,servicio.ilike.%${texto}%`)
     .limit(10)

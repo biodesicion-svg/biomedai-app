@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-const INST = '00000000-0000-0000-0000-000000000001'
 const DOCS = [
   { id: 'ficha',          label: 'Ficha tecnica',                 icon: 'ti-clipboard-data',   desc: 'Especificaciones tecnicas del equipo' },
   { id: 'hoja',           label: 'Hoja de vida',                  icon: 'ti-file-description', desc: 'Historial completo del equipo' },
@@ -10,6 +9,16 @@ const DOCS = [
   { id: 'protocolo',      label: 'Protocolo de mantenimiento',    icon: 'ti-list-check',       desc: 'Procedimiento paso a paso' },
   { id: 'preinstalacion', label: 'Requisitos de pre-instalacion', icon: 'ti-tool',             desc: 'Condiciones para instalacion' },
 ]
+
+async function getIID(): Promise<string> {
+  try {
+    const r = await fetch('/api/auth/me')
+    const d = await r.json()
+    return d.institucion_id || '00000000-0000-0000-0000-000000000001'
+  } catch {
+    return '00000000-0000-0000-0000-000000000001'
+  }
+}
 
 export default function DocumentosPage() {
   const [cliente, setCliente] = useState({ nombre: '', correo: '', whatsapp: '' })
@@ -28,7 +37,7 @@ export default function DocumentosPage() {
     const sb = createClient()
     const { data } = await sb.from('equipos')
       .select('id,nombre,marca,modelo,serie,codigo_inventario,servicio')
-      .eq('institucion_id', INST).eq('activo', true)
+      .eq('institucion_id', IID).eq('activo', true)
       .or(`nombre.ilike.%${busqueda}%,serie.ilike.%${busqueda}%,codigo_inventario.ilike.%${busqueda}%`)
       .limit(10)
     setEquipos(data || [])

@@ -703,6 +703,16 @@ function ScoreCircle({score,size=110}:{score:number;size?:number}) {
   )
 }
 
+async function getIID(): Promise<string> {
+  try {
+    const r = await fetch('/api/auth/me')
+    const d = await r.json()
+    return d.institucion_id || '00000000-0000-0000-0000-000000000001'
+  } catch {
+    return '00000000-0000-0000-0000-000000000001'
+  }
+}
+
 export default function AuditoriaPage() {
   const [fase, setFase] = useState<'seleccion'|'ejecutando'|'resultado'>('seleccion')
   const [tipoSel, setTipoSel] = useState<string|null>(null)
@@ -716,11 +726,11 @@ export default function AuditoriaPage() {
     setFase('ejecutando')
     try {
       const supabase = createClient()
-      const INST = '00000000-0000-0000-0000-000000000001'
+      const IID = await getIID()
       const [eqR, mantR, repR] = await Promise.all([
-        supabase.from('equipos').select('*').eq('institucion_id',INST).eq('activo',true),
-        supabase.from('mantenimientos').select('*').eq('institucion_id',INST),
-        supabase.from('repuestos').select('*').eq('institucion_id',INST),
+        supabase.from('equipos').select('*').eq('institucion_id',IID).eq('activo',true),
+        supabase.from('mantenimientos').select('*').eq('institucion_id',IID),
+        supabase.from('repuestos').select('*').eq('institucion_id',IID),
       ])
       const eq   = eqR.data   || []
       const mant = mantR.data || []

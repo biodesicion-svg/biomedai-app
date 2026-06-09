@@ -16,6 +16,16 @@ const ESTADO_COLORS: Record<string,{bg:string;text:string}> = {
   baja:           {bg:'#F8F9FB',text:'#64748B'},
 }
 
+async function getIID(): Promise<string> {
+  try {
+    const r = await fetch('/api/auth/me')
+    const d = await r.json()
+    return d.institucion_id || '00000000-0000-0000-0000-000000000001'
+  } catch {
+    return '00000000-0000-0000-0000-000000000001'
+  }
+}
+
 export default function InventarioPage() {
   const router = useRouter()
   const [equipos, setEquipos] = useState<any[]>([])
@@ -25,9 +35,13 @@ export default function InventarioPage() {
   const [filtroEstado, setFiltroEstado] = useState('todos')
 
   useEffect(()=>{
-    const supabase = createClient()
-    supabase.from('equipos').select('*').eq('institucion_id','00000000-0000-0000-0000-000000000001').eq('activo',true).order('nombre')
+    async function load(){
+    const IID = await getIID()
+        const supabase = createClient()
+    supabase.from('equipos').select('*').eq('institucion_id',IID).eq('activo',true).order('nombre')
       .then(({data})=>{ setEquipos(data||[]); setLoading(false) })
+    }
+    load()
   },[])
 
   const filtrados = equipos.filter(e=>{

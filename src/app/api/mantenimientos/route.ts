@@ -1,7 +1,8 @@
+import { getInstitutionId } from '@/lib/get-institution'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const INSTITUCION_ID = '00000000-0000-0000-0000-000000000001'
+const INSTITUCION_ID = IID
 const TECNICOS = ['Biomédico 1', 'Biomédico 2', 'Biomédico 3']
 const HORAS_DIA = 8
 const DIAS_MES = 22
@@ -37,6 +38,7 @@ function getFrecuencia(nombre: string) {
 }
 
 export async function GET() {
+  const IID = await getInstitutionId()
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +48,7 @@ export async function GET() {
     const { data: equipos, error } = await supabase
       .from('equipos')
       .select('id, nombre, codigo_inventario, servicio, riesgo')
-      .eq('institucion_id', INSTITUCION_ID)
+      .eq('institucion_id', IIDITUCION_ID)
       .eq('activo', true)
       .eq('estado', 'operativo')
 

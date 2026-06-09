@@ -1,15 +1,16 @@
+import { getInstitutionId } from '@/lib/get-institution'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const INST = '00000000-0000-0000-0000-000000000001'
 const sb = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function GET() {
+  const IID = await getInstitutionId()
   const supabase = sb()
   const { data, error } = await supabase
     .from('repuestos')
     .select('*, repuesto_equipo(equipo_id, equipos(nombre, codigo_inventario))')
-    .eq('institucion_id', INST)
+    .eq('institucion_id', IID)
     .eq('activo', true)
     .order('nombre')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -17,13 +18,14 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const IID = await getInstitutionId()
   const supabase = sb()
   const body = await req.json()
 
   if (body.accion === 'crear') {
     const { data, error } = await supabase
       .from('repuestos')
-      .insert({ ...body.repuesto, institucion_id: INST })
+      .insert({ ...body.repuesto, institucion_id: IID })
       .select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ repuesto: data })
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
     const stock_nuevo = rep.stock_actual - cantidad
     await supabase.from('repuestos').update({ stock_actual: stock_nuevo }).eq('id', repuesto_id)
     await supabase.from('repuesto_movimientos').insert({
-      repuesto_id, equipo_id, institucion_id: INST,
+      repuesto_id, equipo_id, institucion_id: IID,
       tipo: 'asignacion', cantidad, stock_anterior: rep.stock_actual, stock_nuevo,
       motivo: 'Asignado a equipo', orden_trabajo
     })
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
     const stock_nuevo = rep.stock_actual + cantidad
     await supabase.from('repuestos').update({ stock_actual: stock_nuevo }).eq('id', repuesto_id)
     await supabase.from('repuesto_movimientos').insert({
-      repuesto_id, institucion_id: INST, tipo: 'entrada',
+      repuesto_id, institucion_id: IID, tipo: 'entrada',
       cantidad, stock_anterior: rep.stock_actual, stock_nuevo, motivo
     })
     return NextResponse.json({ ok: true, stock_nuevo })
