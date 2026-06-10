@@ -34,6 +34,7 @@ export default function DocumentosPage() {
   async function buscar() {
     if (busqueda.trim().length < 2) return
     setBuscando(true)
+    const IID = await getIID()
     const sb = createClient()
     const { data } = await sb.from('equipos')
       .select('id,nombre,marca,modelo,serie,codigo_inventario,servicio')
