@@ -16,6 +16,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Formulario de capacitaciones — sin login
+  if (pathname.startsWith('/capacitaciones/formulario')) {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(

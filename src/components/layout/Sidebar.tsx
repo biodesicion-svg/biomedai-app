@@ -22,6 +22,7 @@ const NAV = [
       { label:'Cronograma',         icon:'ti-calendar',        href:'/mantenimiento', desc:'Plan anual' },
       { label:'Ordenes de trabajo', icon:'ti-clipboard-check', href:'/ordenes',       desc:'Kanban' },
       { label:'Protocolos',         icon:'ti-list-check',      href:'/protocolos',    desc:'Por tipo de equipo' },
+      { label:'Reportes Servicio',   icon:'ti-report',          href:'/servicios',     desc:'Historial técnico' },
     ],
   },
   {
@@ -39,6 +40,7 @@ const NAV = [
       { label:'Auditorías',       icon:'ti-shield-check',       href:'/auditoria',       desc:'MSPS, Supersalud' },
       { label:'Solicitudes',      icon:'ti-message-report',     href:'/solicitudes',     desc:'Servicio clínico' },
       { label:'Evaluación Reemplazo',icon:'ti-replace',             href:'/reemplazo',       desc:'EVDM · Obsolescencia' },
+      { label:'Capacitaciones',       icon:'ti-certificate',         href:'/capacitaciones',  desc:'Competencias del personal' },
     ],
   },
   {
