@@ -12,7 +12,7 @@ GRIC=colors.HexColor('#F8F9FA'); AZUC=colors.HexColor('#EEF2FF'); BLAN=colors.wh
 NARC=colors.HexColor('#FFF7ED'); NARA=colors.HexColor('#EA580C')
 
 EMPRESA='SYNAP'; DIR='Bogota, Colombia'; CORREO='admin@synap.co'; WEB='www.synap.co'
-NOMBRE='Monitor De Signos Vitales'; MARCA='Mindray'; MODELO='Mec 1200'; REF='BMO-MOSIV-00010553'; SERIAL='CC22121790'; SVCIO='Ginecologia'
+NOMBRE='Agitador De Plaquetas'; MARCA='Helmer'; MODELO='Pf15i'; REF='BBS-AGIPL-00013550'; SERIAL='1017681'; SVCIO='Banco De Sangre'
 
 b=[('GRID',(0,0),(-1,-1),0.3,BORD),('FONTNAME',(0,0),(-1,-1),'Helvetica'),('FONTSIZE',(0,0),(-1,-1),8.5),('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),('LEFTPADDING',(0,0),(-1,-1),8),('RIGHTPADDING',(0,0),(-1,-1),8),('VALIGN',(0,0),(-1,-1),'MIDDLE')]
 PN=ParagraphStyle('n',fontName='Helvetica',fontSize=8.5,textColor=colors.HexColor('#18181B'),leading=13,spaceAfter=4,alignment=TA_JUSTIFY)
@@ -146,5 +146,5 @@ elif tipo=='preinstalacion':
   c.append(frm(['Tecnico Instalador','Recibido por (Cliente)'],['SYNAP','(Institucion)']))
   c+=pie()
 
-mk('/workspaces/biomedai-app/public/documentos/SYNAP_cronograma_CC22121790.pdf',c)
+mk('/workspaces/biomedai-app/public/documentos/SYNAP_cronograma_1017681.pdf',c)
 print('OK')

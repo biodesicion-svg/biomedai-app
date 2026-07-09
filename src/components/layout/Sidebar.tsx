@@ -13,7 +13,7 @@ const NAV = [
       { label:'Inventario',    icon:'ti-clipboard-list',   href:'/inventario',  desc:'Equipos biomédicos' },
       { label:'Movimientos',   icon:'ti-arrows-exchange',  href:'/movimientos', desc:'Traslados y bajas' },
       { label:'Documentacion', icon:'ti-files',            href:'/documentos',  desc:'PDFs por equipo' },
-      { label:'Códigos QR',    icon:'ti-qrcode',           href:'/qr',          desc:'Etiquetas por equipo' },
+      { label:'Códigos QR',    icon:'ti-qrcode',           href:'/inventario/qr',          desc:'Etiquetas por equipo' },
     ],
   },
   {

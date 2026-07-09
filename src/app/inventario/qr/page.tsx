@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 
 const AZ='#1B2B5B',VE='#16A34A',GR='#64748B'
-const INST = IID
 
 async function getIID(): Promise<string> {
   try {
@@ -26,9 +25,9 @@ export default function QRGeneratorPage(){
 
   useEffect(()=>{
     async function load(){
-    const IID = IID
+    const IID = await getIID()
     const sb=createClient()
-    sb.from('equipos').select('id,nombre,codigo_inventario,servicio,riesgo,clase_invima,estado,marca,serie').eq('institucion_id',INST).eq('activo',true).eq('estado','operativo').order('nombre').then(({data})=>{
+    sb.from('equipos').select('id,nombre,codigo_inventario,servicio,riesgo,clase_invima,estado,marca,serie').eq('institucion_id',IID).eq('activo',true).eq('estado','operativo').order('nombre').then(({data})=>{
       setEquipos(data||[])
       setLoading(false)
     })
