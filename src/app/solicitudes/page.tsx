@@ -45,6 +45,15 @@ async function getIID(): Promise<string> {
   }
 }
 
+async function getIID(): Promise<string> {
+  try {
+    const r = await fetch('/api/auth/me')
+    const d = await r.json()
+    return d.institucion_id || '00000000-0000-0000-0000-000000000001'
+  } catch {
+    return '00000000-0000-0000-0000-000000000001'
+  }
+}
 export default function SolicitudesPage(){
   const[solicitudes,setSolicitudes]=useState<any[]>([])
   const[loading,setLoading]=useState(true)
@@ -85,7 +94,7 @@ export default function SolicitudesPage(){
     if(q.length<2){setEquiposBusq([]);return}
     setBuscandoEq(true)
     const sb=createClient()
-    const{data}=await sb.from('equipos').select('id,nombre,codigo_inventario,servicio,riesgo').eq('institucion_id',IID).eq('activo',true).or(`nombre.ilike.%${q}%,codigo_inventario.ilike.%${q}%`).limit(8)
+    const{data}=await sb.from('equipos').select('id,nombre,codigo_inventario,servicio,riesgo').eq('institucion_id',await getIID()).eq('activo',true).or(`nombre.ilike.%${q}%,codigo_inventario.ilike.%${q}%`).limit(8)
     setEquiposBusq(data||[])
     setBuscandoEq(false)
   }
