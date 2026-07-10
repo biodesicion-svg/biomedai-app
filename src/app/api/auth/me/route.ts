@@ -21,11 +21,18 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  const iid = user.user_metadata?.institucion_id || '00000000-0000-0000-0000-000000000001'
-  return NextResponse.json({ 
+  const { data: perfil } = await supabase
+    .from('usuarios')
+    .select('nombre, rol, institucion_id')
+    .eq('auth_id', user.id)
+    .single()
+
+  const iid = perfil?.institucion_id || user.user_metadata?.institucion_id || '00000000-0000-0000-0000-000000000001'
+  return NextResponse.json({
     id: user.id,
     email: user.email,
-    nombre: user.user_metadata?.nombre,
+    nombre: perfil?.nombre || user.user_metadata?.nombre,
+    rol: perfil?.rol || 'tecnico',
     institucion_id: iid
   })
 }
