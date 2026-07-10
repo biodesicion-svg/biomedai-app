@@ -2,8 +2,6 @@ import { getInstitutionId } from '@/lib/get-institution'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const INSTITUCION_ID = IID
-
 export async function GET() {
   const IID = await getInstitutionId()
   const supabase = createClient(
@@ -14,13 +12,13 @@ export async function GET() {
   const { data: equipos } = await supabase
     .from('equipos')
     .select('valor_adquisicion, estado, riesgo, nombre')
-    .eq('institucion_id', IIDITUCION_ID)
+    .eq('institucion_id', IID)
     .eq('activo', true)
 
   const { data: mantenimientos } = await supabase
     .from('mantenimientos')
     .select('tipo, costo_total')
-    .eq('institucion_id', IIDITUCION_ID)
+    .eq('institucion_id', IID)
 
   if (!equipos || !mantenimientos) {
     return NextResponse.json({ error: 'No data' }, { status: 500 })

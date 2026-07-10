@@ -12,7 +12,7 @@ interface Pregunta {
   opciones?:string[]; unidad?:string; valor_esperado?:string
   critica:boolean; advertencia?:string|null
 }
-interface Respuesta { pregunta:number; valor:any; conforme:boolean; observacion:string }
+interface Respuesta { pregunta?: number; valor?: any; conforme?: boolean; observacion:string }
 type Fase='cargando'|'ejecutando'|'revision'|'firmando'|'finalizado'
 
 export default function OrdenDetallePage(){
@@ -21,7 +21,7 @@ export default function OrdenDetallePage(){
   const[preguntas,setPreguntas]=useState<Pregunta[]>([])
   const[cargando,setCargando]=useState(true)
   const[pasoActual,setPasoActual]=useState(0)
-  const[respuestas,setRespuestas]=useState<Record<number,Respuesta>>({})
+  const[respuestas,setRespuestas]=useState<Record<number,Respuesta | undefined>>({})
   const[fase,setFase]=useState<Fase>('cargando')
   const[firma,setFirma]=useState('')
   const[firmaSupervisor,setFirmaSupervisor]=useState('')
@@ -86,7 +86,7 @@ export default function OrdenDetallePage(){
 
   const tiempoMin=tiempoInicio?Math.round((Date.now()-tiempoInicio.getTime())/60000):0
   const progreso=preguntas.length>0?Math.round((Object.keys(respuestas).length/preguntas.length)*100):0
-  const noConformes=Object.values(respuestas).filter(r=>!r.conforme).length
+  const noConformes=Object.values(respuestas).filter(r=>r && !r.conforme).length
   const pregunta=preguntas[pasoActual]
   const respuestaActual=respuestas[pasoActual]
   const fechaHoy=new Date().toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})
@@ -316,7 +316,7 @@ export default function OrdenDetallePage(){
                   <i className="ti ti-chevron-left" style={{fontSize:14}}/> Anterior
                 </button>
                 <button onClick={siguiente}
-                  disabled={!respuestaActual&&respuestaActual?.valor!==false}
+                  disabled={!respuestaActual}
                   style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'10px',borderRadius:10,border:'none',background:respuestaActual?pasoActual===preguntas.length-1?AZ:VE:'#F1F5F9',color:respuestaActual?'#fff':'#A1A1AA',cursor:respuestaActual?'pointer':'default',fontSize:13,fontWeight:500,transition:'all 0.15s'}}>
                   {pasoActual===preguntas.length-1
                     ?<><i className="ti ti-file-text" style={{fontSize:14}}/> Enviar a revision</>

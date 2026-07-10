@@ -58,7 +58,7 @@ export default function OrdenesPage(){
       riesgo:item.riesgo, progreso:0, servicio:item.servicio||'',
       descripcion:'Mantenimiento programado segun cronograma anual 2025',
       fechaProg:`2025-${String(mes).padStart(2,'0')}-${String(Math.floor(Math.random()*20)+1).padStart(2,'0')}`,
-    }))).sort((a:any,b:any)=>({alta:0,media:1,baja:2}[a.prioridad as string]-{alta:0,media:1,baja:2}[b.prioridad as string]))
+    }))).sort((a:any,b:any)=>((({alta:0,media:1,baja:2} as any)[a.prioridad]??9)-(({alta:0,media:1,baja:2} as any)[b.prioridad]??9)))
   }
 
   function cambiarMes(mes:number){

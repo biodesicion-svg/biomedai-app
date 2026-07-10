@@ -46,6 +46,7 @@ export default function MovimientosPage(){
   const[busqueda,setBusqueda]=useState('')
   const[equiposBusq,setEquiposBusq]=useState<any[]>([])
   const[guardando,setGuardando]=useState(false)
+  const[iid,setIid]=useState('00000000-0000-0000-0000-000000000001')
   const[nuevo,setNuevo]=useState({
     equipo_id:'',equipo_nombre:'',equipo_codigo:'',
     servicio_origen:'',ubicacion_origen:'',
@@ -56,8 +57,9 @@ export default function MovimientosPage(){
 
   useEffect(()=>{
     async function load(){
-    const IID = await getIID()
-    cargar()
+      const newIid = await getIID()
+      setIid(newIid)
+      cargar()
     }
     load()
   },[])
@@ -73,7 +75,7 @@ export default function MovimientosPage(){
     setNuevo(p=>({...p,equipo_nombre:q,equipo_id:'',equipo_codigo:'',servicio_origen:''}))
     if(q.length<2){setEquiposBusq([]);return}
     const sb=createClient()
-    const{data}=await sb.from('equipos').select('id,nombre,codigo_inventario,servicio,ubicacion').eq('institucion_id',IID).eq('activo',true).or(`nombre.ilike.%${q}%,codigo_inventario.ilike.%${q}%`).limit(8)
+    const{data}=await sb.from('equipos').select('id,nombre,codigo_inventario,servicio,ubicacion').eq('institucion_id',iid).eq('activo',true).or(`nombre.ilike.%${q}%,codigo_inventario.ilike.%${q}%`).limit(8)
     setEquiposBusq(data||[])
   }
 
