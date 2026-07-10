@@ -45,15 +45,6 @@ async function getIID(): Promise<string> {
   }
 }
 
-async function getIID(): Promise<string> {
-  try {
-    const r = await fetch('/api/auth/me')
-    const d = await r.json()
-    return d.institucion_id || '00000000-0000-0000-0000-000000000001'
-  } catch {
-    return '00000000-0000-0000-0000-000000000001'
-  }
-}
 export default function SolicitudesPage(){
   const[solicitudes,setSolicitudes]=useState<any[]>([])
   const[loading,setLoading]=useState(true)
