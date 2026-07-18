@@ -7,11 +7,16 @@ const AZ='#1B2B5B',VE='#16A34A',RO='#DC2626',NA='#D97706',GR='#64748B',MO='#7C3A
 const VE_BG='#F0FDF4',RO_BG='#FEF2F2',NA_BG='#FFFBEB',AZ_BG='#EEF2FF',MO_BG='#F5F3FF'
 
 const TIPOS=[
-  {v:'traslado',    l:'Traslado',     icon:'ti-transfer',    c:AZ, bg:AZ_BG},
-  {v:'instalacion', l:'Instalacion',  icon:'ti-plug',        c:VE, bg:VE_BG},
-  {v:'baja_temporal',l:'Baja temporal',icon:'ti-tool',       c:NA, bg:NA_BG},
-  {v:'devolucion',  l:'Devolucion',   icon:'ti-arrow-back',  c:MO, bg:MO_BG},
-  {v:'baja_definitiva',l:'Baja definitiva',icon:'ti-trash',  c:RO, bg:RO_BG},
+  {v:'traslado',        l:'Traslado',          icon:'ti-transfer',         c:AZ, bg:AZ_BG},
+  {v:'cambio_ubicacion',l:'Cambio ubicacion',  icon:'ti-map-pin',          c:AZ, bg:AZ_BG},
+  {v:'cambio_servicio', l:'Cambio servicio',   icon:'ti-building-hospital',c:MO, bg:MO_BG},
+  {v:'cambio_sede',     l:'Cambio sede',        icon:'ti-building',         c:MO, bg:MO_BG},
+  {v:'instalacion',     l:'Instalacion',       icon:'ti-plug',             c:VE, bg:VE_BG},
+  {v:'prestamo',        l:'Prestamo',          icon:'ti-hand-stop',        c:NA, bg:NA_BG},
+  {v:'devolucion',      l:'Devolucion',        icon:'ti-arrow-back',       c:VE, bg:VE_BG},
+  {v:'cambio_propietario',l:'Cambio propietario',icon:'ti-user-check',     c:MO, bg:MO_BG},
+  {v:'baja_temporal',   l:'Baja temporal',     icon:'ti-tool',             c:NA, bg:NA_BG},
+  {v:'baja_definitiva', l:'Baja definitiva',   icon:'ti-trash',            c:RO, bg:RO_BG},
 ]
 
 const SERVICIOS=['UCI','Urgencias Adulto','Urgencias Pediatria','Salas De Cirugia','Hospitalizacion','Ginecologia','Neonatologia','Consulta Externa','Banco De Sangre','Central De Esterilizacion','Almacen','Bodega','Otro']
@@ -46,6 +51,21 @@ export default function MovimientosPage(){
   const[busqueda,setBusqueda]=useState('')
   const[equiposBusq,setEquiposBusq]=useState<any[]>([])
   const[guardando,setGuardando]=useState(false)
+  const[descargandoPDF,setDescargandoPDF]=useState(false)
+  async function exportarPDF(){
+    setDescargandoPDF(true)
+    try{
+      const url = filtroTipo && filtroTipo!=='todos' ? `/api/movimientos/pdf?tipo=${filtroTipo}` : '/api/movimientos/pdf'
+      const r = await fetch(url)
+      if(!r.ok){ alert('No se pudo generar el PDF'); return }
+      const blob = await r.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'reporte_movimientos.pdf'
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(a.href)
+    } finally { setDescargandoPDF(false) }
+  }
   const[iid,setIid]=useState('00000000-0000-0000-0000-000000000001')
   const[nuevo,setNuevo]=useState({
     equipo_id:'',equipo_nombre:'',equipo_codigo:'',
@@ -127,6 +147,9 @@ export default function MovimientosPage(){
             <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar equipo o servicio..." style={{paddingLeft:28,height:34,fontSize:12,width:220}}/>
           </div>
           <ExportarXLS tipoDefault="movimientos"/>
+          <button onClick={exportarPDF} disabled={descargandoPDF} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,border:'0.5px solid #E4E4E7',background:'#fff',color:descargandoPDF?'#A1A1AA':RO,fontSize:12,fontWeight:500,cursor:descargandoPDF?'default':'pointer'}}>
+            <i className="ti ti-file-type-pdf" style={{fontSize:14}}/> {descargandoPDF?'Generando...':'Exportar PDF'}
+          </button>
           <button onClick={()=>setShowCrear(true)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,border:'none',background:AZ,color:'#fff',fontSize:12,fontWeight:500,cursor:'pointer'}}>
             <i className="ti ti-plus" style={{fontSize:14}}/> Registrar movimiento
           </button>

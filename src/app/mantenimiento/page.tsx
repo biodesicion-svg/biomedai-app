@@ -67,7 +67,7 @@ export default function MantenimientoPage(){
         {/* Header */}
         <div style={{padding:'16px 14px',borderBottom:'0.5px solid #E4E4E7'}}>
           <div style={{fontSize:10,color:'#A1A1AA',marginBottom:2}}>SYNAP / Mantenimiento</div>
-          <div style={{fontSize:15,fontWeight:500,color:'#18181B'}}>Cronograma 2025</div>
+          <div style={{fontSize:15,fontWeight:500,color:'#18181B'}}>Cronograma 2026</div>
         </div>
 
         {/* Vistas */}
@@ -133,7 +133,7 @@ export default function MantenimientoPage(){
         <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0,gap:12}}>
           <div>
             <h1 style={{fontSize:15,fontWeight:500,color:'#18181B',margin:0}}>
-              {seccion==='cronograma'?`${MESES_LARGO[mesSel-1]} 2025`:seccion==='tecnico'?`Por tecnico — ${MESES_LARGO[mesSel-1]}`:'Vista anual 2025'}
+              {seccion==='cronograma'?`${MESES_LARGO[mesSel-1]} 2026`:seccion==='tecnico'?`Por tecnico — ${MESES_LARGO[mesSel-1]}`:'Vista anual 2026'}
             </h1>
             <div style={{fontSize:11,color:'#A1A1AA',marginTop:2}}>
               {seccion!=='anual'&&`${equiposMes} equipos · ${horasMes}h · ocupacion ${resumenMes?.ocupacion||0}%`}
@@ -296,17 +296,17 @@ export default function MantenimientoPage(){
                           </div>
                           <div>
                             <div style={{fontSize:13,fontWeight:500,color:'#18181B'}}>{tec}</div>
-                            <div style={{fontSize:11,color:'#A1A1AA'}}>{MESES_LARGO[mesSel-1]} 2025</div>
+                            <div style={{fontSize:11,color:'#A1A1AA'}}>{MESES_LARGO[mesSel-1]} 2026</div>
                           </div>
                         </div>
-                        <GaugeOcupacion pct={Math.min(oc,100)} color={ocCol}/>
+                        <GaugeOcupacion pct={oc} color={oc>100?RO:ocCol}/>
                       </div>
                       {/* KPIs tecnico */}
                       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:12}}>
                         {[
                           {l:'Equipos',v:totalE,  c:tc},
                           {l:'Horas',  v:totalH+'h',c:'#18181B'},
-                          {l:'Carga',  v:Math.min(oc,100)+'%',c:ocCol},
+                          {l:'Carga',  v:oc+'%',c:oc>100?RO:ocCol},
                         ].map(s=>(
                           <div key={s.l} style={{background:'#F8F9FA',borderRadius:8,padding:'8px',textAlign:'center'}}>
                             <div style={{fontSize:18,fontWeight:500,color:s.c}}>{s.v}</div>
@@ -318,11 +318,17 @@ export default function MantenimientoPage(){
                       <div style={{marginBottom:8}}>
                         <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'#A1A1AA',marginBottom:3}}>
                           <span>Carga del mes</span>
-                          <span style={{color:ocCol}}>{totalH}h de {8*22}h disponibles</span>
+                          <span style={{color:oc>100?RO:ocCol}}>{totalH}h de {8*22}h disponibles</span>
                         </div>
                         <div style={{height:5,background:'#F1F5F9',borderRadius:3,overflow:'hidden'}}>
-                          <div style={{height:5,borderRadius:3,background:tc,width:`${Math.min(oc,100)}%`,transition:'width 0.8s'}}/>
+                          <div style={{height:5,borderRadius:3,background:oc>100?RO:tc,width:`${Math.min(oc,100)}%`,transition:'width 0.8s'}}/>
                         </div>
+                        {oc>100&&(
+                          <div style={{marginTop:6,display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderRadius:6,background:RO_BG,border:`0.5px solid ${RO}30`}}>
+                            <i className="ti ti-alert-triangle" style={{fontSize:12,color:RO}}/>
+                            <span style={{fontSize:10,color:RO,fontWeight:500}}>Sobrecarga: {totalH-8*22}h por encima de la capacidad ({oc-100}% extra)</span>
+                          </div>
+                        )}
                       </div>
                       {/* Por tipo */}
                       <div style={{display:'flex',gap:6}}>
@@ -372,7 +378,7 @@ export default function MantenimientoPage(){
             <div style={{display:'flex',flexDirection:'column',gap:14}}>
               {/* Heatmap anual */}
               <div style={{background:'#fff',borderRadius:12,border:'0.5px solid #E4E4E7',padding:'18px 20px'}}>
-                <div style={{fontSize:13,fontWeight:500,color:'#18181B',marginBottom:4}}>Ocupacion por mes — 2025</div>
+                <div style={{fontSize:13,fontWeight:500,color:'#18181B',marginBottom:4}}>Ocupacion por mes — 2026</div>
                 <div style={{fontSize:11,color:'#A1A1AA',marginBottom:16}}>Porcentaje de carga del equipo tecnico</div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(12,1fr)',gap:8}}>
                   {MESES_CORTO.map((m,i)=>{

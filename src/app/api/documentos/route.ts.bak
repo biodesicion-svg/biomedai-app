@@ -2,16 +2,10 @@ import { NextResponse } from 'next/server'
 import { execSync } from 'child_process'
 import { writeFileSync, existsSync, mkdirSync } from 'fs'
 import path from 'path'
-import { createClient } from '@supabase/supabase-js'
-import { getInstitutionId } from '@/lib/get-institution'
-
-function pyStr(v: any): string {
-  return String(v ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[\r\n]+/g, ' ')
-}
 
 export async function POST(req: Request) {
   try {
-    const { tipo, equipo_id, nombre, marca, modelo, referencia, serial, servicio } = await req.json()
+    const { tipo, nombre, marca, modelo, referencia, serial, servicio } = await req.json()
     if (!tipo || !nombre) return NextResponse.json({ error: 'Faltan datos.' }, { status: 400 })
 
     const outDir = path.join(process.cwd(), 'public', 'documentos')
@@ -29,47 +23,6 @@ export async function POST(req: Request) {
     const se = (serial || 'N/D').replace(/'/g, '')
     const sv = (servicio || 'N/D').replace(/'/g, '')
 
-    // ---- Historial real del equipo (para hoja de vida) ----
-    let pyMant = '[]', pyCal = '[]', pyMov = '[]'
-    if (equipo_id) {
-      const IID = await getInstitutionId()
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
-      const { data: mants } = await supabase
-        .from('mantenimientos')
-        .select('fecha_programada, fecha_realizado, tipo, estado, descripcion')
-        .eq('equipo_id', equipo_id).eq('institucion_id', IID)
-        .order('fecha_programada', { ascending: false }).limit(500)
-      pyMant = '[' + (mants || []).map(m =>
-        `['${pyStr((m.fecha_realizado||m.fecha_programada||'').slice(0,10))}','${pyStr(m.tipo)}','${pyStr(m.estado)}','${pyStr(m.descripcion)}']`
-      ).join(',') + ']'
-
-      const { data: movs } = await supabase
-        .from('movimientos')
-        .select('fecha_movimiento, tipo, servicio_origen, servicio_destino, responsable_nombre')
-        .eq('equipo_id', equipo_id).eq('institucion_id', IID)
-        .order('fecha_movimiento', { ascending: false }).limit(500)
-      pyMov = '[' + (movs || []).map(m =>
-        `['${pyStr((m.fecha_movimiento||'').slice(0,10))}','${pyStr(m.tipo)}','${pyStr(m.servicio_origen)}','${pyStr(m.servicio_destino)}','${pyStr(m.responsable_nombre)}']`
-      ).join(',') + ']'
-
-      const { data: pameEqs } = await supabase
-        .from('pame_equipos').select('id').eq('equipo_id', equipo_id)
-      const pameIds = (pameEqs || []).map(p => p.id)
-      if (pameIds.length) {
-        const { data: cals } = await supabase
-          .from('pame_calibraciones')
-          .select('fecha_calibracion, resultado, error_encontrado, tecnico_calibrador, numero_certificado')
-          .in('pame_equipo_id', pameIds)
-          .order('fecha_calibracion', { ascending: false }).limit(500)
-        pyCal = '[' + (cals || []).map(c =>
-          `['${pyStr((c.fecha_calibracion||'').slice(0,10))}','${pyStr(c.resultado)}','${pyStr(c.error_encontrado)}','${pyStr(c.tecnico_calibrador)}','${pyStr(c.numero_certificado)}']`
-        ).join(',') + ']'
-      }
-    }
-
     const script = `
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -85,9 +38,6 @@ NARC=colors.HexColor('#FFF7ED'); NARA=colors.HexColor('#EA580C')
 
 EMPRESA='SYNAP'; DIR='Bogota, Colombia'; CORREO='admin@synap.co'; WEB='www.synap.co'
 NOMBRE='${n}'; MARCA='${ma}'; MODELO='${mo}'; REF='${re}'; SERIAL='${se}'; SVCIO='${sv}'
-HIST_MANT=${pyMant}
-HIST_CAL=${pyCal}
-HIST_MOV=${pyMov}
 
 b=[('GRID',(0,0),(-1,-1),0.3,BORD),('FONTNAME',(0,0),(-1,-1),'Helvetica'),('FONTSIZE',(0,0),(-1,-1),8.5),('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),('LEFTPADDING',(0,0),(-1,-1),8),('RIGHTPADDING',(0,0),(-1,-1),8),('VALIGN',(0,0),(-1,-1),'MIDDLE')]
 PN=ParagraphStyle('n',fontName='Helvetica',fontSize=8.5,textColor=colors.HexColor('#18181B'),leading=13,spaceAfter=4,alignment=TA_JUSTIFY)
@@ -160,44 +110,7 @@ elif tipo=='hoja':
   c.append(tg([3*cm,8.25*cm,3*cm,7.25*cm],[['PROVEEDOR','SYNAP','CONTACTO','Equipo SYNAP'],['DIRECCION',DIR,'CORREO',CORREO]]))
   c.append(Spacer(1,4*mm))
   c+=sec('HISTORIAL DE MANTENIMIENTO')
-  def celda(t):
-    return Paragraph(str(t) if t else '-', ParagraphStyle('cc',fontName='Helvetica',fontSize=7,leading=9))
-  if HIST_MANT:
-    filas=[[Paragraph(h,ParagraphStyle('ch',fontName='Helvetica-Bold',fontSize=7,textColor=BLAN,leading=9)) for h in ['Fecha','Tipo','Estado','Descripcion']]]
-    for r in HIST_MANT:
-      filas.append([celda(r[0]),celda(r[1]),celda(r[2]),celda(r[3])])
-    tm=Table(filas,colWidths=[3*cm,3.5*cm,3*cm,12*cm],repeatRows=1)
-    tm.setStyle(TableStyle(b+[('BACKGROUND',(0,0),(-1,0),AZUL),('ROWBACKGROUNDS',(0,1),(-1,-1),[BLAN,GRIC]),('VALIGN',(0,0),(-1,-1),'TOP')]))
-    c.append(tm)
-    c.append(Paragraph(f'Total: {len(HIST_MANT)} mantenimientos registrados.',PP))
-  else:
-    c.append(Paragraph('Sin mantenimientos registrados para este equipo.',PN))
-  c.append(Spacer(1,5*mm))
-
-  c+=sec('HISTORIAL DE CALIBRACIONES')
-  if HIST_CAL:
-    filas=[[Paragraph(h,ParagraphStyle('ch2',fontName='Helvetica-Bold',fontSize=7,textColor=BLAN,leading=9)) for h in ['Fecha','Resultado','Error','Tecnico','Certificado']]]
-    for r in HIST_CAL:
-      filas.append([celda(r[0]),celda(r[1]),celda(r[2]),celda(r[3]),celda(r[4])])
-    tc=Table(filas,colWidths=[3*cm,3.5*cm,3*cm,6*cm,6*cm],repeatRows=1)
-    tc.setStyle(TableStyle(b+[('BACKGROUND',(0,0),(-1,0),AZUL),('ROWBACKGROUNDS',(0,1),(-1,-1),[BLAN,GRIC]),('VALIGN',(0,0),(-1,-1),'TOP')]))
-    c.append(tc)
-    c.append(Paragraph(f'Total: {len(HIST_CAL)} calibraciones registradas.',PP))
-  else:
-    c.append(Paragraph('Sin calibraciones registradas para este equipo.',PN))
-  c.append(Spacer(1,5*mm))
-
-  c+=sec('HISTORIAL DE MOVIMIENTOS')
-  if HIST_MOV:
-    filas=[[Paragraph(h,ParagraphStyle('ch3',fontName='Helvetica-Bold',fontSize=7,textColor=BLAN,leading=9)) for h in ['Fecha','Tipo','Origen','Destino','Responsable']]]
-    for r in HIST_MOV:
-      filas.append([celda(r[0]),celda(r[1]),celda(r[2]),celda(r[3]),celda(r[4])])
-    tv=Table(filas,colWidths=[3*cm,3.5*cm,4.75*cm,4.75*cm,5.5*cm],repeatRows=1)
-    tv.setStyle(TableStyle(b+[('BACKGROUND',(0,0),(-1,0),AZUL),('ROWBACKGROUNDS',(0,1),(-1,-1),[BLAN,GRIC]),('VALIGN',(0,0),(-1,-1),'TOP')]))
-    c.append(tv)
-    c.append(Paragraph(f'Total: {len(HIST_MOV)} movimientos registrados.',PP))
-  else:
-    c.append(Paragraph('Sin movimientos registrados para este equipo.',PN))
+  c.append(tg([3*cm,4*cm,4*cm,5.25*cm,5.25*cm],[['Fecha','Tipo','Tecnico','Descripcion','Observaciones'],['','','','',''],['','','','',''],['','','','',''],['','','','','']]))
   c.append(Spacer(1,6*mm))
   c+=sec('FIRMAS')
   c.append(Spacer(1,4*mm))

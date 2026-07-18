@@ -40,12 +40,16 @@ export default function OrdenesPage(){
   const[nuevaOT,setNuevaOT]=useState({equipo:'',tipo:'correctivo',tecnico:'',prioridad:'alta',descripcion:''})
 
   useEffect(()=>{
-    fetch('/api/mantenimientos').then(r=>r.json()).then(d=>{
+    cargarOrdenes(new Date().getMonth()+1)
+  },[])
+  function cargarOrdenes(mes:number){
+    setLoading(true)
+    fetch(`/api/ordenes?mes=${mes}&anio=2026`).then(r=>r.json()).then(d=>{
       setData(d)
-      setOrdenes(genOrdenes(d,new Date().getMonth()+1))
+      setOrdenes(d?.ordenes||[])
       setLoading(false)
     }).catch(()=>setLoading(false))
-  },[])
+  }
 
   function genOrdenes(d:any,mes:number){
     const items=d?.cronogramaMensual?.[mes]||[]
@@ -56,25 +60,34 @@ export default function OrdenesPage(){
       cantidad:asig.cantidad, horas:asig.horas, columna:'pendiente',
       prioridad:item.riesgo==='alto'?'alta':item.riesgo==='medio'?'media':'baja',
       riesgo:item.riesgo, progreso:0, servicio:item.servicio||'',
-      descripcion:'Mantenimiento programado segun cronograma anual 2025',
-      fechaProg:`2025-${String(mes).padStart(2,'0')}-${String(Math.floor(Math.random()*20)+1).padStart(2,'0')}`,
+      descripcion:'Mantenimiento programado segun cronograma anual 2026',
+      fechaProg:`2026-${String(mes).padStart(2,'0')}-${String(Math.floor(Math.random()*20)+1).padStart(2,'0')}`,
     }))).sort((a:any,b:any)=>((({alta:0,media:1,baja:2} as any)[a.prioridad]??9)-(({alta:0,media:1,baja:2} as any)[b.prioridad]??9)))
   }
 
   function cambiarMes(mes:number){
     setMesSel(mes)
-    if(data) setOrdenes(genOrdenes(data,mes))
+    cargarOrdenes(mes)
   }
 
-  function mover(id:string,col:string){
+  async function mover(id:string,col:string){
+    // Actualiza la UI de inmediato (optimista)
     setOrdenes(p=>p.map(o=>o.id===id?{...o,columna:col,progreso:col==='completado'?100:col==='en_revision'?75:col==='en_proceso'?35:0}:o))
     if(selOT?.id===id) setSelOT((p:any)=>({...p,columna:col}))
+    // Persiste el cambio de columna en la base de datos
+    try{
+      await fetch('/api/ordenes',{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id,columna:col}),
+      })
+    }catch(e){ console.error('No se pudo guardar el movimiento:',e) }
   }
 
   function crearOT(){
     if(!nuevaOT.equipo||!nuevaOT.tecnico) return
     const id=`OT-${String(mesSel).padStart(2,'0')}-${String(ordenes.length+1).padStart(3,'0')}`
-    const ot={...nuevaOT,id,columna:'pendiente',progreso:0,cantidad:1,horas:4,riesgo:nuevaOT.prioridad==='alta'?'alto':'medio',servicio:'',fechaProg:`2025-${String(mesSel).padStart(2,'0')}-01`}
+    const ot={...nuevaOT,id,columna:'pendiente',progreso:0,cantidad:1,horas:4,riesgo:nuevaOT.prioridad==='alta'?'alto':'medio',servicio:'',fechaProg:`2026-${String(mesSel).padStart(2,'0')}-01`}
     setOrdenes(p=>[ot,...p])
     setShowCrear(false)
     setNuevaOT({equipo:'',tipo:'correctivo',tecnico:'',prioridad:'alta',descripcion:''})
@@ -106,7 +119,7 @@ export default function OrdenesPage(){
       <div style={{width:220,flexShrink:0,background:'#fff',borderRight:'0.5px solid #E4E4E7',display:'flex',flexDirection:'column',overflow:'hidden'}}>
         <div style={{padding:'16px 14px',borderBottom:'0.5px solid #E4E4E7'}}>
           <div style={{fontSize:10,color:'#A1A1AA',marginBottom:2}}>SYNAP / Ordenes de trabajo</div>
-          <div style={{fontSize:15,fontWeight:500,color:'#18181B'}}>Kanban 2025</div>
+          <div style={{fontSize:15,fontWeight:500,color:'#18181B'}}>Kanban 2026</div>
         </div>
 
         {/* Boton crear OT */}
@@ -165,7 +178,7 @@ export default function OrdenesPage(){
         {/* Topbar */}
         <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexShrink:0}}>
           <div>
-            <h1 style={{fontSize:15,fontWeight:500,color:'#18181B',margin:0}}>Ordenes de trabajo — {MESES_LARGO[mesSel-1]} 2025</h1>
+            <h1 style={{fontSize:15,fontWeight:500,color:'#18181B',margin:0}}>Ordenes de trabajo — {MESES_LARGO[mesSel-1]} 2026</h1>
             <div style={{fontSize:11,color:'#A1A1AA',marginTop:2}}>{stats.total} ordenes · {stats.completadas} completadas · {stats.horas}h estimadas</div>
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -336,6 +349,24 @@ export default function OrdenesPage(){
                                     {sigCol.label} →
                                   </button>
                                 )}
+                                {col.id==='completado'&&(
+                                  <button onClick={async()=>{
+                                    try{
+                                      const r=await fetch(`/api/ordenes/acta?id=${o.id}`)
+                                      if(!r.ok){alert('No se pudo generar el acta');return}
+                                      const blob=await r.blob()
+                                      const a=document.createElement('a')
+                                      a.href=URL.createObjectURL(blob)
+                                      a.download=`acta_${o.equipo||'OT'}.pdf`
+                                      document.body.appendChild(a);a.click();a.remove()
+                                      URL.revokeObjectURL(a.href)
+                                    }catch(e){alert('Error al descargar el acta')}
+                                  }} style={{flex:1,padding:'4px',borderRadius:5,border:'none',background:AZ,color:'#fff',fontSize:10,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4,transition:'all 0.1s'}}
+                                    onMouseEnter={e=>{e.currentTarget.style.opacity='0.85'}}
+                                    onMouseLeave={e=>{e.currentTarget.style.opacity='1'}}>
+                                    <i className="ti ti-file-type-pdf" style={{fontSize:11}}/> Descargar acta
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -362,7 +393,7 @@ export default function OrdenesPage(){
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
               <div>
                 <div style={{fontSize:15,fontWeight:500,color:'#18181B',marginBottom:2}}>Nueva orden de trabajo</div>
-                <div style={{fontSize:11,color:'#A1A1AA'}}>OT correctiva — {MESES_LARGO[mesSel-1]} 2025</div>
+                <div style={{fontSize:11,color:'#A1A1AA'}}>OT correctiva — {MESES_LARGO[mesSel-1]} 2026</div>
               </div>
               <button onClick={()=>setShowCrear(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#A1A1AA',fontSize:20}}>×</button>
             </div>

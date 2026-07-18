@@ -12,7 +12,10 @@ GRIC=colors.HexColor('#F8F9FA'); AZUC=colors.HexColor('#EEF2FF'); BLAN=colors.wh
 NARC=colors.HexColor('#FFF7ED'); NARA=colors.HexColor('#EA580C')
 
 EMPRESA='SYNAP'; DIR='Bogota, Colombia'; CORREO='admin@synap.co'; WEB='www.synap.co'
-NOMBRE='Agitador De Plaquetas'; MARCA='Helmer'; MODELO='Pf15i'; REF='BBS-AGIPL-00013550'; SERIAL='1017681'; SVCIO='Banco De Sangre'
+NOMBRE='MONITOR DE SIGNOS VITALES'; MARCA='MINDRAY'; MODELO='UMEC 10'; REF='19828'; SERIAL='KN43215545'; SVCIO='SALAS DE CX'
+HIST_MANT=[['2026-10-15','preventivo','programado','Mantenimiento preventivo programado - MONITOR DE SIGNOS VITALES (MINDRAY)'],['2026-03-18','preventivo','programado','Mantenimiento preventivo programado - MONITOR DE SIGNOS VITALES (MINDRAY)']]
+HIST_CAL=[]
+HIST_MOV=[]
 
 b=[('GRID',(0,0),(-1,-1),0.3,BORD),('FONTNAME',(0,0),(-1,-1),'Helvetica'),('FONTSIZE',(0,0),(-1,-1),8.5),('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),('LEFTPADDING',(0,0),(-1,-1),8),('RIGHTPADDING',(0,0),(-1,-1),8),('VALIGN',(0,0),(-1,-1),'MIDDLE')]
 PN=ParagraphStyle('n',fontName='Helvetica',fontSize=8.5,textColor=colors.HexColor('#18181B'),leading=13,spaceAfter=4,alignment=TA_JUSTIFY)
@@ -61,7 +64,7 @@ def mk(ruta,c):
   d=SimpleDocTemplate(ruta,pagesize=letter,leftMargin=1.5*cm,rightMargin=1.5*cm,topMargin=1.5*cm,bottomMargin=1.5*cm)
   d.build(c)
 
-tipo='cronograma'
+tipo='preinstalacion'
 c=[]
 
 if tipo=='ficha':
@@ -85,7 +88,44 @@ elif tipo=='hoja':
   c.append(tg([3*cm,8.25*cm,3*cm,7.25*cm],[['PROVEEDOR','SYNAP','CONTACTO','Equipo SYNAP'],['DIRECCION',DIR,'CORREO',CORREO]]))
   c.append(Spacer(1,4*mm))
   c+=sec('HISTORIAL DE MANTENIMIENTO')
-  c.append(tg([3*cm,4*cm,4*cm,5.25*cm,5.25*cm],[['Fecha','Tipo','Tecnico','Descripcion','Observaciones'],['','','','',''],['','','','',''],['','','','',''],['','','','','']]))
+  def celda(t):
+    return Paragraph(str(t) if t else '-', ParagraphStyle('cc',fontName='Helvetica',fontSize=7,leading=9))
+  if HIST_MANT:
+    filas=[[Paragraph(h,ParagraphStyle('ch',fontName='Helvetica-Bold',fontSize=7,textColor=BLAN,leading=9)) for h in ['Fecha','Tipo','Estado','Descripcion']]]
+    for r in HIST_MANT:
+      filas.append([celda(r[0]),celda(r[1]),celda(r[2]),celda(r[3])])
+    tm=Table(filas,colWidths=[3*cm,3.5*cm,3*cm,12*cm],repeatRows=1)
+    tm.setStyle(TableStyle(b+[('BACKGROUND',(0,0),(-1,0),AZUL),('ROWBACKGROUNDS',(0,1),(-1,-1),[BLAN,GRIC]),('VALIGN',(0,0),(-1,-1),'TOP')]))
+    c.append(tm)
+    c.append(Paragraph(f'Total: {len(HIST_MANT)} mantenimientos registrados.',PP))
+  else:
+    c.append(Paragraph('Sin mantenimientos registrados para este equipo.',PN))
+  c.append(Spacer(1,5*mm))
+
+  c+=sec('HISTORIAL DE CALIBRACIONES')
+  if HIST_CAL:
+    filas=[[Paragraph(h,ParagraphStyle('ch2',fontName='Helvetica-Bold',fontSize=7,textColor=BLAN,leading=9)) for h in ['Fecha','Resultado','Error','Tecnico','Certificado']]]
+    for r in HIST_CAL:
+      filas.append([celda(r[0]),celda(r[1]),celda(r[2]),celda(r[3]),celda(r[4])])
+    tc=Table(filas,colWidths=[3*cm,3.5*cm,3*cm,6*cm,6*cm],repeatRows=1)
+    tc.setStyle(TableStyle(b+[('BACKGROUND',(0,0),(-1,0),AZUL),('ROWBACKGROUNDS',(0,1),(-1,-1),[BLAN,GRIC]),('VALIGN',(0,0),(-1,-1),'TOP')]))
+    c.append(tc)
+    c.append(Paragraph(f'Total: {len(HIST_CAL)} calibraciones registradas.',PP))
+  else:
+    c.append(Paragraph('Sin calibraciones registradas para este equipo.',PN))
+  c.append(Spacer(1,5*mm))
+
+  c+=sec('HISTORIAL DE MOVIMIENTOS')
+  if HIST_MOV:
+    filas=[[Paragraph(h,ParagraphStyle('ch3',fontName='Helvetica-Bold',fontSize=7,textColor=BLAN,leading=9)) for h in ['Fecha','Tipo','Origen','Destino','Responsable']]]
+    for r in HIST_MOV:
+      filas.append([celda(r[0]),celda(r[1]),celda(r[2]),celda(r[3]),celda(r[4])])
+    tv=Table(filas,colWidths=[3*cm,3.5*cm,4.75*cm,4.75*cm,5.5*cm],repeatRows=1)
+    tv.setStyle(TableStyle(b+[('BACKGROUND',(0,0),(-1,0),AZUL),('ROWBACKGROUNDS',(0,1),(-1,-1),[BLAN,GRIC]),('VALIGN',(0,0),(-1,-1),'TOP')]))
+    c.append(tv)
+    c.append(Paragraph(f'Total: {len(HIST_MOV)} movimientos registrados.',PP))
+  else:
+    c.append(Paragraph('Sin movimientos registrados para este equipo.',PN))
   c.append(Spacer(1,6*mm))
   c+=sec('FIRMAS')
   c.append(Spacer(1,4*mm))
@@ -146,5 +186,5 @@ elif tipo=='preinstalacion':
   c.append(frm(['Tecnico Instalador','Recibido por (Cliente)'],['SYNAP','(Institucion)']))
   c+=pie()
 
-mk('/workspaces/biomedai-app/public/documentos/SYNAP_cronograma_1017681.pdf',c)
+mk('/workspaces/biomedai-app/public/documentos/SYNAP_preinstalacion_KN43215545.pdf',c)
 print('OK')

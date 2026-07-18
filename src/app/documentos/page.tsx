@@ -63,6 +63,7 @@ export default function DocumentosPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tipo,
+          equipo_id:  equipoSel.id,
           nombre:     equipoSel.nombre,
           marca:      equipoSel.marca || 'N/D',
           modelo:     equipoSel.modelo || 'N/D',

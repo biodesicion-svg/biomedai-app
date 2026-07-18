@@ -32,12 +32,42 @@ export default function OrdenDetallePage(){
   const[dibujandoSuper,setDibujandoSuper]=useState(false)
 
   useEffect(()=>{
-    const guardada=sessionStorage.getItem(`orden-${params.id}`)
-    if(guardada){
-      const ord=JSON.parse(guardada)
+    async function init(){
+      // 1) Intentar traer la orden desde la DB (fuente de verdad)
+      let ord:any = null
+      try{
+        const r = await fetch(`/api/ordenes?id=${params.id}`)
+        if(r.ok){ const d = await r.json(); ord = d.orden }
+      }catch(e){ /* fallback a sessionStorage */ }
+      // 2) Fallback: sessionStorage (para ordenes recien creadas en el kanban)
+      if(!ord){
+        const guardada=sessionStorage.getItem(`orden-${params.id}`)
+        if(guardada) ord=JSON.parse(guardada)
+      }
+      if(!ord){ setCargando(false); return }
       setOrden(ord)
+
+      // 3) Si ya esta completada, mostrar el acta directo (no re-ejecutar)
+      if(ord.columna==='completado' || ord.estado==='completado'){
+        // Reconstruir respuestas y firma guardadas
+        if(ord.respuestas) setRespuestas(ord.respuestas)
+        if(ord.firma_tecnico) setFirma(ord.firma_tecnico)
+        if(ord.firma_supervisor) setFirmaSupervisor(ord.firma_supervisor)
+        // Cargar el protocolo para tener las preguntas (para la tabla del acta)
+        try{
+          const res=await fetch('/api/protocolo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({equipo:ord.equipo,tipo:ord.tipo})})
+          const data=await res.json()
+          if(data.preguntas) setPreguntas(data.preguntas)
+        }catch(e){}
+        setFase('finalizado')
+        setCargando(false)
+        return
+      }
+
+      // 4) Orden no completada: flujo normal de ejecucion
       cargarProtocolo(ord)
     }
+    init()
   },[params.id])
 
   async function cargarProtocolo(ord:any){
@@ -76,9 +106,26 @@ export default function OrdenDetallePage(){
     if(pasoActual>0) setPasoActual(p=>p-1)
   }
 
-  function finalizar(){
+  async function finalizar(){
     if(!firma) return
     setFase('finalizado')
+    // Persistir en la base de datos (mantenimientos.estado = completado)
+    try {
+      await fetch('/api/ordenes',{
+        method:'PATCH',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          id:params.id,
+          columna:'completado',
+          respuestas: respuestas,
+          firma_tecnico: firma,
+          firma_supervisor: firmaSupervisor || '',
+          resultado: (Object.values(respuestas).filter((r:any)=>r && !r.conforme).length)>0 ? 'no_conforme' : 'conforme',
+          duracion_minutos: tiempoInicio?Math.round((Date.now()-tiempoInicio.getTime())/60000):0,
+        }),
+      })
+    } catch(e) { console.error('No se pudo guardar la OT:',e) }
+    // Mantener sincronizado el estado visual del kanban en la sesion
     const kanbanOrdenes=JSON.parse(sessionStorage.getItem('kanban-ordenes')||'[]')
     const actualizadas=kanbanOrdenes.map((o:any)=>o.id===orden?.id?{...o,columna:'completado',progreso:100}:o)
     sessionStorage.setItem('kanban-ordenes',JSON.stringify(actualizadas))
@@ -104,6 +151,25 @@ export default function OrdenDetallePage(){
 
   return(
     <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',background:'#FAFAFA'}}>
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #acta-imprimible, #acta-imprimible * { visibility: visible !important; }
+          #acta-imprimible {
+            position: absolute !important;
+            left: 0; top: 0;
+            width: 100% !important;
+            max-width: 100% !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 24px 32px !important;
+          }
+          #acta-imprimible .solo-print { display: block !important; }
+          #acta-imprimible button { display: none !important; }
+          @page { margin: 1.4cm; }
+        }
+      `}</style>
 
       {/* Topbar */}
       <div style={{background:'#fff',borderBottom:'0.5px solid #E4E4E7',padding:'12px 24px',display:'flex',alignItems:'center',gap:14,flexShrink:0}}>
@@ -495,7 +561,57 @@ export default function OrdenDetallePage(){
         {/* FINALIZADO */}
         {fase==='finalizado'&&(
           <div style={{width:'100%',maxWidth:560,textAlign:'center'}}>
-            <div style={{background:'#fff',borderRadius:16,border:'0.5px solid #E4E4E7',padding:'40px 32px',boxShadow:'0 2px 12px rgba(0,0,0,0.06)'}}>
+            <div id="acta-imprimible" style={{background:'#fff',borderRadius:16,border:'0.5px solid #E4E4E7',padding:'40px 32px',boxShadow:'0 2px 12px rgba(0,0,0,0.06)'}}>
+              {/* Encabezado formal (solo visible al imprimir) */}
+              <div className="solo-print" style={{display:'none',textAlign:'left',borderBottom:'2px solid #1B2B5B',paddingBottom:12,marginBottom:20}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div>
+                    <div style={{fontSize:18,fontWeight:700,color:'#1B2B5B'}}>SYNAP</div>
+                    <div style={{fontSize:11,color:'#64748B'}}>Acta de Mantenimiento</div>
+                  </div>
+                  <div style={{textAlign:'right',fontSize:11,color:'#64748B'}}>
+                    <div>Orden: {orden.id}</div>
+                    <div>Fecha: {fechaHoy}</div>
+                  </div>
+                </div>
+                <div style={{marginTop:12,fontSize:12,color:'#18181B'}}>
+                  <div><strong>Equipo:</strong> {orden.equipo}</div>
+                  <div><strong>Tecnico:</strong> {orden.tecnico||'—'}</div>
+                  <div><strong>Resultado:</strong> {noConformes>0?noConformes+' no conformidades':'Conforme'}</div>
+                </div>
+              </div>
+              {/* Tabla completa de items verificados (solo visible al imprimir) */}
+              <div className="solo-print" style={{display:'none',textAlign:'left',marginBottom:20}}>
+                <div style={{fontSize:13,fontWeight:700,color:'#1B2B5B',marginBottom:8}}>Items verificados</div>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:10}}>
+                  <thead>
+                    <tr>
+                      {['#','Categoria','Item verificado','Resultado','Observacion'].map(h=>(
+                        <th key={h} style={{textAlign:'left',padding:'5px 6px',borderBottom:'1.5px solid #1B2B5B',color:'#1B2B5B',fontWeight:600}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preguntas.map((p,i)=>{
+                      const r=respuestas[i]
+                      const estado = !r ? 'Sin verificar' : (r.conforme ? 'Conforme' : 'No conforme')
+                      const col = !r ? '#A1A1AA' : (r.conforme ? '#16A34A' : '#DC2626')
+                      return(
+                        <tr key={i}>
+                          <td style={{padding:'4px 6px',borderBottom:'0.5px solid #E4E4E7',verticalAlign:'top'}}>{p.numero||i+1}</td>
+                          <td style={{padding:'4px 6px',borderBottom:'0.5px solid #E4E4E7',verticalAlign:'top'}}>{p.categoria||'—'}</td>
+                          <td style={{padding:'4px 6px',borderBottom:'0.5px solid #E4E4E7',verticalAlign:'top'}}>{p.pregunta}</td>
+                          <td style={{padding:'4px 6px',borderBottom:'0.5px solid #E4E4E7',verticalAlign:'top',color:col,fontWeight:600,whiteSpace:'nowrap'}}>{estado}</td>
+                          <td style={{padding:'4px 6px',borderBottom:'0.5px solid #E4E4E7',verticalAlign:'top'}}>{r?.observacion||''}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                <div style={{marginTop:10,fontSize:11,color:'#18181B'}}>
+                  <strong>Resumen:</strong> {Object.values(respuestas).filter(r=>r&&r.conforme).length} conformes · {noConformes} no {noConformes===1?'conformidad':'conformidades'} · {preguntas.length} items totales
+                </div>
+              </div>
               <div style={{width:64,height:64,borderRadius:'50%',background:VE_BG,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 16px'}}>
                 <i className="ti ti-check" style={{fontSize:32,color:VE}}/>
               </div>

@@ -1,5 +1,5 @@
-import ExportarXLS from '@/components/ui/ExportarXLS'
 'use client'
+import ExportarXLS from '@/components/ui/ExportarXLS'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -36,10 +36,24 @@ export default function InventarioPage() {
 
   useEffect(()=>{
     async function load(){
-    const IID = await getIID()
-        const supabase = createClient()
-    supabase.from('equipos').select('*').eq('institucion_id',IID).eq('activo',true).order('nombre')
-      .then(({data})=>{ setEquipos(data||[]); setLoading(false) })
+      const IID = await getIID()
+      const supabase = createClient()
+      // Paginar: Supabase corta en 1000 filas por request
+      const todos:any[] = []
+      for (let from=0; ; from+=1000){
+        const { data } = await supabase
+          .from('equipos')
+          .select('*')
+          .eq('institucion_id',IID)
+          .eq('activo',true)
+          .order('nombre',{ascending:true})
+          .range(from, from+999)
+        if(!data || data.length===0) break
+        todos.push(...data)
+        if(data.length<1000) break
+      }
+      setEquipos(todos)
+      setLoading(false)
     }
     load()
   },[])
@@ -142,7 +156,7 @@ export default function InventarioPage() {
                       <td style={{padding:'11px 14px',color:'#64748B',fontSize:12}}>{e.clase_invima||'—'}</td>
                       <td style={{padding:'11px 14px'}}>
                         <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:500,background:rc.bg,color:rc.text}}>
-                          {e.riesgo}
+                          {e.riesgo || 'sin clasificar'}
                         </span>
                       </td>
                       <td style={{padding:'11px 14px'}}>
