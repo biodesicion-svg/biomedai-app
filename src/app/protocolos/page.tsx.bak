@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 const AZ='#1B2B5B',VE='#16A34A',RO='#DC2626',NA='#D97706',GR='#64748B',MO='#7C3AED'
 const VE_BG='#F0FDF4',RO_BG='#FEF2F2',NA_BG='#FFFBEB',AZ_BG='#EEF2FF',MO_BG='#F5F3FF'
@@ -134,47 +134,18 @@ function Card({children,style={}}:any){
 }
 
 export default function ProtocolosPage(){
-  const[lista,setLista]=useState<any[]>([])
-  const[selProt,setSelProt]=useState<any>({id:'',nombre:'Cargando...',clase:'-',riesgo:'medio',frecuencia:'-',duracion:'-',normativa:'IEC 60601, Res. 4816/2008',categorias:[],pasos:[]})
+  const[selProt,setSelProt]=useState(PROTOCOLOS[0])
   const[catSel,setCatSel]=useState('todas')
   const[busqueda,setBusqueda]=useState('')
 
-  useEffect(()=>{
-    fetch('/api/protocolo').then(r=>r.json()).then(d=>{
-      const ps=(d.protocolos||[]).map((p:any)=>({
-        id:p.clave, nombre:p.nombre, clase:p.clase_invima||'-',
-        riesgo:(p.clase_invima==='IIb'||p.clase_invima==='III')?'alto':(p.clase_invima==='IIa'?'medio':'bajo'),
-        frecuencia:p.frecuencia||'-', duracion:(p.duracion_horas||0)+'h',
-        normativa:'IEC 60601, Res. 4816/2008', categorias:[], pasos:[], total_pasos:p.total_pasos||0, criticos:p.criticos||0,
-      }))
-      setLista(ps)
-      if(ps.length) cargarPasos(ps[0])
-    }).catch(()=>{})
-  },[])
-
-  async function cargarPasos(p:any){
-    try{
-      const r=await fetch('/api/protocolo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({equipo:p.nombre,tipo:'preventivo'})})
-      const d=await r.json()
-      const pasos=(d.preguntas||[]).map((q:any)=>({
-        n:q.numero, cat:q.categoria, pregunta:q.pregunta, tipo:q.tipo,
-        opciones:q.opciones, esperado:q.valor_esperado, unidad:q.unidad,
-        critica:q.critica, adv:q.advertencia||null,
-      }))
-      const cats=Array.from(new Set(pasos.map((x:any)=>x.cat)))
-      setSelProt({...p, pasos, categorias:cats})
-      setCatSel('todas'); setBusqueda('')
-    }catch(e){ setSelProt({...p, pasos:[], categorias:[]}) }
-  }
-
-  const pasosFiltrados=(selProt.pasos||[]).filter((p:any)=>{
+  const pasosFiltrados=selProt.pasos.filter(p=>{
     if(catSel!=='todas'&&p.cat!==catSel) return false
     if(busqueda&&!p.pregunta.toLowerCase().includes(busqueda.toLowerCase())) return false
     return true
   })
 
-  const criticos=(selProt.pasos||[]).filter((p:any)=>p.critica).length
-  const total=(selProt.pasos||[]).length
+  const criticos=selProt.pasos.filter(p=>p.critica).length
+  const total=selProt.pasos.length
 
   function iconTipo(tipo:string){
     if(tipo==='si_no') return 'ti-toggle-right'
@@ -192,17 +163,17 @@ export default function ProtocolosPage(){
         <div style={{padding:'16px 14px',borderBottom:'0.5px solid #E4E4E7'}}>
           <div style={{fontSize:10,color:'#A1A1AA',marginBottom:2}}>SYNAP / Mantenimiento / Protocolos</div>
           <div style={{fontSize:15,fontWeight:500,color:'#18181B'}}>Protocolos</div>
-          <div style={{fontSize:11,color:'#A1A1AA',marginTop:2}}>{lista.length} protocolos disponibles</div>
+          <div style={{fontSize:11,color:'#A1A1AA',marginTop:2}}>{PROTOCOLOS.length} protocolos disponibles</div>
         </div>
 
         <div style={{flex:1,overflowY:'auto',padding:'10px'}}>
           <div style={{fontSize:10,fontWeight:500,color:'#A1A1AA',padding:'4px 8px',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Por tipo de equipo</div>
-          {lista.map((p:any)=>{
+          {PROTOCOLOS.map(p=>{
             const isSel=selProt.id===p.id
             const rCol=p.riesgo==='alto'?RO:p.riesgo==='medio'?NA:VE
             const rBg=p.riesgo==='alto'?RO_BG:p.riesgo==='medio'?NA_BG:VE_BG
             return(
-              <button key={p.id} onClick={()=>cargarPasos(p)}
+              <button key={p.id} onClick={()=>{setSelProt(p);setCatSel('todas');setBusqueda('')}}
                 style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 10px',borderRadius:8,border:`0.5px solid ${isSel?AZ+'40':'transparent'}`,cursor:'pointer',background:isSel?AZ_BG:'transparent',marginBottom:4,textAlign:'left',transition:'all 0.15s'}}>
                 <div style={{width:36,height:36,borderRadius:8,background:isSel?AZ+'20':rBg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                   <i className="ti ti-device-heart-monitor" style={{fontSize:17,color:isSel?AZ:rCol}}/>
@@ -210,7 +181,7 @@ export default function ProtocolosPage(){
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:12,fontWeight:isSel?500:400,color:isSel?AZ:'#18181B',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.nombre}</div>
                   <div style={{display:'flex',gap:5,marginTop:2}}>
-                    <span style={{fontSize:10,color:rCol}}>{p.total_pasos ?? p.pasos.length} pasos</span>
+                    <span style={{fontSize:10,color:rCol}}>{p.pasos.length} pasos</span>
                     <span style={{fontSize:10,color:'#A1A1AA'}}>·</span>
                     <span style={{fontSize:10,color:'#A1A1AA'}}>{p.frecuencia}</span>
                   </div>
