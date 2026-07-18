@@ -60,21 +60,10 @@ export default function ServiciosPage(){
                 <p style={{margin:0,fontSize:12,color:GR}}>{servicios.length} registros cargados</p>
               </div>
             </div>
-            <button onClick={async()=>{
-              try{
-                const r=await fetch('/api/servicios/consolidado')
-                if(!r.ok){alert('No se pudo generar el consolidado');return}
-                const blob=await r.blob()
-                const a=document.createElement('a')
-                a.href=URL.createObjectURL(blob)
-                a.download='consolidado_mantenimiento.pdf'
-                document.body.appendChild(a);a.click();a.remove()
-                URL.revokeObjectURL(a.href)
-              }catch(e){alert('Error al descargar el consolidado')}
-            }}
-              style={{padding:'9px 16px',background:'#fff',border:`1px solid ${AZ}`,borderRadius:8,fontSize:12,fontWeight:600,color:AZ,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+            <a href="/api/servicios/pdf?tipo=consolidado" download
+              style={{padding:'9px 16px',background:'#fff',border:`1px solid ${AZ}`,borderRadius:8,fontSize:12,fontWeight:600,color:AZ,textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
               <i className="ti ti-file-type-pdf" style={{fontSize:14}}/>Consolidado PDF
-            </button>
+            </a>
           </div>
           <div style={{display:'flex',gap:0}}>
             {[{id:'lista',l:'Registros',icon:'ti-list'},{id:'dashboard',l:'Dashboard',icon:'ti-chart-bar'}].map(t=>(
@@ -91,112 +80,55 @@ export default function ServiciosPage(){
 
       <div style={{maxWidth:1400,margin:'0 auto',padding:24}}>
 
-        {tab==='dashboard'&&(()=>{
-          const D=(data as any)?.dashboard||{}
-          const cumpCol=(D.cumplimiento||0)>=80?VE:(D.cumplimiento||0)>=50?NA:RO
-          const kpis=[
-            {l:'Cumplimiento del plan',v:(D.cumplimiento||0)+'%',c:cumpCol,bg:cumpCol+'15',icon:'ti-target-arrow',sub:'ejecutados del total'},
-            {l:'Pendientes',v:(D.pendientes||0).toLocaleString(),c:NA,bg:NA_BG,icon:'ti-clock',sub:'sin ejecutar'},
-            {l:'Vencidos',v:(D.vencidos||0).toLocaleString(),c:RO,bg:RO_BG,icon:'ti-alert-triangle',sub:'fecha superada'},
-            {l:'Conformidad',v:(D.conformidad||0)+'%',c:VE,bg:VE_BG,icon:'ti-circle-check',sub:`${D.no_conformes||0} no conformes`},
-            {l:'Tiempo promedio',v:(D.tiempo_promedio||0)+' min',c:AZ,bg:AZ_BG,icon:'ti-hourglass',sub:'por intervencion'},
-            {l:'Equipos intervenidos',v:(D.equipos_top||[]).length,c:MO,bg:'#F5F3FF',icon:'ti-device-heart-monitor',sub:'distintos'},
-          ]
-          return(
-          <div style={{padding:'0 0 24px'}}>
-            {/* KPIs */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:12,marginBottom:16}}>
-              {kpis.map((k:any,i:number)=>(
-                <div key={i} style={{background:'#fff',borderRadius:12,border:'0.5px solid #E4E4E7',padding:'14px 16px'}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
-                    <div style={{width:34,height:34,borderRadius:9,background:k.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      <i className={`ti ${k.icon}`} style={{fontSize:17,color:k.c}}/>
-                    </div>
+        {tab==='dashboard'&&(
+          <div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:24}}>
+              {[
+                {l:'Total servicios',v:kpis.total||0,icon:'ti-clipboard-list',c:AZ,bg:AZ_BG},
+                {l:'Equipos distintos',v:equiposUnicos.length,icon:'ti-device-heart-monitor',c:MO,bg:'#F5F3FF'},
+                {l:'Tipos de servicio',v:Object.keys(kpis.tipos||{}).length,icon:'ti-list-check',c:VE,bg:VE_BG},
+                {l:'Con repuestos',v:servicios.filter((s:any)=>s.repuestos_utilizados&&s.repuestos_utilizados.trim()!=='').length,icon:'ti-package',c:NA,bg:NA_BG},
+              ].map((k,i)=>(
+                <div key={i} style={{background:'#fff',borderRadius:12,padding:16,border:'1px solid #E2E8F0'}}>
+                  <div style={{width:34,height:34,borderRadius:8,background:k.bg,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}>
+                    <i className={`ti ${k.icon}`} style={{fontSize:17,color:k.c}}/>
                   </div>
-                  <div style={{fontSize:24,fontWeight:600,color:k.c,lineHeight:1.1}}>{k.v}</div>
-                  <div style={{fontSize:11,color:'#18181B',marginTop:3,fontWeight:500}}>{k.l}</div>
-                  <div style={{fontSize:10,color:'#A1A1AA',marginTop:1}}>{k.sub}</div>
+                  <div style={{fontSize:24,fontWeight:700,color:k.c}}>{k.v}</div>
+                  <div style={{fontSize:11,color:GR,marginTop:2}}>{k.l}</div>
                 </div>
               ))}
             </div>
-
-            {/* Alerta de vencidos */}
-            {(D.vencidos||0)>0&&(
-              <div style={{background:RO_BG,border:`0.5px solid ${RO}30`,borderRadius:10,padding:'12px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
-                <i className="ti ti-alert-triangle" style={{fontSize:20,color:RO}}/>
-                <div>
-                  <div style={{fontSize:13,fontWeight:600,color:RO}}>{(D.vencidos||0).toLocaleString()} mantenimientos vencidos</div>
-                  <div style={{fontSize:11,color:GR}}>Su fecha programada ya paso y no han sido ejecutados. Riesgo de hallazgo en auditoria INVIMA.</div>
-                </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+              <div style={{background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',overflow:'hidden'}}>
+                <div style={{padding:'14px 20px',borderBottom:'1px solid #F1F5F9',fontSize:13,fontWeight:700,color:AZ}}>Por tipo de servicio</div>
+                {Object.entries(kpis.tipos||{}).sort((a:any,b:any)=>b[1]-a[1]).map(([tipo,cnt]:any,i)=>(
+                  <div key={i} style={{padding:'10px 20px',borderBottom:'1px solid #F8FAFC',display:'flex',alignItems:'center',gap:12}}>
+                    <TipoBadge t={tipo}/>
+                    <div style={{flex:1,height:6,background:'#F1F5F9',borderRadius:3}}>
+                      <div style={{width:`${(cnt/(kpis.total||1))*100}%`,height:'100%',background:AZ,borderRadius:3}}/>
+                    </div>
+                    <span style={{fontSize:12,fontWeight:700,color:AZ,minWidth:30}}>{cnt}</span>
+                  </div>
+                ))}
               </div>
-            )}
-
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-              {/* Cumplimiento por tecnico */}
-              <div style={{background:'#fff',borderRadius:12,border:'0.5px solid #E4E4E7',padding:'16px 18px'}}>
-                <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:14}}>Cumplimiento por tecnico</div>
-                {(D.por_tecnico||[]).map((t:any,i:number)=>{
-                  const col=t.pct>=80?VE:t.pct>=50?NA:RO
+              <div style={{background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',overflow:'hidden'}}>
+                <div style={{padding:'14px 20px',borderBottom:'1px solid #F1F5F9',fontSize:13,fontWeight:700,color:AZ}}>Por tipo de equipo</div>
+                {Object.entries(kpis.equipos||{}).sort((a:any,b:any)=>b[1]-a[1]).slice(0,8).map(([eq,cnt]:any,i)=>{
+                  const max=Math.max(...Object.values(kpis.equipos||{1:1}) as number[])
                   return(
-                    <div key={i} style={{marginBottom:14}}>
-                      <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
-                        <span style={{fontSize:12,color:'#18181B',fontWeight:500}}>{t.nombre}</span>
-                        <span style={{fontSize:11,color:col,fontWeight:600}}>{t.completados} / {t.asignados} ({t.pct}%)</span>
+                    <div key={i} style={{padding:'10px 20px',borderBottom:'1px solid #F8FAFC',display:'flex',alignItems:'center',gap:12}}>
+                      <span style={{fontSize:12,color:'#334155',flex:1}}>{eq}</span>
+                      <div style={{width:100,height:6,background:'#F1F5F9',borderRadius:3}}>
+                        <div style={{width:`${(cnt/max)*100}%`,height:'100%',background:MO,borderRadius:3}}/>
                       </div>
-                      <div style={{height:7,background:'#F1F5F9',borderRadius:4,overflow:'hidden'}}>
-                        <div style={{height:7,width:`${Math.max(t.pct,1)}%`,background:col,borderRadius:4,transition:'width 0.6s'}}/>
-                      </div>
+                      <span style={{fontSize:12,fontWeight:700,color:MO,minWidth:30}}>{cnt}</span>
                     </div>
                   )
                 })}
-              </div>
-
-              {/* Pendientes por servicio */}
-              <div style={{background:'#fff',borderRadius:12,border:'0.5px solid #E4E4E7',padding:'16px 18px'}}>
-                <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:14}}>Pendientes por servicio</div>
-                {(D.pendientes_servicio||[]).slice(0,8).map((s:any,i:number)=>{
-                  const max=Math.max(...(D.pendientes_servicio||[{pendientes:1}]).map((x:any)=>x.pendientes))
-                  return(
-                    <div key={i} style={{display:'flex',alignItems:'center',gap:10,marginBottom:9}}>
-                      <span style={{fontSize:11,color:'#334155',width:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.servicio}</span>
-                      <div style={{flex:1,height:6,background:'#F1F5F9',borderRadius:3,overflow:'hidden'}}>
-                        <div style={{height:6,width:`${(s.pendientes/max)*100}%`,background:NA,borderRadius:3}}/>
-                      </div>
-                      <span style={{fontSize:11,color:NA,fontWeight:600,width:44,textAlign:'right'}}>{s.pendientes}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Cumplimiento por mes */}
-            <div style={{background:'#fff',borderRadius:12,border:'0.5px solid #E4E4E7',padding:'16px 18px'}}>
-              <div style={{fontSize:13,fontWeight:600,color:'#18181B',marginBottom:16}}>Cumplimiento por mes</div>
-              <div style={{display:'flex',alignItems:'flex-end',gap:8,height:150}}>
-                {(D.por_mes||[]).map((m:any,i:number)=>{
-                  const maxP=Math.max(...(D.por_mes||[{programados:1}]).map((x:any)=>x.programados),1)
-                  const hP=(m.programados/maxP)*115
-                  const hC=(m.completados/maxP)*115
-                  return(
-                    <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:5}}>
-                      <div style={{position:'relative',width:'100%',height:118,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-                        <div style={{width:'70%',height:Math.max(hP,2),background:'#E2E8F0',borderRadius:'4px 4px 0 0',position:'relative'}}>
-                          <div style={{position:'absolute',bottom:0,left:0,width:'100%',height:Math.max(hC,0),background:VE,borderRadius:'4px 4px 0 0'}}/>
-                        </div>
-                      </div>
-                      <span style={{fontSize:10,color:GR}}>{m.mes}</span>
-                      <span style={{fontSize:9,color:'#A1A1AA'}}>{m.completados}/{m.programados}</span>
-                    </div>
-                  )
-                })}
-              </div>
-              <div style={{display:'flex',gap:16,marginTop:12,fontSize:10,color:GR}}>
-                <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,background:VE,borderRadius:2}}/>Completados</span>
-                <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,background:'#E2E8F0',borderRadius:2}}/>Programados</span>
               </div>
             </div>
           </div>
-          )})()}
+        )}
 
         {tab==='lista'&&(
           <div style={{display:'grid',gridTemplateColumns:sel?'1fr 460px':'1fr',gap:16}}>
