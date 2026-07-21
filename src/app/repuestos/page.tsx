@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 
 export default function RepuestosPage() {
   const [repuestos, setRepuestos] = useState<any[]>([])
+  const [kpis, setKpis] = useState<any>({})
+  const [reportes, setReportes] = useState<any>({})
+  const [tab, setTab] = useState<'inventario'|'reportes'>('inventario')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState<'crear'|'asignar'|'entrada'|'historial'|null>(null)
@@ -118,9 +121,10 @@ export default function RepuestosPage() {
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
           {[
             {l:'Total repuestos', v:repuestos.length,                                       c:'#3B4FE8'},
-            {l:'Stock bajo',      v:bajoStock.length,                                        c:'#D97706'},
-            {l:'Sin stock',       v:repuestos.filter(r=>r.stock_actual===0).length,          c:'#DC2626'},
-            {l:'En buen estado',  v:repuestos.filter(r=>r.stock_actual>r.stock_minimo).length,c:'#16A34A'},
+            {l:'Valor inventario', v:'$'+((kpis.valor_inventario||0)/1000000).toFixed(1)+'M', c:'#7C3AED'},
+            {l:'Criticos',        v:kpis.criticos||0,                                        c:'#DC2626'},
+            {l:'Consumo del mes', v:(kpis.consumo_mes_unid||0)+' und',                        c:'#D97706'},
+            {l:'Movimientos',     v:kpis.movimientos||0,                                      c:'#16A34A'},
           ].map(s=>(
             <div key={s.l} style={{background:'#fff',borderRadius:10,border:'0.5px solid #E4E4E7',padding:'16px 20px'}}>
               <div style={{fontSize:11,color:'#A1A1AA',marginBottom:6}}>{s.l}</div>
