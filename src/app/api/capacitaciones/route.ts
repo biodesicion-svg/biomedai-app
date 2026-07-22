@@ -48,7 +48,7 @@ export async function GET() {
         
         const ultima = asisPersona[0] || null
         let estado = 'pendiente'
-        let diasRestantes = null
+        let diasRestantes: number | null = null
         if (ultima) {
           const venc = new Date(ultima.fecha_vencimiento)
           diasRestantes = Math.ceil((venc.getTime() - hoy.getTime()) / 86400000)

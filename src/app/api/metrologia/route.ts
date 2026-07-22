@@ -44,7 +44,7 @@ export async function GET() {
 
       // Estado metrológico
       let estado = 'sin_calibrar'
-      let diasRestantes = null
+      let diasRestantes: number | null = null
       if (ultimaCal) {
         const hoy = new Date()
         const proxima = new Date(ultimaCal.fecha_proxima)

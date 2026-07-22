@@ -57,7 +57,7 @@ export async function GET() {
     const corr = mn.filter(m => m.tipo === 'correctivo' && m.fecha_realizado).sort((a,b) => new Date(a.fecha_realizado).getTime()-new Date(b.fecha_realizado).getTime())
     let mtbf = 365
     if (corr.length >= 2) {
-      const ints = []
+      const ints: number[] = []
       for (let i=1;i<corr.length;i++) ints.push((new Date(corr[i].fecha_realizado).getTime()-new Date(corr[i-1].fecha_realizado).getTime())/86400000)
       mtbf = Math.round(ints.reduce((a,b)=>a+b,0)/ints.length)
     }
