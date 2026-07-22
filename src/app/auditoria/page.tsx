@@ -720,38 +720,58 @@ export default function AuditoriaPage() {
   const [resumen, setResumen] = useState<any>(null)
   const [tab, setTab] = useState<'resumen'|'detalle'|'plan'>('resumen')
   const [expandidos, setExpandidos] = useState<Record<number,boolean>>({})
+  const [auditoriaId, setAuditoriaId] = useState<string|null>(null)
+  const [hallazgos, setHallazgos] = useState<any[]>([])
 
   async function ejecutar() {
     if (!tipoSel) return
     setFase('ejecutando')
     try {
-      const supabase = createClient()
-      const IID = await getIID()
-      const [eqR, mantR, repR] = await Promise.all([
-        supabase.from('equipos').select('*').eq('institucion_id',IID).eq('activo',true),
-        supabase.from('mantenimientos').select('*').eq('institucion_id',IID),
-        supabase.from('repuestos').select('*').eq('institucion_id',IID),
-      ])
-      const eq   = eqR.data   || []
-      const mant = mantR.data || []
-      const rep  = repR.data  || []
-      const crits = calcularCriterios(tipoSel, eq, mant, rep)
-      setCriterios(crits)
-      setResumen({
-        equipos: eq.length,
-        mantenimientos: mant.length,
-        repuestos: rep.length,
-        preventivos: mant.filter(m=>m.tipo==='preventivo').length,
-        correctivos: mant.filter(m=>m.tipo==='correctivo').length,
-        operativos: eq.filter(e=>e.estado==='operativo').length,
-        altoRiesgo: eq.filter(e=>e.riesgo==='alto').length,
+      const r = await fetch('/api/auditoria', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: tipoSel }),
       })
-    } catch(err) {
-      console.error(err)
+      const d = await r.json()
+      if (d.error) { alert('Error: ' + d.error); setFase('seleccion'); return }
+
+      // Mapear los items del backend al formato que espera el render
+      const crits = (d.items || []).map((it: any) => ({
+        n: it.n, numero: it.n,
+        categoria: it.cat, cat: it.cat,
+        articulo: it.art, art: it.art,
+        criterio: it.crit, crit: it.crit,
+        estado: it.resultado, resultado: it.resultado,
+        cumple: it.resultado === 'cumple',
+        hallazgo: it.enc, encontrado: it.enc, evidencia: it.enc,
+        esperado: it.esp, valor_esperado: it.esp,
+        porcentaje: it.val, valor: it.val,
+        riesgo: it.riesgo, critico: it.critico,
+        // Campos que espera el render existente
+        estandar: it.cat || 'General',
+        normativa: it.art || 'Res. 4816/2008',
+        impacto: it.critico ? 'alto' : 'medio',
+        severidad: it.riesgo || 'bajo',
+        puntaje: Number(it.val) || 0,
+        meta: 90,
+        mejora: it.mejora || null,
+      }))
+      setCriterios(crits)
+      setAuditoriaId(d.auditoria?.id || null)
+      setHallazgos(d.hallazgos || [])
+      setResumen({
+        porcentaje: d.resumen?.porcentaje || 0,
+        nivelRiesgo: d.resumen?.nivelRiesgo || 'medio',
+        total: d.resumen?.total || 0,
+        cumplidos: d.resumen?.cumplidos || 0,
+        parciales: d.resumen?.parciales || 0,
+        noCumplidos: d.resumen?.noCumplidos || 0,
+      })
+      setFase('resultado')
+    } catch (err: any) {
+      alert('Error al ejecutar la auditoria: ' + err.message)
+      setFase('seleccion')
     }
-    setFase('resultado')
-    setTab('resumen')
-    setExpandidos({})
   }
 
   const audSel = AUDITORIAS.find(a=>a.id===tipoSel)

@@ -23,6 +23,8 @@ export default function RepuestosPage() {
     const r = await fetch('/api/repuestos')
     const d = await r.json()
     setRepuestos(d.repuestos||[])
+    setKpis(d.kpis||{})
+    setReportes(d.reportes||{})
     setLoading(false)
   }
 
@@ -105,9 +107,25 @@ export default function RepuestosPage() {
           <div style={{fontSize:11,color:'#A1A1AA',marginBottom:2}}>SYNAP / Repuestos</div>
           <h1 style={{fontSize:18,fontWeight:600,color:'#18181B',margin:0}}>Gestión de repuestos</h1>
         </div>
-        <button onClick={()=>setModal('crear')} style={{display:'flex',alignItems:'center',gap:6,background:'#3B4FE8',color:'#fff',border:'none',borderRadius:8,padding:'8px 16px',fontSize:13,fontWeight:500,cursor:'pointer'}}>
-          <i className="ti ti-plus" style={{fontSize:15}}/> Nuevo repuesto
-        </button>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={async()=>{
+            try{
+              const r=await fetch('/api/repuestos/reporte')
+              if(!r.ok){alert('No se pudo generar el reporte');return}
+              const blob=await r.blob()
+              const a=document.createElement('a')
+              a.href=URL.createObjectURL(blob)
+              a.download='reporte_repuestos.pdf'
+              document.body.appendChild(a);a.click();a.remove()
+              URL.revokeObjectURL(a.href)
+            }catch(e){alert('Error al descargar el reporte')}
+          }} style={{display:'flex',alignItems:'center',gap:6,background:'#fff',color:'#1B2B5B',border:'1px solid #1B2B5B',borderRadius:8,padding:'8px 16px',fontSize:13,fontWeight:500,cursor:'pointer'}}>
+            <i className="ti ti-file-type-pdf" style={{fontSize:15}}/> Reporte PDF
+          </button>
+          <button onClick={()=>setModal('crear')} style={{display:'flex',alignItems:'center',gap:6,background:'#3B4FE8',color:'#fff',border:'none',borderRadius:8,padding:'8px 16px',fontSize:13,fontWeight:500,cursor:'pointer'}}>
+            <i className="ti ti-plus" style={{fontSize:15}}/> Nuevo repuesto
+          </button>
+        </div>
       </div>
 
       <div style={{padding:'20px 28px',display:'flex',flexDirection:'column',gap:16,flex:1}}>

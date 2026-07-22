@@ -194,6 +194,32 @@ export default function ReemplazoPage(){
                 <p style={{margin:0,fontSize:12,color:GR}}>Metodología EVDM · Económica · Clínica · Técnica · Obsolescencia</p>
               </div>
             </div>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <button onClick={async()=>{
+                if(!confirm('Ejecutar analisis EVDM sobre los 25 equipos mas criticos? Reemplaza las evaluaciones existentes.')) return
+                try{
+                  const r=await fetch('/api/reemplazo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({top:25})})
+                  const d=await r.json()
+                  if(d.error){alert('Error: '+d.error);return}
+                  alert(`Analisis completado: ${d.evaluadas} equipos evaluados.`)
+                  location.reload()
+                }catch(e){alert('Error al ejecutar el analisis')}
+              }} style={{display:'flex',alignItems:'center',gap:6,background:AZ,color:'#fff',border:'none',borderRadius:8,padding:'9px 15px',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                <i className="ti ti-analyze" style={{fontSize:15}}/> Ejecutar analisis
+              </button>
+              <button onClick={async()=>{
+                try{
+                  const r=await fetch('/api/reemplazo/informe')
+                  if(!r.ok){alert('No se pudo generar el informe');return}
+                  const blob=await r.blob()
+                  const a=document.createElement('a')
+                  a.href=URL.createObjectURL(blob); a.download='evaluacion_reemplazo.pdf'
+                  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href)
+                }catch(e){alert('Error al descargar el informe')}
+              }} style={{display:'flex',alignItems:'center',gap:6,background:'#fff',color:AZ,border:`1px solid ${AZ}`,borderRadius:8,padding:'9px 15px',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                <i className="ti ti-file-type-pdf" style={{fontSize:15}}/> Exportar PDF
+              </button>
+            </div>
             {kpis.criticos>0&&(
               <div style={{background:RO_BG,border:`1px solid ${RO}`,borderRadius:8,padding:'8px 16px',display:'flex',alignItems:'center',gap:8}}>
                 <i className="ti ti-alert-triangle" style={{color:RO,fontSize:16}}/>

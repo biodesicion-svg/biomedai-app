@@ -84,7 +84,7 @@ export default function TecnovigilanciaPage(){
     </div>
   )
 
-  const{eventos=[],alertas=[],kpis={},porTrimestre={}}=data||{}
+  const{eventos=[],alertas=[],kpis={},porTrimestre={},graficos:gr={}}=data||{}
   const tabs=[
     {id:'dashboard',label:'Dashboard',icon:'ti-layout-dashboard'},
     {id:'eventos',label:'Eventos',icon:'ti-clipboard-list'},
@@ -114,8 +114,26 @@ export default function TecnovigilanciaPage(){
               </div>
             )}
             <div style={{display:'flex',gap:8}}>
-              <a href="/api/tecnovigilancia/reportes?tipo=reteim" download style={{background:'#fff',color:AZ,border:`1px solid ${AZ}`,borderRadius:8,padding:'10px 14px',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6,textDecoration:'none'}}><i className="ti ti-file-spreadsheet"/>Descargar RETEIM</a>
-              <a href="/api/tecnovigilancia/reportes?tipo=foreia" download style={{background:'#fff',color:RO,border:`1px solid ${RO}`,borderRadius:8,padding:'10px 14px',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6,textDecoration:'none'}}><i className="ti ti-file-type-pdf"/>Descargar FOREIA</a>
+              <button onClick={async()=>{
+                try{
+                  const r=await fetch('/api/tecnovigilancia/reportes?tipo=reteim')
+                  if(!r.ok){alert('No se pudo generar el RETEIM');return}
+                  const blob=await r.blob()
+                  const a=document.createElement('a')
+                  a.href=URL.createObjectURL(blob); a.download='RETEIM.xlsx'
+                  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href)
+                }catch(e){alert('Error al descargar RETEIM')}
+              }} style={{background:'#fff',color:AZ,border:`1px solid ${AZ}`,borderRadius:8,padding:'10px 14px',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}><i className="ti ti-file-spreadsheet"/>Descargar RETEIM</button>
+              <button onClick={async()=>{
+                try{
+                  const r=await fetch('/api/tecnovigilancia/reportes?tipo=foreia')
+                  if(!r.ok){alert('No se pudo generar el FOREIA');return}
+                  const blob=await r.blob()
+                  const a=document.createElement('a')
+                  a.href=URL.createObjectURL(blob); a.download='FOREIA.pdf'
+                  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href)
+                }catch(e){alert('Error al descargar FOREIA')}
+              }} style={{background:'#fff',color:RO,border:`1px solid ${RO}`,borderRadius:8,padding:'10px 14px',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}><i className="ti ti-file-type-pdf"/>Descargar FOREIA</button>
               <button onClick={()=>setShowForm(true)} style={{background:AZ,color:'#fff',border:'none',borderRadius:8,padding:'10px 18px',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}><i className="ti ti-plus"/>Registrar Evento</button>
             </div>
           </div>
@@ -156,13 +174,13 @@ export default function TecnovigilanciaPage(){
             </div>
 
             {/* Eventos serios pendientes — prioridad máxima */}
-            {eventos.filter((e:any)=>e.gravedad==='serio'&&e.estado==='pendiente').length>0&&(
+            {eventos.filter((e:any)=>String(e.gravedad||'').toLowerCase()==='serio'&&['pendiente','en investigacion','en investigación'].includes(String(e.estado||'').toLowerCase())).length>0&&(
               <div style={{background:'#fff',borderRadius:12,border:`1px solid ${RO}`,marginBottom:16,overflow:'hidden'}}>
                 <div style={{padding:'12px 20px',background:RO_BG,borderBottom:`1px solid ${RO}`,display:'flex',alignItems:'center',gap:8}}>
                   <i className="ti ti-alarm" style={{color:RO,fontSize:16}}/>
                   <span style={{fontSize:13,fontWeight:700,color:RO}}>Eventos serios pendientes de reporte — Obligatorio en 72h (Res. 4816 Art. 15)</span>
                 </div>
-                {eventos.filter((e:any)=>e.gravedad==='serio'&&e.estado==='pendiente').map((e:any,i:number)=>(
+                {eventos.filter((e:any)=>String(e.gravedad||'').toLowerCase()==='serio'&&['pendiente','en investigacion','en investigación'].includes(String(e.estado||'').toLowerCase())).map((e:any,i:number)=>(
                   <div key={i} style={{padding:'16px 20px',borderTop:i>0?'1px solid #FEE2E2':'none'}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
                       <div>
@@ -207,6 +225,73 @@ export default function TecnovigilanciaPage(){
                 </tbody>
               </table>
             </div>
+
+            {/* Indicadores adicionales */}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginTop:16}}>
+              {[
+                {l:'Reportados a INVIMA',v:kpis.reportadosInvima||0,c:AZ,s:'con codigo FOREIA'},
+                {l:'Eventos abiertos',v:kpis.abiertos||0,c:NA,s:'sin cerrar'},
+                {l:'Tiempo promedio cierre',v:(kpis.tiempoPromedioCierre||0)+' d',c:MO,s:'desde ocurrencia'},
+                {l:'Tendencia trimestral',v:((kpis.tendencia||0)>0?'+':'')+(kpis.tendencia||0)+'%',c:(kpis.tendencia||0)>0?RO:VE,s:'vs trimestre anterior'},
+              ].map((k,i)=>(
+                <div key={i} style={{background:'#fff',borderRadius:12,padding:16,border:'1px solid #E2E8F0'}}>
+                  <div style={{fontSize:22,fontWeight:700,color:k.c}}>{k.v}</div>
+                  <div style={{fontSize:11,color:'#18181B',marginTop:2,fontWeight:500}}>{k.l}</div>
+                  <div style={{fontSize:10,color:GR,marginTop:1}}>{k.s}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',padding:'18px 20px',marginTop:16}}>
+              <div style={{fontSize:13,fontWeight:700,color:AZ,marginBottom:16}}>Eventos por mes</div>
+              <div style={{display:'flex',alignItems:'flex-end',gap:8,height:140}}>
+                {(gr.porMes||[]).map((m,i)=>{
+                  const max=Math.max(...(gr.porMes||[{total:1}]).map((x)=>x.total),1)
+                  const hS=(m.serios/max)*100, hN=(m.noSerios/max)*100
+                  return (
+                    <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                      <span style={{fontSize:10,color:AZ,fontWeight:600}}>{m.total}</span>
+                      <div style={{width:'62%',display:'flex',flexDirection:'column',justifyContent:'flex-end',height:105}}>
+                        <div style={{height:Math.max(hS,0),background:RO,borderRadius:'4px 4px 0 0'}}/>
+                        <div style={{height:Math.max(hN,0),background:NA}}/>
+                      </div>
+                      <span style={{fontSize:9,color:GR}}>{m.periodo}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{display:'flex',gap:16,marginTop:12,fontSize:10,color:GR}}>
+                <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,background:RO,borderRadius:2}}/>Serios</span>
+                <span style={{display:'flex',alignItems:'center',gap:5}}><span style={{width:10,height:10,background:NA,borderRadius:2}}/>No serios</span>
+              </div>
+            </div>
+
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginTop:16}}>
+              {[
+                {t:'Por nivel de riesgo',d:gr.porRiesgo||[]},
+                {t:'Por fabricante',d:gr.porFabricante||[]},
+                {t:'Por servicio',d:gr.porServicio||[]},
+                {t:'Por tipo de reporte',d:gr.porTipo||[]},
+              ].map((b,bi)=>(
+                <div key={bi} style={{background:'#fff',borderRadius:12,border:'1px solid #E2E8F0',padding:'18px 20px'}}>
+                  <div style={{fontSize:13,fontWeight:700,color:AZ,marginBottom:14}}>{b.t}</div>
+                  {b.d.slice(0,7).map((x,i)=>{
+                    const max=Math.max(...b.d.map((y)=>y.total),1)
+                    const col=x.nombre==='Alto'?RO:x.nombre==='Medio'?NA:x.nombre==='Bajo'?VE:AZ
+                    return (
+                      <div key={i} style={{display:'flex',alignItems:'center',gap:10,marginBottom:9}}>
+                        <span style={{fontSize:11,color:'#334155',width:135,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{x.nombre}</span>
+                        <div style={{flex:1,height:6,background:'#F1F5F9',borderRadius:3,overflow:'hidden'}}>
+                          <div style={{height:6,width:`${(x.total/max)*100}%`,background:col,borderRadius:3}}/>
+                        </div>
+                        <span style={{fontSize:11,color:col,fontWeight:700,width:24,textAlign:'right'}}>{x.total}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
 

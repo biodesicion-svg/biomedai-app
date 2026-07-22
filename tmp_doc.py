@@ -12,8 +12,8 @@ GRIC=colors.HexColor('#F8F9FA'); AZUC=colors.HexColor('#EEF2FF'); BLAN=colors.wh
 NARC=colors.HexColor('#FFF7ED'); NARA=colors.HexColor('#EA580C')
 
 EMPRESA='SYNAP'; DIR='Bogota, Colombia'; CORREO='admin@synap.co'; WEB='www.synap.co'
-NOMBRE='MONITOR DE SIGNOS VITALES'; MARCA='MINDRAY'; MODELO='UMEC 10'; REF='19828'; SERIAL='KN43215545'; SVCIO='SALAS DE CX'
-HIST_MANT=[['2026-10-15','preventivo','programado','Mantenimiento preventivo programado - MONITOR DE SIGNOS VITALES (MINDRAY)'],['2026-03-18','preventivo','programado','Mantenimiento preventivo programado - MONITOR DE SIGNOS VITALES (MINDRAY)']]
+NOMBRE='ARCO EN C (1)'; MARCA='SIEMENS'; MODELO='SIREMOBIL'; REF='10109'; SERIAL='31192'; SVCIO='SALAS DE CX'
+HIST_MANT=[['2026-07-18','preventivo','completado','Mantenimiento preventivo programado - ARCO EN C (1) (SIEMENS)'],['2026-01-07','preventivo','programado','Mantenimiento preventivo programado - ARCO EN C (1) (SIEMENS)']]
 HIST_CAL=[]
 HIST_MOV=[]
 
@@ -186,5 +186,5 @@ elif tipo=='preinstalacion':
   c.append(frm(['Tecnico Instalador','Recibido por (Cliente)'],['SYNAP','(Institucion)']))
   c+=pie()
 
-mk('/workspaces/biomedai-app/public/documentos/SYNAP_preinstalacion_KN43215545.pdf',c)
+mk('/workspaces/biomedai-app/public/documentos/SYNAP_preinstalacion_31192.pdf',c)
 print('OK')
