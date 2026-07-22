@@ -229,7 +229,7 @@ export default function ProtocolosPage(){
             {l:'Criticos',     v:criticos,              c:RO},
             {l:'Duracion',     v:selProt.duracion,      c:NA},
             {l:'Frecuencia',   v:selProt.frecuencia,    c:VE},
-          ].map(s=>(
+          ].map((s: any)=>(
             <div key={s.l} style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
               <span style={{fontSize:11,color:'#A1A1AA'}}>{s.l}</span>
               <span style={{fontSize:11,fontWeight:500,color:s.c}}>{s.v}</span>
@@ -271,8 +271,8 @@ export default function ProtocolosPage(){
           {[
             {l:'Total pasos',  v:selProt.pasos.length,                    c:AZ,  icon:'ti-list-numbers'},
             {l:'Criticos',     v:criticos,                                 c:RO,  icon:'ti-alert-triangle'},
-            {l:'Si/No',        v:selProt.pasos.filter(p=>p.tipo==='si_no').length, c:VE, icon:'ti-toggle-right'},
-            {l:'Numericos',    v:selProt.pasos.filter(p=>p.tipo==='numerico').length,c:NA,icon:'ti-123'},
+            {l:'Si/No',        v:selProt.pasos.filter((p: any)=>p.tipo==='si_no').length, c:VE, icon:'ti-toggle-right'},
+            {l:'Numericos',    v:selProt.pasos.filter((p: any)=>p.tipo==='numerico').length,c:NA,icon:'ti-123'},
             {l:'Duracion',     v:selProt.duracion,                         c:MO,  icon:'ti-clock'},
           ].map((k,i)=>(
             <div key={i} style={{background:'#fff',border:'0.5px solid #E4E4E7',borderRadius:10,padding:'12px 14px',display:'flex',alignItems:'center',gap:10}}>
@@ -291,10 +291,10 @@ export default function ProtocolosPage(){
         <div style={{flex:1,overflowY:'auto',padding:'12px 20px 20px'}}>
 
           {/* Agrupado por categoria */}
-          {selProt.categorias.filter(cat=>catSel==='todas'||cat===catSel).map(cat=>{
-            const pasosCat=pasosFiltrados.filter(p=>p.cat===cat)
+          {selProt.categorias.filter((cat: string)=>catSel==='todas'||cat===catSel).map((cat: string)=>{
+            const pasosCat=pasosFiltrados.filter((p: any)=>p.cat===cat)
             if(!pasosCat.length) return null
-            const catCriticos=pasosCat.filter(p=>p.critica).length
+            const catCriticos=pasosCat.filter((p: any)=>p.critica).length
             return(
               <div key={cat} style={{marginBottom:20}}>
                 {/* Header categoria */}
