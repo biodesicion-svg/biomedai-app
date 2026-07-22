@@ -254,7 +254,7 @@ export default function ProtocolosPage(){
             </div>
             <select value={catSel} onChange={e=>setCatSel(e.target.value)} style={{height:32,fontSize:11,padding:'0 8px',borderRadius:7,border:'0.5px solid #E4E4E7',background:'#fff',color:GR}}>
               <option value="todas">Todas las categorias</option>
-              {selProt.categorias.map(c=><option key={c} value={c}>{c}</option>)}
+              {selProt.categorias.map((c: string)=><option key={c} value={c}>{c}</option>)}
             </select>
             <button onClick={async()=>{
               const r=await fetch('/api/documentos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tipo:'protocolo',nombre:selProt.nombre,marca:'N/D',modelo:'N/D',referencia:'N/D',serial:'N/D',servicio:'N/D'})})
